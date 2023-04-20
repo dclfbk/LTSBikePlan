@@ -2,10 +2,9 @@ Title: **Low-Stress Bicycling and Network Connectivity**
 
 Authors: Maaza C. Mekuria, Peter G. Furth, Hilary Nixon (Mineta Transportation Institute - 2012)
 
-Description: This research report examines the concept of low-stress bicycling network connectivity, emphasizing the importance of creating connected networks for cyclists to improve safety, accessibility, and ridership. The authors argue that the degree of connectivity of low-stress bicycle networks has a significant impact on the number of people who choose to ride bicycles for transportation.
+Description: This research report examines the concept of low-stress bicycling network connectivity, emphasizing the importance of creating connected networks for cyclists to improve safety, accessibility, and ridership. The authors argue that the degree of connectivity of low-stress bicycle networks has a significant impact on the number of people who choose to ride bicycles for transportation. LTS methodology focuses on specific criteria for evaluating traffic stress on road segments, intersection approaches and unsignalized crossings. Specifically, for segments (number of traffic lanes, speed limit, frequency of on-street parking turnover, presence of bikeway facility), for intersection (presence of right turn lane, length of right turn lane, turn lane configuration) and for unsignalized crossing (width of cross street, speed limit, presence or absence of median refuge). Then, the analysis applies a "weakest link" logic, wherein the stress level is assigned based on the lowest-performing attribute of the street.
 
 Key Findings: 
-
 
 
 1. Low-stress streets, which are comfortable for most riders, can be classified into four categories: L1 (lowest stress), L2, L3, and L4 (highest stress). The study focuses on creating connected networks of L1 and L2 streets. 
@@ -26,8 +25,6 @@ URL/DOI: [https://transweb.sjsu.edu/research/Low-Stress-Bicycling-and-Network-Co
 Best ideas identified: 
 
 Here a summary of the useful metrics used to assess the overall connectivity of a bicycle network and how were obtained:
-
-
 
 1. Directness:
     * Measure the shortest path between origin and destination using the existing network.
@@ -56,18 +53,18 @@ Main data sources: data on each street segment including its geographical coordi
 – Traffic Stress criteria for intersection approaches
 
 
-![Criteria for bike lanes](images/01.png)
+<img src="images/01.png" alt="Criteria for bike lanes" width="800"/>
 
-![Criteria for LTS mixed](images/02.png)
+<img src="images/02.png" alt="Criteria for traffic stress in mixed traffic" width="800"/>
 
-![Criteria for LTS pocket bike lanes](images/03.png)
+<img src="images/03.png" alt="Criteria for LTS pocket bike lanes" width="800"/>
 
-![Criteria for LTS mixed and righ turn lane](images/04.png "image_tooltip")
+<img src="images/04.png" alt="Criteria for LTS mixed and righ turn lane" width="800"/>
 
 
 – Traffic Stress criteria for crossing
 
-![Criteria for crossing scenarios](images/05.png)
+<img src="images/05.png" alt="Criteria for crossing scenarios" width="800"/>
 	
 
 Title: **Prioritizing new bicycle facilities to improve low-stress network connectivity**
@@ -82,10 +79,9 @@ Best idea identified:
 
 * Stress determination through MRS: MRS, which stands for Marginal Rate of Substitution, is an economic concept that measures the rate at which a consumer is willing to trade one good for another. In cycling research MRS has been determined with the use of GPS trackers and logistic regression analysis for different road conditions. MRS values are commonly used by practitioners and researchers in route choice modeling within a regional travel demand model. In this work traffic stress has been measured in terms of MRS using two values, a stress-generating factor reflecting traffic attributes, and a stress-reducing factor representing bike accommodation. They established 11 types of roadways primarily based on the number of lanes and speed limit, as identified by Mekuria et al. (2012). Stress-reducing factors are established for five bike accommodation levels: signed bike routes with no further accommodation (5% reduction), sharrows (10%), conventional bike lanes (50%), buffered bike lanes (65%), and protected bike lanes (75%). MRS factors can be grouped into Level of Traffic Stress categories using thresholds for stress factors that correspond to the framework of Mekuria et al. (2012) as can be seen in the below table.More math details inside the methodology section of the paper (pag. 4-7).
 
-![LTS and MRS](images/06.png )
+<img src="images/06.png" alt="LTS and MRS" width="800"/>
 
-
-Title: ** TS Bikeability Assessment tool**
+Title: **TS Bikeability Assessment tool**
 
 Authors:  Planning for Complete Communities in Delaware (2016)
 
@@ -99,6 +95,30 @@ URL/DOI:
 
 Best idea identified: checklist/self report useful in case we want to involve real participants to improve/refine the quality of the LST indicators  in a specific area.
 
+Title: **Transportation Design Guidelines: All Ages and Abilities Cycling Routes**
+
+Authors: City of Vancouver (2017)
+
+Description: The goal of the city is to make cycling safe for all ages and abilities. So in order to do this, a low stress "AAA" routes will provide a wide spectrum of the population the option to cycle for most short trips. This document provides a guideline to create such low-stress network. 
+
+URL/DOI:[https://vancouver.ca/files/cov/design-guidelines-for-all-ages-and-abilities-cycling-routes.pdf](https://vancouver.ca/files/cov/design-guidelines-for-all-ages-and-abilities-cycling-routes.pdf)
+
+Best idea identified: Low stress cycling routes are here defined with specific parameters. Specifically, LST paths are the ones where is ensured low motor vehicle speed (<30km/hr), low volume, parking (interplay between parking and roadway of 8 and 10 m) and possibly physical separation. Bike lanes design must ensure comfortable passing (2.5 m unidirectional ones, 3.0 m bidirectional). Adequate lighting must be also present to enhance safety and comfort, especially in intersections. Smooth surfaces (asphalt) are preferable together with light slopesand (< 3%)
+
+Title: **Fort Worth Active Transportation Plan - Level of Traffic Stress (LTS) Analysis Methodology**
+
+Authors: Toole Design
+
+Description: Comparing to the original Mineta's work, due to the limited amount of data LTS score for crossings has been limited to the speed and number of lanes of the crossing street, as well as the presence of a traffic signal. In this case, intersection score is represented on the street segment approach. Intersection analysis is critical to understanding high-stress barriers between existing low-stress streets.
+Specifically, intersection control data used were full signals, RRFBs, four way stops etc.as it can be seen at pag 7 of the work.
+The entire work is based on a more recent LTS analysis where the three key aspects analyzed were number of lanes, effective ajacent travel lanes and the posted speed limit. Moreover, the updated tables include traffic volume's impact on rating stress for shared lane conditions.
+Regarding the assumptions cited, the minimum posted speed limit for the Texas's law is 100 km/h, so to remedy this local street we scored assuming a 90 km/h speed limit, allowing local street to score LTS-1, functional class was used as an indicator of centerline and regarding the traffic volumes the analysis assumed that any roads classified as local carried 300 vehicles per day.
+
+URL/DOI:[https://www.fortworthtexas.gov/files/assets/public/tpw/documents/atp/appendix-4-level-traffic.pdf](https://www.fortworthtexas.gov/files/assets/public/tpw/documents/atp/appendix-4-level-traffic.pdf)
+
+Best idea identified: possibility to adapt the original scores using assumptions in cases where data isn't available.
+
+
 Title: **Bicycle Level of Traffic Stress Map**
 
 Authors: City of Boston Transportation Department, Tool Design Group (2020)
@@ -111,8 +131,7 @@ Best ideas identified:
 
 Here the criteria used for assessing LTS scores, conflict factors are included, namely the ones that make riding more difficult, such as industrial, commercial, or hotel land uses; key bus routes; pick-up/drop-off zones, (including cab stands and valet zones); or proximity to schools. 
 
-
-![LTS Criteria table](images/07.png)
+<img src="images/07.png" alt="LTS Criteria table" width="800"/>
 
 
 The four primary attributes included, such as vehicle volumes, speed limits, bicycle facilities, and parking are chosen because of their direct impacts on the level of traffic stress people riding bikes experience. Vehicle volumes are categorized into four groups: Fewer than 1,500 vehicles per day , between 1,500 and 2,999 vehicles per day, between 3,000 and 5,999 vehicles per day and over 6,000 vehicles per day. Where data are unavailable for volumes, street segments are grouped into one of the four-volume categories: under 1,500 vehicles per day: streets in the neighborhood slow zone designation, between 1,500 and 2,999 vehicles per day: all other local streets. These streets are used primarily for access to adjacent properties and minimally for cut-through traffic, between 3,000 and 5,999 vehicles per day: collector streets and 1-lane minor arterial streets. These streets are used for both local access and cut-through traffic, over 6,000 vehicles per day: any principal arterial and minor arterials with two or more lanes per direction. These streets are primarily used to travel between areas and carry the highest traffic volumes. Regarding speed limits, it is well known that higher speeds increase the risk of injury in the event of a crash with a person riding a bicycle and makes biking feel more stressful. The city of Boston has a speed limit of 25 mph. This is the default value for all streets unless otherwise posted. To confirm posted speed limits greater than 25mph, the analysis team used Google Street View on targeted street categories. Bicycle facilities on the other hand offer dedicated space or priority for bicyclists and therefore they can decrease the LTS score for a street.
@@ -127,16 +146,28 @@ URL/DOI: [https://interaktiv.tagesspiegel.de/lab/strassencheck-ergbnisse-diese-s
 
 Best idea identified: the presence of specific characteristics of bike lanes (presence of dividers, plants, specific width, color) that can be taken into account to adjust stress levels and the possibility of adjusting stress levels based on objective data with behavioral data on perceptions of safety.
 
+Title: **Data-driven strategies for optimal bicycle network growth**
+
+Authors: Luis Guillermo Natera Orozco et al. (2020)
+
+Description: The paper investigates the structure of bicycle networks in different cities around the world and finds that they mostly consist of one giant component and many disconnected patches, even in the most ciclyst-friendly ones. A data-driven network has been proposed to connect these patches. Specifically, two greedy algorithms are used that prioritize adding critical missing links to the bicycle network based on their impact on connectedness and directness (streets where is also possible to cycle were excluded). The first algorithm, Largest-to-Second, identifies in each step the largest connected component in the bicycle infrastructure network and connects it to the second larger. The second algorith, Largest-to-Closest, identifies the largest connected component but connects it to the closest one. This one performs better than the other. Street and bicycle infrastructure networks are acquired using OSMnx, which is a library specific for networks building using OSM. Raw data are simplified to retain only nodes at the intersections and dead ends of streets and the spatial geometry of the edges, generating a length-weighted non-planar directed graph.
+
+URL/DOI:[https://doi.org/10.1098/rsos.201130](https://doi.org/10.1098/rsos.201130)
+
+Best idea identified: this methods is useful when is necessary to find and indentify crucially missing links in bicycle infrastrucure to improve the mobility infrastructure of cities efficiently (by focusing on correctness and directness) with small investments.
+
 Title: **Level of Traffic Stress Methodology**
 
 Authors: Montgomery County Planning Department (2021)
 
-Description: This paper presents a modified version of the Level of Traffic Stress (LTS) methodology for evaluating bicycle infrastructure and its impact on cyclist safety and comfort. The authors discuss the limitations of the original LTS methodology and propose enhancements that provide a more accurate representation of the stress experienced by cyclists on different roadways. The modified LTS methodology considers various factors such as roadway width, speed limits, intersection design, and separation from motorized traffic, which were not fully addressed in the original method. By incorporating these additional factors, the modified LTS methodology allows for a more comprehensive understanding of the factors contributing to cyclist stress. 
+Description: This paper presents a modified version of the Level of Traffic Stress (LTS) methodology for evaluating bicycle infrastructure and its impact on cyclist safety and comfort. The authors discuss the limitations of the original LTS methodology and propose enhancements that provide a more accurate representation of the stress experienced by cyclists on different roadways. The modified LTS methodology considers various factors such as roadway width, speed limits, intersection design, and separation from motorized traffic, which were not fully addressed in the original method. By incorporating these additional factors, the modified LTS methodology allows for a more comprehensive understanding of the factors contributing to cyclist stress. Specifically, the revised approach comprises seven stress levels, namely: LTS-0 (None); LTS-1 (Very Low); LTS-2 (Low); LTS-2.5 (Moderate Low); LTS-3 (Moderate High); LTS-4 (High); LTS-5 (Very High). LTS-0 is a new category of bikeway for completely separated biciclying infrastructure, while LTS-2.5 creates a new category because the gulf between the LTS-2 and LTS-3 is large, so an intermediate step is ended. The creation of the fifth level is less useful from a cyclist pov, since it has very high traffic speed.
+Moreover, the idea of this revision is that the stress level can vary based on how these bikeways are designed, so bikeways with shared use paths and separated bike lanes were considered differently. Moreover, here frequently blocked lanes has 2.5 LTS and not 3. Also the context here was taken into consideration. For example, higher speed limits streets with 2-3 lanes, a centerline and no on-street parking are considered moderate stress roads (LTS 3), while with on-street parking the LTS can decrease. At the same time if the parking is not present but there's a reduced traffic volume it can also be a LTS-2. Finally, here LTS for industrial streets with high traffic volume has a minimum LTS of 2.5.
 
 URL/DOI: [https://mcatlas.org/bikestress/documentation/ModifiedLevelOfTrafficStressMethodology.pdf](https://mcatlas.org/bikestress/documentation/ModifiedLevelOfTrafficStressMethodology.pdf)
 
-Best ideas identified: the account of various factors such as roadway width, speed limits, intersection design, and separation from motorized traffic. This modified approach enables a better understanding of the stress levels experienced by cyclists.
+[https://montgomeryplanning.org/wp-content/uploads/2017/11/Appendix-D.pdf](https://montgomeryplanning.org/wp-content/uploads/2017/11/Appendix-D.pdf)
 
+Best ideas identified: Data is generally aailable through publicly accessible mapping tools (e.g Google Streetview)he account of various factors such as roadway width, speed limits, intersection design, and separation from motorized traffic. This modified approach enables a better understanding of the stress levels experienced by cyclists.
 
 
 1. Table-Link Methodology for Mixed Traffic / Priority Shared Lane Markings: this table outlines the evaluation of mixed traffic and priority shared lane markings based on four factors: speed limit, presence of parking, number of travel lanes, and lane width. It assigns LTS scores (1-4) for various combinations of these factors, with 1 being the lowest stress level and 4 being the highest. 
@@ -157,12 +188,10 @@ URL/DOI: [https://www.dvrpc.org/webmaps/bike-lts/#connectivity-analysis-results-
 
 Best ideas identified:
 
-
-
 * LTS score assignment: the analysis relied on MRS stress values from Lowry et al. with the exception that all two-lane roads classified as residential/local with speeds above 30mph were assigned values from line 2 of Table 2. Values were assigned based on the number of lanes, effective modeled speed, and the presence and type of a bicycle facility, using the following upper limits: LTS 1 (10%), LTS 2 (30%), LTS 3 (60%), and LTS 4 (no limit). In phase one, off-road trails were grouped with LTS 1 road segments, but in phase two, trails were considered separately with an LTS of 0. The analysis used a modified turn LTS assignment method, based on the "weakest link" logic presented in the Mineta report, since traffic signal and functional priority data was not consistently available at the regional scale. In the specific, each turn direction was treated differently: right turns were assigned the LTS of the road segment to which the turn was being made, left turns were assigned the LTS of the road segment to which the turn was being made, multiplied by two (in fact left turns are typically more stressful, than right turns), straight movements were assigned the maximum LTS value of all the links at the intersection (by doing this, the impact of crossing a high-stress street was accounted for, finally U-turns were excluded from the analysis (Straight Cost = 0.005 × (1 + Turn LTS); Right Turn Cost = 0.005 × (1 + 1 + Turn LTS); Left Turn Cost = 0.005 × (1 + 2 + Turn LTS)).
 * Regarding slopes’ scores, the assignment to each road segment has been done using the commute factors presented in this work  “Slope in Terms of MRS” by Briach, Dill, Gliebe. 
 
-![Slope factors](images/08.png)
+<img src="images/08.png" alt="Slope factors" width="800"/>
 
 
 * These factors were included in the "overall cost" calculation for each road segment, which also takes into account the length and assigned LTS (Cost = Link Length × (1 + Link LTS + Link Slope Factor)). The method of incorporating slope did not affect LTS assignment or the coloring of road segments in the "existing conditions" layer. 
@@ -207,3 +236,57 @@ URL/DOI:
 [https://github.com/anastassiavybornova/bikenwgaps](https://github.com/anastassiavybornova/bikenwgaps)
 
 Best idea identified: useful procedure for the easy detection of missing and prioritized gaps inside the network using minimal data requirements. It could be useful in cases where there is an urgency to find the highest priority gaps without necessarily having a hyper detailed view of the entire area of interest. However, the gap classification step was made specific for the Copenhagen area (the one analyzed) so it might be adapted. Regarding the gap classes: Street (ST), which are defined as all mixed-traffic street  segments  whose  both  ends  connect  to  protected  bicycle  infrastructure  and  that do not correspond to any of the other gap classes; intersection (IS), which are missing  links  without  protected  bicycle  infrastructure  found  at  crossings  of  two  or  more  streets; right- turn lane (RT); bridge (BR), which are missing links on obstacle- crossing road segments; roundabout (RA); and error (ER), the one not identified correctly. 
+
+Title: **Where to build new bicycle parking spots in Paris? Supporting data-driven decision.making with open data**
+
+Authors: CorreIAid - City of Paris
+
+Description: The output of this project is a prototype of the Paris Parking Demand Index, namely a map that shows bike parking supply and indicators for parking demand using OpenData at the scale of IRIS (smallest statistical spatial units of municipal infrastructure in France). This index helps determine how adequately areas are served in terms of parking facilities, while leaving flexibility as to which exact location they should be built.
+
+URL/DOI:[https://github.com/CorrelAid/paris-bikes](https://github.com/CorrelAid/paris-bikes)
+
+[https://www.data.gouv.fr/en/reuses/where-to-build-new-bicycle-parking-spots-in-paris-supporting-data-driven-decision-making-with-open-data/] (https://www.data.gouv.fr/en/reuses/where-to-build-new-bicycle-parking-spots-in-paris-supporting-data-driven-decision-making-with-open-data/)
+
+Best idea identified: (Note: prototype not working on Github, report not available at the moment. Possible actions: clone and run the app).
+
+
+Title: **Bycicle Master Plan**
+
+Authors: Galimatias Nekromoff et al. (2020-2022)
+
+Description: it consist in a bike map for visualizing cycling related data from different sources using multiple layers (also not just bicycle-related data). The easy and automatic conversion of Open Street Map keys allows to customize values of CSS classes.
+
+URL/DOI: [https://github.com/nekromoff/bicycle-master-plan][https://github.com/nekromoff/bicycle-master-plan]
+
+Best idea identified: Customization and large support of different sources of data (OSM, db, GPT EXIF-tagged photos, custom feed data, custom data, data providede by users).
+
+Title:
+Authors:
+Description:
+URL/DOI:
+Best idea identified:
+
+Title:
+Authors:
+Description:
+URL/DOI:
+Best idea identified:
+
+Title:
+Authors:
+Description:
+URL/DOI:
+Best idea identified:
+
+Title:
+Authors:
+Description:
+URL/DOI:
+Best idea identified:
+
+Title:
+Authors:
+Description:
+URL/DOI:
+Best idea identified:
+
