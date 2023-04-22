@@ -65,7 +65,21 @@ Main data sources: data on each street segment including its geographical coordi
 – Traffic Stress criteria for crossing
 
 <img src="images/05.png" alt="Criteria for crossing scenarios" width="800"/>
-	
+
+
+Title: North Avenue Corridor Study (LTS Analysis)
+
+Authors: Chittenden County RPC - Communities Planning Together
+
+Description: The document provides guidelines for assigning LTS scores to various road segments, the core of the study was to study a specific area called "North Avenue Corridor Study" in order to provide useful ideas for make the transportation more comfortable in a medium-long term period. It discusses the importance of considering roadway characteristics such as posted speed limits, the number of travel lanes, and the presence of bike lanes. It also highlights the importance of connectivity and addressing the needs of the "Interested but Concerned" cyclists who prefer low-stress routes. The scoring followed the original schema, with no specific changes.
+
+URL/DOI: [https://www.ccrpcvt.org/our-work/transportation/current-projects/corridors-circulation/north-avenue-corridor-study/] (https://www.ccrpcvt.org/our-work/transportation/current-projects/corridors-circulation/north-avenue-corridor-study/)
+
+[https://www.ccrpcvt.org/wp-content/uploads/2016/01/20140611_Level_of_Traffic_Stress_Evaluation_Methodology.pdf](https://www.ccrpcvt.org/wp-content/uploads/2016/01/20140611_Level_of_Traffic_Stress_Evaluation_Methodology.pdf)
+
+Best idea identified: The study highlights pros and cons of the original methodology. Specifically, the authors said that it provides a clear relationship between LTS ratings and user tolerance; establishes a minimum level of service required to serve the mainstream population; doesn’t require traffic volume (except for mixed-traffic roundabout scenario) or lane width data and in general it's an intuitive, easy to understand approach that is transparent and can be easily communicated to
+the public. The biggest concern is related to its inability to account for stressor of different kind such as: steep hills, pavement-quality, crime-danger, noise, aesthetics of the surroundings, and absence of lighting or snow removal. This analysis is useful because it can be used for future adaptation of the methodology.
+
 
 Title: **Prioritizing new bicycle facilities to improve low-stress network connectivity**
 
@@ -156,6 +170,16 @@ URL/DOI:[https://doi.org/10.1098/rsos.201130](https://doi.org/10.1098/rsos.20113
 
 Best idea identified: this methods is useful when is necessary to find and indentify crucially missing links in bicycle infrastrucure to improve the mobility infrastructure of cities efficiently (by focusing on correctness and directness) with small investments.
 
+Title: **Level of traffic stress-based classification: A clustering approach for Bogotá, Colombia**
+
+Authors: Huertas et al. (2020)
+
+Description: This study introduces an LTS-based classification system consisting of two main components: a clustering element and an interpretative one. The methodology involves 4 different steps: (1) gathering variables for road segments, (2) generating clusters of segments within a road network subset, (3) classifying all road network segments into these clusters using a predictive model, and (4) assigning an LTS category to each cluster. To enable scalability for large data sets, the pairing of a classifier (unsupervised clustering algorithm) with a predictive model (multinomial logistic regression) was used. This method is effective for highlighting ideal areas for interventions and estimating their impact on LTS classifications based on potential changes to input variables (e.g., traffic density). The methodology was applied to cyclist-friendly city as Bogotá. Road segment classifications were achieved by merging government data with open-access repositories using geographic information systems (GIS). Results shows a positive correlation existing between the number of fatal and non-fatal collisions per kilometer involving cyclists and higher LTS. The work included a web-based dashboard for visualizing the LTS classifications.
+
+URL/DOI: [https://www.sciencedirect.com/science/article/pii/S1361920920306076](https://www.sciencedirect.com/science/article/pii/S1361920920306076)
+
+Best idea identified: In the analysis of the reading, it is pointed out that the original methodology often does not adapt effectively to the geographical reality where it is applied.
+
 Title: **Level of Traffic Stress Methodology**
 
 Authors: Montgomery County Planning Department (2021)
@@ -225,7 +249,7 @@ Best idea identified: As suggested by the authors, this “artificial networks�
 
 Title: **Automated Detection of Missing Links in Bicycle Networks**
 
-Authors: Anastassia Vybornova, Tiago  Cunha, Astrid Gühnemann, and Michael Szell
+Authors: Anastassia Vybornova, Tiago  Cunha, Astrid Gühnemann, and Michael Szell (2022)
 
 Description: a new methodology called IPDC (Identify, Prioritize, Decluster, Classify) has been created to pinpoint critical missing connections in urban bike networks using OpenStreetMap data. Specifically, the process identifies all potential gaps using a multiplex network method with two different link types (the one for motor drivers (unprotected) and one for bikers (protected)) and three different node types (protected, unprotected, both), ranking them based on a flow-oriented metric, breaking down emerging gap clusters, and individually categorizing gap types. The study demonstrates that network analysis with minimal data input can function as an affordable aid for bike network planning. 
 
@@ -239,7 +263,7 @@ Best idea identified: useful procedure for the easy detection of missing and pri
 
 Title: **Where to build new bicycle parking spots in Paris? Supporting data-driven decision.making with open data**
 
-Authors: CorreIAid - City of Paris
+Authors: CorreIAid - City of Paris (2022-2023)
 
 Description: The output of this project is a prototype of the Paris Parking Demand Index, namely a map that shows bike parking supply and indicators for parking demand using OpenData at the scale of IRIS (smallest statistical spatial units of municipal infrastructure in France). This index helps determine how adequately areas are served in terms of parking facilities, while leaving flexibility as to which exact location they should be built.
 
@@ -260,23 +284,25 @@ URL/DOI: [https://github.com/nekromoff/bicycle-master-plan][https://github.com/n
 
 Best idea identified: Customization and large support of different sources of data (OSM, db, GPT EXIF-tagged photos, custom feed data, custom data, data providede by users).
 
-Title:
-Authors:
-Description:
-URL/DOI:
-Best idea identified:
+Title: **Level of Traffic Stress for Bicyclists and Pedestrians - How does it feel to bike and walk around our community?**
 
-Title:
-Authors:
-Description:
-URL/DOI:
-Best idea identified:
+Authors: Caroline Daigle (Chattanooga-Hamilton County Regional Planning Agency)
 
-Title:
-Authors:
-Description:
-URL/DOI:
-Best idea identified:
+Description: During the 2050 RTP procedure, the Transportation Planning Organization (TPO) will examine and prioritize projects aimed at enhancing safety and diverse transportation including establish if a project bridges a gap in the region's existing bike and pedestrian infrastructure. The evaluation will be also based on LTS.
+In this case the LTS analysis included factors such as the number of lanes, posted speed limits, functional classification of the road (local/nonlocal) and the presence of dedicated bike/pedestrian infrastructure like sidewalks, bike lanes etc.
+Here you can see the adapted methodology for scoring:
+
+<img src="images/09.png" alt="Slope factors" width="800"/>
+
+The results show that when displaying only very low and moderately low-stress roads, "islands" of no-stressed streets become visible, separated from one another by obstacles like rivers, highways, and main roads lacking sufficient cycling facilities. Insufficient connectivity poses a significant challenge for the 'Interested but Concerned' cyclist, as they often cannot find a comfortable route to their desired destinations. The traffic stress level data has been integrated into the revised bicycle gap analysis to pinpoint crucial connections that enhance low-stress cycling connectivity between starting points and destinations.
+
+URL/DOI: [https://storymaps.arcgis.com/stories/283d772a8c654ef4afd52536456ac090](https://storymaps.arcgis.com/stories/283d772a8c654ef4afd52536456ac090)
+
+[https://drive.google.com/file/d/1Y3pVBHYYrLFGHQ5fZenB0A1uLkZPcRAM/view](https://drive.google.com/file/d/1Y3pVBHYYrLFGHQ5fZenB0A1uLkZPcRAM/view)
+
+Best idea identified: The LTS analysis followed the original methodology and also applies it to pedestrians. Specifically four LTS scores were used (very low, somewhat low, somewhat high, very high). Data such as traffic volume and effective speed was also used because it actually influences the level of stress. The conclusion highlighted that different investements can lead to similar scores, regardless of the context.
+
+
 
 Title:
 Authors:
