@@ -11,16 +11,9 @@ Lastly, physiological factors-based methodologies employ technology to measure b
 Conversely, other LTS implementations have been developed to overcome place-specificity and generate a more generalized LTS. Furth (2017) sought to enhance the LTS's generalizability by creating a second version, employing only six of the original 21 variables. Conveyal (2015) presented an extreme simplification of the traditional LTS, termed "Surrogate LTS," utilizing only four variables derived from a few OpenStreetMap (OSM) tags. However, these general LTS implementations use very few variables that scarcely capture stress factors in multiple road networks across various contexts. Moreover, none of these LTS implementations, whether general or place-specific, consistently produce the same LTS classification. In contrast to the original LTS conception, some variables employed in the aforementioned methodologies may not be readily available or easily calculated. However, a small set of relevant variables commonly used in previous methodologies are widely accessible in many countries, including road width, number of lanes, presence of cycling infrastructure, presence of heavy vehicles, traffic speed, and traffic volume. Methodologies centered on perceived stress link cyclists' real-world observations with road attributes through robust statistical models, but they often require data that is hard or expensive to obtain. Meanwhile, methodologies focused on physiological stress effectively connect cycling conditions to actual stress experienced, but they can be costly and challenging to apply. These methodologies were developed in urban settings reflecting location-specific traits, which may not necessarily apply to other cities.
 The proliferation of LTS adaptations addressing both place-specificity and generality requirements leads to varying LTS classifications across the same road networks. 
 
-
-
-Articles analyzed divided in the three categories of supply.driven approaches:
+Articles analyzed divided in the three categories of supply-driven approaches:
 
 **a - Road and traffic conditions**
-
-**b - Perceived factors**
-
-**c - Physiological factors** 
-
 
 Title: **Low-Stress Bicycling and Network Connectivity**
 
@@ -119,20 +112,6 @@ Best idea identified:
 
 <img src="images/06.png" alt="LTS and MRS" width="800"/>
 
-Title: **TS Bikeability Assessment tool**
-
-Authors:  Planning for Complete Communities in Delaware (2016)
-
-Description: The Low-Stress Bikeability Assessment Tool, which aims to aid local governments in Delaware in enhancing the low-stress bikeability within their communities, offers a resourceful guide for the evaluation of accessible low-stress areas for average bicycle riders and the development of strategic plans that effectively utilize state investments to enhance local cycling networks and bicycle infrastructure. LTS  analysis has been conducted, based on Peter Furth work, on roadways, streets, and pathways throughout the state and a series of maps has been created. The Low-Stress Bicycling Assessment is composed of a three-step process, which is intended to engage diverse community representatives in evaluating low-stress bicycling options. The first step involves preparing for the assessment by engaging community members, reviewing plans and resources, gathering data, and selecting a study area. The second one provides a checklist ([https://bpb-us-w2.wpmucdn.com/sites.udel.edu/dist/a/390/files/2016/02/LSBA_Checklist-11nwqkf.pdf](https://bpb-us-w2.wpmucdn.com/sites.udel.edu/dist/a/390/files/2016/02/LSBA_Checklist-11nwqkf.pdf)) to gather participants’ opinions on bikeability conditions. In the specific the following topics are investigated (facilities, network, road conditions, visibility, intersection, transit interaction)  Lastly, the third one involves prioritizing concerns, creating a written summary, presenting findings to key stakeholders and funding entities, and developing an action plan.
-
-URL/DOI:
-
-[https://www.completecommunitiesde.org/planning/complete-streets/low-stress-bike/](https://www.completecommunitiesde.org/planning/complete-streets/low-stress-bike/)
-
-[https://transweb.sjsu.edu/research/Low-Stress-Bicycling-and-Network-Connectivity](https://transweb.sjsu.edu/research/Low-Stress-Bicycling-and-Network-Connectivity)
-
-Best idea identified: checklist/self report useful in case we want to involve real participants to improve/refine the quality of the LST indicators  in a specific area.
-
 Title: **Transportation Design Guidelines: All Ages and Abilities Cycling Routes**
 
 Authors: City of Vancouver (2017)
@@ -155,6 +134,18 @@ Regarding the assumptions cited, the minimum posted speed limit for the Texas's 
 URL/DOI:[https://www.fortworthtexas.gov/files/assets/public/tpw/documents/atp/appendix-4-level-traffic.pdf](https://www.fortworthtexas.gov/files/assets/public/tpw/documents/atp/appendix-4-level-traffic.pdf)
 
 Best idea identified: possibility to adapt the original scores using assumptions in cases where data isn't available.
+
+
+Title: **Cycle accessibility and level of traffic stress: A case study of Toronto**
+
+Authors: Imani, Miller, Saxe (2019)
+
+Description: This paper explores the level of traffic stress (LTS) and associated cumulative opportunities for cyclists in Toronto. Despite pro-cycling policies and investments in cycling infrastructure, cycling mode share in Canadian cities remains low. Accessibility is a known predictor of mode choice, but cycling accessibility calculations are rare, primarily due to the tension between the legality of cycling on urban roads and the reality of barriers to safe and comfortable cycling. These two last aspects are crucial factors in cyclists' route choice preferences and cycling mode share. Cyclists prefer streets that are perceived to be safe and provide space for them. The study adapts the approach proposed by Furth et al. (2016) to define the level of cycling stress for every link in Toronto's road network. In this study, the road network is composed of a high-resolution geospatial dataset with attributes collected from various sources. Road geometry, bicycle facilities, road classification, number of lanes, directions, stop signs, and signalized intersections were obtained from the City of Toronto Open Data portal. The dataset was further augmented with vehicular traffic speeds from the GTAModel V4.0 for the morning peak period, accounting for road volume and actual speeds, and on-street parking data from the City of Toronto. Using ArcGIS, these data were combined as link attributes on a single network, which was manually checked and edited for inconsistencies and recent updates. The final network contains 56,156 links with a total length of 7,530 km. Using this street stress network, the researchers calculate the 30-minute cycling isochrone and associated cumulative opportunities to jobs and population for each dissemination area in Toronto for cycling stress levels ≤1 to ≤4. They examine the link between cycle accessibility and bicycle mode choice decision making and investigate the potential of three different road network policies on cycling LTS in Toronto: removing all cycle tracks, upgrading all bike lanes to cycle tracks, and decreasing street speeds by 10 km/h on the entire road network.
+
+URL/DOI:[https://www.sciencedirect.com/science/article/abs/pii/S0966692319300936?casa_token=42nrogeOFAoAAAAA:cmaALe51hMGsdAqf3mf47PTTqyV-RgFWClmSdANelTly6xxByVMxKcG3cXVD_1vOka1kaujYM0k](https://www.sciencedirect.com/science/article/abs/pii/S0966692319300936?casa_token=42nrogeOFAoAAAAA:cmaALe51hMGsdAqf3mf47PTTqyV-RgFWClmSdANelTly6xxByVMxKcG3cXVD_1vOka1kaujYM0k)
+
+Best idea identified:
+
 
 
 Title: **Bicycle Level of Traffic Stress Map**
@@ -198,14 +189,21 @@ Title: **Level of traffic stress-based classification: A clustering approach for
 
 Authors: Huertas et al. (2020)
 
-Description: This study introduces an LTS-based classification system consisting of two main components: a clustering element and an interpretative one. The methodology involves 4 different steps: (1) gathering variables for road segments, (2) generating clusters of segments within a road network subset, (3) classifying all road network segments into these clusters using a predictive model, and (4) assigning an LTS category to each cluster. To enable scalability for large data sets, the pairing of a classifier (unsupervised clustering algorithm) with a predictive model (multinomial logistic regression) was used. This method is effective for highlighting ideal areas for interventions and estimating their impact on LTS classifications based on potential changes to input variables (e.g., traffic density). The methodology was applied to cyclist-friendly city as Bogotá. Road segment classifications were achieved by merging government data with open-access repositories using geographic information systems (GIS). Results shows a positive correlation existing between the number of fatal and non-fatal collisions per kilometer involving cyclists and higher LTS. The work included a web-based dashboard for visualizing the LTS classifications.
+Description: This study introduces an LTS-based classification system consisting of two main components: a clustering element and an interpretative one. The methodology involves 4 different steps: (1) gathering variables for road segments, (2) generating clusters of segments within a road network subset, (3) classifying all road network segments into these clusters using a predictive model, and (4) assigning an LTS category to each cluster. Specifically, GIS transformations were obtained to build the set of segments and intersection variables required for the clustering component of the methodology. After calculating the variables, these were used for the cluster analysis process to classify segments with similar characteristics. Then, with the results a multinomial logistic regression was trained  to predict the likelihood of a new segment to belong to a given cluster. Finally, after the assignment of an LTS category to each cluster, the intersections are classified based on LTS values of intersecting segments. The pairing of a classifier (unsupervised clustering algorithm) with a predictive model (multinomial logistic regression) was used to enable scalability. This method is effective for highlighting ideal areas for interventions and estimating their impact on LTS classifications based on potential changes to input variables (e.g., traffic density). The methodology was applied to cyclist-friendly city as Bogotá. Road segment classifications were achieved by merging government data with open-access repositories using geographic information systems (GIS). Results shows a positive correlation existing between the number of fatal and non-fatal collisions per kilometer involving cyclists and higher LTS. The work included a web-based dashboard for visualizing the LTS classifications.
 
 URL/DOI: [https://www.sciencedirect.com/science/article/pii/S1361920920306076](https://www.sciencedirect.com/science/article/pii/S1361920920306076)
 
-Best idea identified: In the analysis of the reading, it is pointed out that the original methodology often does not adapt effectively to the geographical reality where it is applied.
+Best ideas identified: 
 
+(1) The fact that the LTS classification was data-driven utilizing easily accessible road network data. The method offers to planners a context-sensitive and flexible approach which serves as an effective diagnostic tool for bicycle network planning. 
+(2) By employing a clustering technique grounded in road network physical and functional information, it circumvents complicated classification decisions. 
+(3) It enables planners to efficiently predict the influence of planned interventions on the LTS-based classifications of affected roads, according to the anticipated changes in input variables describing the road network.
+(4) By categorizing intersections based on segment levels without merging them into a single metric, the methodology offers a unique perspective on stress distribution throughout the city.
 
-To address these gaps, this paper proposes a data-informed LTS-based classification methodology. This methodology consists of a clustering component that employs statistically calibrated models with accurate and readily available roadway data to distinguish segments within a road network. Additionally, it includes an interpretative component that categorizes similar segments under the LTS framework, taking into account the location-specific context and utilizing universal LTS-related criteria.
+Our LTS-based classification methodology yielded four segment clusters, which we labeled as Low, Medium, High, and Extremely High LTS categories. The classification was based using 8 different variables, namely the roadway width, number of lanes, presence of cycling infrastructure, presence of heavy vehicles, vehicles' speed, traffic density, traffic flow, congestion.
+
+Specifically, roadway width is defined as a continuous variable that represents the width of a road segment, measured as the distance from one edge of the road to the other; number of lanes defined as a discrete variable that represents the number of single-vehicle lines of traffic in a given segment, the  presence of cycling infrastructure is a variable that indicates the presence of cycling infrastructure along the road segment (it could be also a binary variable); the presence of heavy vehicles is a binary variable that indicates whether the local administration allows transit of heavy vehicles; vehicles’ speed is a continuous variable that denotes the average speed of motorized vehicles traversing a road segment. It was obtained by dividing the length of the road by its average traversing time; traffic density is another continuous variable that indicates the average number of vehicles in the road segment per unit length; traffic flow is a continuous variable that captures the number of vehicles traversing a road segment per time unit. To calculate this variable we use the universal traffic flow formula => q = traffic density * speed. Finally, congestion is a continuous variable that describes the level of traffic congestion in a road segment.
+
 
 Title: **Level of Traffic Stress Methodology**
 
@@ -337,9 +335,23 @@ Description:
 URL/DOI:
 Best idea identified:
 
-Title:
-Authors:
-Description:
-URL/DOI:
-Best idea identified:
+**b - Perceived factors**
 
+Title: **TS Bikeability Assessment tool**
+
+Authors:  Planning for Complete Communities in Delaware (2016)
+
+Description: The Low-Stress Bikeability Assessment Tool, which aims to aid local governments in Delaware in enhancing the low-stress bikeability within their communities, offers a resourceful guide for the evaluation of accessible low-stress areas for average bicycle riders and the development of strategic plans that effectively utilize state investments to enhance local cycling networks and bicycle infrastructure. LTS  analysis has been conducted, based on Peter Furth work, on roadways, streets, and pathways throughout the state and a series of maps has been created. The Low-Stress Bicycling Assessment is composed of a three-step process, which is intended to engage diverse community representatives in evaluating low-stress bicycling options. The first step involves preparing for the assessment by engaging community members, reviewing plans and resources, gathering data, and selecting a study area. The second one provides a checklist ([https://bpb-us-w2.wpmucdn.com/sites.udel.edu/dist/a/390/files/2016/02/LSBA_Checklist-11nwqkf.pdf](https://bpb-us-w2.wpmucdn.com/sites.udel.edu/dist/a/390/files/2016/02/LSBA_Checklist-11nwqkf.pdf)) to gather participants’ opinions on bikeability conditions. In the specific the following topics are investigated (facilities, network, road conditions, visibility, intersection, transit interaction)  Lastly, the third one involves prioritizing concerns, creating a written summary, presenting findings to key stakeholders and funding entities, and developing an action plan.
+
+URL/DOI:
+
+[https://www.completecommunitiesde.org/planning/complete-streets/low-stress-bike/](https://www.completecommunitiesde.org/planning/complete-streets/low-stress-bike/)
+
+[https://transweb.sjsu.edu/research/Low-Stress-Bicycling-and-Network-Connectivity](https://transweb.sjsu.edu/research/Low-Stress-Bicycling-and-Network-Connectivity)
+
+Best idea identified: checklist/self report useful in case we want to involve real participants to improve/refine the quality of the LST indicators  in a specific area.
+
+**c - Physiological factors**
+
+
+**References**
