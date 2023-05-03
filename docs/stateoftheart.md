@@ -150,6 +150,16 @@ URL/DOI: [https://www.sciencedirect.com/science/article/abs/pii/S221053951730129
 
 Best idea identified: adaptation of protected cycle track and side paths as LTS 2 (higher stress compared to original method).
 
+Title: **Dayton Area Level of Traffic Stress (LTS) Interactive Map**
+
+Authors: Matt B Anderson
+
+Description: GitHub Repo on Local LTS Analysis. The Miami Valley Regional Planning Commission (MVRPC) adjusted the original Low Traffic Stress (LTS) analysis to suit a regional context as part of the 2015 MVRPC Bikeways Plan Update. One of the main objectives of the project was to pinpoint low-stress islands and possible initiatives to link them. In fact, Miami Valley offers a highly low-stress cycling experience with cyclists separated from vehicular traffic, except for road crossings. However, these trails don't provide direct access to numerous employment, shopping, residential, and leisure locations.  Regarding the speed limits, here speeds up to 25 mph in 2/3 lanes streets were classfied as LTS 1/2.
+If the lanes are more than 3 and and speed limits exceed the 30 mph, they are classified  LTS 3-4. In summary, LTS 1: bikeways and low-volume streets where the speed limit is 25 mph or less ; LTS 2: some striped bike lanes, protected lanes, cycle tracks; LTS 3: roads with 30 mph+ speeds and/or four lanes; LTS 4: most roads with 30 mph+ speeds and/or five or more lanes.
+
+URL/DOI:[https://github.com/mattbanderson/lts-dayton](https://github.com/mattbanderson/lts-dayton)
+
+Best idea identified: Speeds' limits, number of lanes, kind of lanes used as two criteria.
 
 Title: **Fort Worth Active Transportation Plan - Level of Traffic Stress (LTS) Analysis Methodology**
 
@@ -286,7 +296,6 @@ Best ideas identified:
 
 <img src="images/08.png" alt="Slope factors" width="800"/>
 
-
 * These factors were included in the "overall cost" calculation for each road segment, which also takes into account the length and assigned LTS (Cost = Link Length × (1 + Link LTS + Link Slope Factor)). The method of incorporating slope did not affect LTS assignment or the coloring of road segments in the "existing conditions" layer. 
 * “Geoff link”: analysis combined turns and links to create a complete routable network by exploding every node in the network into repeated nodes at the same location, referred to as "geoffs". Nodes were numbered starting with 100, and links were identified using a "from-node" and a "to-node". This made it possible to identify each component by a from-geoff and a to-geoff.
 
@@ -382,6 +391,30 @@ URL/DOI: [https://www.sciencedirect.com/science/article/pii/S2214367X21000892?ca
 
 Best idea identified:
 - mixed approach for evaluating the traffic comfort. However, limitations and effort to gain data are significant.
+
+Title: **DVRPC Bike Level of Traffic Stress (LTS) and Connectivity Analysis**
+
+Authors: Marc Molta (2022)
+
+Description: Regional screening tool developed to help identify and rank roads where bicycle facility improvements would have the greatest local and regional connectivity benefit to the low-stress bicycle network. DVRPC’s LTS assignment model is based on the number of lanes, effective vehicle speed, and the presence and type of bicycle facility on the road segment.
+
+URL/DOI: [https://github.com/dvrpc/bike-lts](https://github.com/dvrpc/bike-lts)
+
+Best idea identified: 3 variables used only for LTS assignment.
+
+Title: **OSMNX Bike Level of Traffic Stress Integration**
+
+Authors: Brenn Anderson-Gregson (2023)
+
+Description: Github repo with a Python script that encompass a central function, named add_lts, which computes the bicycle traffic stress level (LTS) for every edge within a networkx graph. Additionally, it calculates a new length (cost) column based on the user's LTS threshold, suitable for shortest path and other network-related computations. Instead of considering just a portion of OSM tags and make assumptions about the road, this method uses more tags and is closer to the Mineta Institute Bike LTS Calculations. There are two approaches to implementing the LTS threshold: an "exclusive one" - this produces a graph containing ONLY edges that fall within the LTS threshold. Consequently, if no path exclusively uses roads below the LTS threshold, no path will be generated. This is valuable for assessing the scope of BLTS accessibility or for users who refuse to travel on a road with a higher LTS level, even for brief distances. The second one is called "preferred" - it includes all edges in the graph, but strongly discourages edges exceeding the LTS threshold based on the preference_multiplier. The preference_multiplier represents the extent to which someone is willing to deviate from their path to avoid a road with a higher LTS threshold (for example, a value of 4 indicates they would rather travel 4 times the distance on a specific route segment instead of traversing a higher LTS road). A preference_multiplier of 1 equates to direct route calculations. While there is no maximum limit for the preference_multiplier, values above 10 should likely utilize the "exclusive" route calculation instead.
+
+<img src="images/10.png" alt="LTS tresholds" width="800"/>
+
+
+
+URL/DOI: [https://github.com/CrepuscularCremini/osmnx-blts-integration](https://github.com/CrepuscularCremini/osmnx-blts-integration)
+
+Best idea identified:
 
 Title:
 Authors:
