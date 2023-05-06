@@ -239,6 +239,16 @@ Best idea identified:
 - low stress connectivity ratio
 - fractional multinomial logit to estimate influencing factors for the share of commuters
 
+
+Furth & Mekuria updated criteria (summary):
+
+<img src="images/11.png" alt="LTS updated criteria table 1-2" width="800"/>
+
+<img src="images/12.png" alt="LTS updated criteria table 3" width="800"/>
+
+As it can be seen from the tables, this methodology uses data such as number of through auto lanes, posted speed limits, road traffic volumes, presence and width of bikeways, and proximity to motor vehicle parking to determine roadway category. Bicycle LTS criteria are based on the Dutch bicycle facility design guidelines, and use a weakest link approach, which simplifies application but restricts the combinations of attributes that can achieve a good rating. Bicycle LTS follows a ‘weakest link’ logic that means the lowest performing attribute can determine the stress level. Even if a segment has mostly low-stress characteristics, the occurrence of one high-stress attribute dictates the stress level for the link. Consequently, it is not always necessary to collect data on every characteristic to perform an analysis. Compared to the original criteria, the most important update is that the annual average daily traffic (AADT) was added to the original framework. This factor accounts for the fact that bicyclists are more likely to encounter multiple vehicles in a platoon when riding with higher road traffic volumes, and thus are more likely to become constrained and threatened. Second, the revised bicycle LTS criteria account for a wider range of road conditions. For example, the developers give special attention to one-way streets and bike lanes alongside a parking lane.
+
+
 Title: **Level of traffic stress-based classification: A clustering approach for Bogotá, Colombia**
 
 Authors: Huertas et al. (2020)
@@ -270,8 +280,9 @@ URL/DOI: [https://mcatlas.org/bikestress/documentation/ModifiedLevelOfTrafficStr
 
 [https://montgomeryplanning.org/wp-content/uploads/2017/11/Appendix-D.pdf](https://montgomeryplanning.org/wp-content/uploads/2017/11/Appendix-D.pdf)
 
-Best ideas identified: Data is generally aailable through publicly accessible mapping tools (e.g Google Streetview)he account of various factors such as roadway width, speed limits, intersection design, and separation from motorized traffic. This modified approach enables a better understanding of the stress levels experienced by cyclists.
+Best ideas identified: Data is generally available through publicly accessible mapping tools (e.g Google Streetview) which accounts various factors such as roadway width, speed limits, intersection design, and separation from motorized traffic.
 
+Here the main table for the rating:
 
 1. Table-Link Methodology for Mixed Traffic / Priority Shared Lane Markings: this table outlines the evaluation of mixed traffic and priority shared lane markings based on four factors: speed limit, presence of parking, number of travel lanes, and lane width. It assigns LTS scores (1-4) for various combinations of these factors, with 1 being the lowest stress level and 4 being the highest. 
 2. Table-Link Methodology for Conventional Bike Lanes: this table evaluates conventional bike lanes using five factors: speed limit, presence of parking, number of travel lanes, bike lane width, and buffer width. It assigns LTS scores based on these factors, again ranging from 1 to 4. This table highlights that a well-designed bike lane can reduce stress for cyclists, but certain factors such as high-speed traffic or narrow bike lanes can still contribute to higher stress levels.
