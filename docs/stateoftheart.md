@@ -1,3 +1,4 @@
+<div style="text-align: justify;">
 The work is structured in this way: in the initial phase, a generic overview related to the state of the art on bicycle mobility improvement plans is presented. Then the methods are divided in three categories. For each category a list of papers/works has been analyzed to highlight the required aspects, strenghts and weaknessess. The list follows a chronological order. At present, I have focused on LTS literature mostly.
 
 General introduction:
@@ -452,9 +453,8 @@ Best idea identified: The LTS analysis followed the original methodology and als
 Title: **An empirical reappraisal of the level of traffic stress framework for segments**
 
 Authors: Cabral, Kim (2022)
-
+<div style="text-align: justify;">
 Description: Although the LTS framework is widely used, it has some limitations, such as a reliance on a subjectively developed cyclist typology and a lack of empirical evidence for defining thresholds between levels. Building on previous research that identified three cyclist groups instead of four, namely Uncomfortable or Uninterested, Cautious Majority, and Very Comfortable Cyclists, this study utilizes survey data from Edmonton, Canada, to update the LTS framework to align with these three cyclist types. Specifically, the survey consisted of 16 video clips showcasing various environments. Respondents were asked to rate each clip in terms of cycling comfort. Data from the survey was used to develop the Level of Cycling Comfort (LCC) framework. This one emphasizes cyclist comfort instead of stress, and is also based on binary logistic regression, and route choice data, which provide an empirical foundation for determining suitable infrastructure characteristics for each cyclist type. The logistic regression analysis used the comfort rating transformed into a binary variable (very comfortable or not very comfortable) and developed three models, one for each cyclist type. The final set of variables included facility type, lanes per direction, parking occupation, prevailing speed, and land use. Variables from the LTS framework were prioritized for inclusion in the regression models. The mapping module provided route characteristics from the optional mapping section, dividing routes according to cyclist type and examining the distribution of infrastructure types used. Although the use of a particular street type does not imply high comfort, the information gathered from the mapping module contributed to the development of the Level of Cycling Comfort (LCC) framework. The LCC framework is applied to Edmonton, and connectivity outcomes are compared using both the LTS and LCC frameworks. Overall, the LCC framework offers more conservative estimates of connectivity. Specifically, major differences between LCC and LTS include the treatment of painted bike lanes as mixed-traffic environments and the exclusion of mixed-traffic environments from the lowest LCC level. The LCC framework also introduces an "Uncomfortable Infrastructure" level, which is not considered part of the cycling network. Despite its improvements, the LCC framework has limitations, such as the lack of intersection assessments and the use of only 16 videos for evaluation. Additionally, the framework is applicable only to summer conditions and is limited by non-random sampling.
- 
 
 URL/DOI: [https://www.sciencedirect.com/science/article/pii/S2214367X21000892?casa_token=PAAqQlKHf1UAAAAA:w736vi-jjfr7cqr6YlCM7AVrA3HhXvB6GOPM27toKnAZbCyH3Fvsx8RIoOpHYoRP_E4zr966B0E](https://www.sciencedirect.com/science/article/pii/S2214367X21000892?casa_token=PAAqQlKHf1UAAAAA:w736vi-jjfr7cqr6YlCM7AVrA3HhXvB6GOPM27toKnAZbCyH3Fvsx8RIoOpHYoRP_E4zr966B0E)
 
@@ -466,6 +466,7 @@ Title: **DVRPC Bike Level of Traffic Stress (LTS) and Connectivity Analysis**
 Authors: Marc Molta (2022)
 
 Description: Regional screening tool developed to help identify and rank roads where bicycle facility improvements would have the greatest local and regional connectivity benefit to the low-stress bicycle network. DVRPC’s LTS assignment model is based on the number of lanes, effective vehicle speed, and the presence and type of bicycle facility on the road segment.
+
 
 URL/DOI: [https://github.com/dvrpc/bike-lts](https://github.com/dvrpc/bike-lts)
 
@@ -479,30 +480,9 @@ Description: Github repo with a Python script that encompass a central function,
 
 <img src="images/10.png" alt="LTS tresholds" width="800"/>
 
-
-
 URL/DOI: [https://github.com/CrepuscularCremini/osmnx-blts-integration](https://github.com/CrepuscularCremini/osmnx-blts-integration)
 
-Best idea identified:
-
-Title:
-Authors:
-Description:
-URL/DOI:
-Best idea identified:
-
-Title:
-Authors:
-Description:
-URL/DOI:
-Best idea identified:
-
-Title:
-Authors:
-Description:
-URL/DOI:
-Best idea identified:
-
+Best idea identified: the use of more tags instead of assumptions (more data-driven strategy)
 
 **b - Perceived factors**
 
@@ -519,6 +499,7 @@ URL/DOI:
 [https://transweb.sjsu.edu/research/Low-Stress-Bicycling-and-Network-Connectivity](https://transweb.sjsu.edu/research/Low-Stress-Bicycling-and-Network-Connectivity)
 
 Best idea identified: checklist/self report useful in case we want to involve real participants to improve/refine the quality of the LST indicators  in a specific area.
+</div>
 
 **c - Physiological factors**
 TO DO
