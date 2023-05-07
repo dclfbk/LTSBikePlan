@@ -113,6 +113,22 @@ URL/DOI: [https://www.ccrpcvt.org/our-work/transportation/current-projects/corri
 Best idea identified: The study highlights pros and cons of the original methodology. Specifically, the authors said that it provides a clear relationship between LTS ratings and user tolerance; establishes a minimum level of service required to serve the mainstream population; doesn’t require traffic volume (except for mixed-traffic roundabout scenario) or lane width data and in general it's an intuitive, easy to understand approach that is transparent and can be easily communicated to
 the public. The biggest concern is related to its inability to account for stressor of different kind such as: steep hills, pavement-quality, crime-danger, noise, aesthetics of the surroundings, and absence of lighting or snow removal. This analysis is useful because it can be used for future adaptation of the methodology.
 
+Title: **Modeling Bicycle Comfort with Conveyal Analysis**
+
+Authors: Juliet Eldred - Medium; docs.conveyal.com (2015, 2020)
+
+Description: In 2015, the Conveyal team began developing a method to approximate LTS based on commonly tagged attributes found in OSM ways. Conveyal Estimated LTS utilizes tags frequently present in OpenStreetMap road networks, which are uploaded when a Conveyal user generates a Network Bundle. While this initial approach might not capture every detail of bicycle connectivity, it enables LTS analysis when specialized data is unavailable. If a user possesses detailed LTS data, they can incorporate it into an OpenStreetMap network using the custom "lts=" tag before uploading as a network bundle, effectively replacing the default Conveyal Estimated LTS labeling. The sequential logic for assigning default Conveyal Estimated LTS can be summarized as follows: Does not allow cars: LTS 1; Is a service road: Unknown LTS;
+Is residential or living street: LTS 1; Has 3 or fewer lanes and max speed 25 mph or less: LTS 2;
+Has 3 or fewer lanes and unknown max speed: LTS 2; Is tertiary or smaller road: Has unknown lanes and max speed 25 mph or less: LTS 2 - Has bike lane: LTS 2 -Otherwise: LTS 3; Is larger than tertiary road - Has bike lane: LTS 3; Otherwise: LTS 4. Subsequently, an intersection adjustment phase is implemented. For each unassigned network vertex, the highest LTS of any incoming/outgoing street is assigned to all incoming/outgoing streets. Although service roads, including alleys, do not initially receive an LTS assignment, the LTS of intersecting street segments will extend to them during this adjustment phase. As a result, the update step may produce unexpected outcomes — for instance, segments of an alley (highway=service) or cycle path crossing an LTS 4 street will be assigned LTS 4, even though the path alone would likely have LTS 1. So more focus on the context. In this case study, the low-stress network based on Conveyal Estimated LTS turns out to be more fragmented than the actual Washington DC bike network. This occurs because many bikeways initially tagged as LTS 1, cross higher-stress streets and are subsequently re-tagged with higher LTS during the intersection adjustment phase. In contrast, OpenStreetMap users sometimes include crosswalks at intersections. As a result, during the Conveyal tagging process, these crosswalks can "preserve" the LTS rating of a PBL, preventing the rating of an intersecting street from affecting the PBL.
+
+
+
+URL/DOI: [https://medium.com/conveyal-blog/bike-lts-with-single-point-analysis-in-conveyal-55eecff8c0c7](https://medium.com/conveyal-blog/bike-lts-with-single-point-analysis-in-conveyal-55eecff8c0c7)
+
+[https://docs.conveyal.com/learn-more/traffic-stress](https://docs.conveyal.com/learn-more/traffic-stress)
+
+Best idea identified:
+
 
 Title: **Prioritizing new bicycle facilities to improve low-stress network connectivity**
 
@@ -138,6 +154,26 @@ URL/DOI:[https://vancouver.ca/files/cov/design-guidelines-for-all-ages-and-abili
 
 Best idea identified: Low stress cycling routes are here defined with specific parameters. Specifically, LST paths are the ones where is ensured low motor vehicle speed (<30km/hr), low volume, parking (interplay between parking and roadway of 8 and 10 m) and possibly physical separation. Bike lanes design must ensure comfortable passing (2.5 m unidirectional ones, 3.0 m bidirectional). Adequate lighting must be also present to enhance safety and comfort, especially in intersections. Smooth surfaces (asphalt) are preferable together with light slopesand (< 3%)
 
+Title: **Lowering Bicycle Stress One Link at a Time: Where Should We Invest in Infrastructure?**
+
+Authors: Moran et al. (2018)
+
+Description: This study introduces a large-scale approach to low-stress bicycle connectivity analysis. Unlike previous network-based studies, this project aims to thoroughly assess potential connectivity improvements on an individual street segment basis. By employing scripts and database tools, traffic stress levels were assigned to the road network. Due to the simplicity of the data requirements and the direct approach to assigning LTS, the version 2.0 of Furth et al. (2016) was adapted for use in the DVRPC region.With the help of numerous computational optimization techniques, the shortest paths were determined between millions of origin-destination pairs to pinpoint the road segments that could significantly improve low-stress connectivity. The resulting ranked list of links with the highest connectivity benefits enables planners to prioritize locations for further investigation and analysis more effectively.
+
+URL/DOI:[https://doi.org/10.1177/0361198118783109](https://doi.org/10.1177/0361198118783109)
+
+Best idea identified: Mixed approach between Mineta (2012) and Lowry (2016) for LTS assignments and short path analyis. In this work, road segment LTS assignments were based on the MRS-derived stress values presented in Lowry et al. (2016). LTS values were assigned to road segments considering factors such as the number of lanes, effective modeled speed, and the presence and type of bicycle facility. The following upper limits were employed to differentiate between the four levels of traffic stress: - LTS 1: 10%; - LTS 2: 30%; - LTS 3: 60%; - LTS 4: no limit.
+After assigning LTS values to road segments, they were used to allocate LTS values to turning movements. Lowry took into account factors like traffic signals, functional priority, number of lanes, and speed limit of the cross street when assigning LTS to turns. However, traffic signal and functional priority data were not consistently available at the regional scale. Thus, this analysis used a modified turn LTS assignment method, partially based on the "weakest link" concept presented in the Mineta report. Each turn direction was treated distinctively: - Right turns were assigned the LTS of the road segment onto which the turn was made. - Left turns were assigned twice the LTS of the road segment onto which the turn was made, as they are typically more challenging and stressful than right turns. - Straight movements were assigned the highest LTS value of all the links at the intersection, accounting for the impact of crossing a high-stress street while ensuring that crossing a comfortable street on a stressful street did not significantly reduce the route's cost. - U-turns were excluded from the analysis.
+Then, the following base input data were imported into a database: - LTS-assigned road network; - Road network nodes; - Census block centroids. Specifically, the last ones served as origins and destinations for the connectivity analysis. A script located the nearest node to each block centroid to act as the network start and end points for each shortest path calculation. Subsequently, the network data were prepared for the shortest path searches. A script initially created a subset of road segments included in the "tolerable network." In the first analysis, "tolerable" links referred to those with an acceptable LTS for most bicycle riders—specifically, LTS 1 and 2 roads. To ensure that the shortest paths would not pass through them, the more stressful LTS 3 and 4 roads were excluded from the network. The tolerable network in the second analysis encompassed LTS 1, 2, and 3 roads.
+Overall cost fields were added to road segments and turns for use as path search impedance. For road segments, the overall cost was a function of the link length and assigned LTS value: Cost = LinkLength × (1 + LinkLTS)
+The turn cost depended on the assigned turn LTS, the direction of the intersection movement, and the base turn distance of 30 ft (0.005 miles) as used in the Lowry et al. paper.
+
+StraightCost = 0.005 × (1 + TurnLTS)
+RightTurnCost = 0.005 × (1 + 1 + TurnLTS)
+LeftTurnCost = 0.005 × (1 + 2 + TurnLTS)
+
+This accounted for turns, but their impact on route selection was minimal due to the low overall cost of turning. Then the next step was to create a single roundable network with everything, by converting all nodes into a sets of geoffs. The creation of these allowed for each network component to be identified by a from-geoff and a to-geoff, which makes possible to combine turns and links instead of having different number and combination of node identifiers (from and to for links, from, via and to for turns).
+
 Title: **An adaption of the level of traffic stress based on evidence from the literature and widely available data**
 
 Authors: Bearn, Mingus, Witkins (2018)
@@ -152,7 +188,7 @@ Best idea identified: adaptation of protected cycle track and side paths as LTS 
 
 Title: **Dayton Area Level of Traffic Stress (LTS) Interactive Map**
 
-Authors: Matt B Anderson
+Authors: Matt B Anderson (2018)
 
 Description: GitHub Repo on Local LTS Analysis. The Miami Valley Regional Planning Commission (MVRPC) adjusted the original Low Traffic Stress (LTS) analysis to suit a regional context as part of the 2015 MVRPC Bikeways Plan Update. One of the main objectives of the project was to pinpoint low-stress islands and possible initiatives to link them. In fact, Miami Valley offers a highly low-stress cycling experience with cyclists separated from vehicular traffic, except for road crossings. However, these trails don't provide direct access to numerous employment, shopping, residential, and leisure locations.  Regarding the speed limits, here speeds up to 25 mph in 2/3 lanes streets were classfied as LTS 1/2.
 If the lanes are more than 3 and and speed limits exceed the 30 mph, they are classified  LTS 3-4. In summary, LTS 1: bikeways and low-volume streets where the speed limit is 25 mph or less ; LTS 2: some striped bike lanes, protected lanes, cycle tracks; LTS 3: roads with 30 mph+ speeds and/or four lanes; LTS 4: most roads with 30 mph+ speeds and/or five or more lanes.
@@ -173,6 +209,28 @@ Regarding the assumptions cited, the minimum posted speed limit for the Texas's 
 URL/DOI:[https://www.fortworthtexas.gov/files/assets/public/tpw/documents/atp/appendix-4-level-traffic.pdf](https://www.fortworthtexas.gov/files/assets/public/tpw/documents/atp/appendix-4-level-traffic.pdf)
 
 Best idea identified: possibility to adapt the original scores using assumptions in cases where data isn't available.
+
+
+Title: **Implementing Low-Stress Bicycle Routing in National Accessibility Evaluation**
+
+Authors: Murphy and Owen (2019)
+
+Description: Here, the Bicycle Level of Traffic Stress metric has been modified to assign stress levels to roads and intersections based on OpenStreetMap data, and job accessibility calculations are carried out for the resulting low-stress bike networks. Minneapolis-St. Paul, Miami, Seattle, and Washington D.C were taken into consideration. An "access gap" measure was introduced to compare low-stress access to higher-stress access as a means to evaluate potential improvements in a city's bike network by upgrading high-stress facilities. Accessibility was assessed across various geographic regions, such as Core-Based Statistical Areas, city limits, and neighborhoods, showcasing the versatility of the proposed analytical framework. The findings indicate that limiting bike travel to solely low-stress networks leads to consistent decreases in accessibility, with the extent of these reductions varying across metropolitan areas and even within neighborhoods of a specific city. Specifically, bicycle travel networks that include LTS 3 facilities in addition to LTS 1 and 2 facilities yield far greater levels of job accessibility within all metropolitan areas studied, than networks only including low-stress LTS 1 and 2 facilities
+
+URL/DOI:[https://doi.org/10.1177/0361198119837179](https://doi.org/10.1177/0361198119837179)
+
+Best idea identified: Here the LTS assignment heuristics consist of a set of hierarchical classification rules that assign bicycle LTS ranks to both street segments and intersections, based upon OSM tag data.
+Here below you can find the criteria for both scenarios:
+
+<img src="images/13.png" alt="LTS 1 - criteria murphy" width="800"/>
+
+<img src="images/14.png" alt="LTS 2-3 - criteria murphy" width="800"/>
+
+<img src="images/15.png" alt="LTS 4 - criteria murphy" width="800"/>
+
+<img src="images/16.png" alt="LTS intersections" width="800"/>
+
+As it can be seen, only segments where bikes are explicitly allowed or not forbidden are considered for LTS grading. Moreover, since details about bike facilities, the number of lanes, and road speeds might be missing for some road segments in the OSM database, the classification of roads as "primary," "secondary," and "tertiary" is used as a substitute for physical design features influencing LTS rank. Regarding intersections, their LTS rank depends on the ranks of the road segments leading to them. If an intersection has traffic signals, its LTS rank is set to the lowest-stress rank of all incoming roads; if it is uncontrolled, the rank is set to the highest-stress rank of all incoming roads. This method recognizes the significance of context, as a single high-stress intersection along an otherwise low-stress route may discourage cyclists from using the facilities. After these gradings, routing can be also differentiated according to the four traffic stress levels. Dijkstra's shortest-path routing calculations are performed on OSM-level network graphs using OpenTripPlanner. For differential LTS routing, each rank serves as a maximum allowed stress level; for instance, LTS 2 routing includes both LTS 1 and LTS 2 facilities in the sub-network, while LTS 4 routing includes all segments and intersections except limited-access facilities. OSM-level network graphs are currently created by filtering out ways and nodes not meeting the criteria for a given maximum LTS value. According to the authors, utilizing OpenStreetMap data, which offers nationwide coverage, and an LTS rank assignment method that is impartial to local differences in data collection procedures and the availability of local information, allows for the comparison of low-stress bicycle networks in diverse locations like Miami and Seattle. However, this broad applicability may come at the cost of some accuracy in LTS assignment. Since LTS assignment is somewhat subjective and depends on data availability and the priorities set by individual researchers, it is not guaranteed that separate LTS studies for metropolitan areas like Washington, D.C. and Chicago will be directly comparable. Moreover, data quality issues arise when evaluating bicycle accessibility: not all bike facilities are accurately or promptly labeled on open-data platforms such as OpenStreetMap.
 
 
 Title: **Cycle accessibility and level of traffic stress: A case study of Toronto**
@@ -246,7 +304,7 @@ Furth & Mekuria updated criteria (summary):
 
 <img src="images/12.png" alt="LTS updated criteria table 3" width="800"/>
 
-As it can be seen from the tables, this methodology uses data such as number of through auto lanes, posted speed limits, road traffic volumes, presence and width of bikeways, and proximity to motor vehicle parking to determine roadway category. Bicycle LTS criteria are based on the Dutch bicycle facility design guidelines, and use a weakest link approach, which simplifies application but restricts the combinations of attributes that can achieve a good rating. Bicycle LTS follows a ‘weakest link’ logic that means the lowest performing attribute can determine the stress level. Even if a segment has mostly low-stress characteristics, the occurrence of one high-stress attribute dictates the stress level for the link. Consequently, it is not always necessary to collect data on every characteristic to perform an analysis. Compared to the original criteria, the most important update is that the annual average daily traffic (AADT) was added to the original framework. This factor accounts for the fact that bicyclists are more likely to encounter multiple vehicles in a platoon when riding with higher road traffic volumes, and thus are more likely to become constrained and threatened. Second, the revised bicycle LTS criteria account for a wider range of road conditions. For example, the developers give special attention to one-way streets and bike lanes alongside a parking lane.
+As it can be seen from the tables, this methodology uses data such as number of through auto lanes, posted speed limits, road traffic volumes, presence and width of bikeways, and proximity to motor vehicle parking to determine roadway category. Bicycle LTS criteria are based on the Dutch bicycle facility design guidelines, and use a weakest link approach, which simplifies application but restricts the combinations of attributes that can achieve a good rating. Bicycle LTS follows a ‘weakest link’ logic that means the lowest performing attribute can determine the stress level. Even if a segment has mostly low-stress characteristics, the occurrence of one high-stress attribute dictates the stress level for the link. Consequently, it is not always necessary to collect data on every characteristic to perform an analysis. Compared to the original criteria, the most important update is that the annual average daily traffic (AADT) was added to the original framework. This factor accounts for the fact that bicyclists are more likely to encounter multiple vehicles in a platoon when riding with higher road traffic volumes, and thus are more likely to become constrained and threatened. Second, the revised bicycle LTS criteria account for a wider range of road conditions. For example, the developers give special attention to one-way streets and bike lanes alongside a parking lane. Specifically, the initial stress level is determined by the number of lanes and the speed limit. Subsequently, the stress level is decreased based on stress reduction factors developed for five tiers of bicycle accommodation, ranging from the least protected bike route to the most protected or comfortable bike lane. The stress factors represent the marginal rates of substitution in relation to the distance cycled on a multi-use trail. For instance, on a 6-lane road with a 35 mph speed limit and no bike accommodation, a stress factor of 140% suggests that a cyclist would prefer to travel up to 140% further on a multi-use trail. 
 
 
 Title: **Level of traffic stress-based classification: A clustering approach for Bogotá, Colombia**
@@ -425,6 +483,18 @@ Description: Github repo with a Python script that encompass a central function,
 
 URL/DOI: [https://github.com/CrepuscularCremini/osmnx-blts-integration](https://github.com/CrepuscularCremini/osmnx-blts-integration)
 
+Best idea identified:
+
+Title:
+Authors:
+Description:
+URL/DOI:
+Best idea identified:
+
+Title:
+Authors:
+Description:
+URL/DOI:
 Best idea identified:
 
 Title:
