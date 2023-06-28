@@ -19,7 +19,6 @@ Common & extreme inclines: It mentions common incline values found on roads (typ
 Hops: It also mentions the usage of incline=up/down for ways with many small inclines, although this use is disputed within the OSM community and there's no clear consensus on how it should be handled.
 
 At this link you can see a small procedure to integrate in OpenStreetMap data regarding the slopeness using a DEM that can be adapted using Tinitaly DEM ([https://tinitaly.pi.ingv.it/](https://tinitaly.pi.ingv.it/)). Here's the code in R: [https://ropensci.github.io/slopes/articles/roadnetworkcycling.html](https://ropensci.github.io/slopes/articles/roadnetworkcycling.html)
-</div>
 
 In summary, it follow three steps:
 - Download of road network from OpenStreetMap
@@ -150,4 +149,7 @@ Interestingly it doesn't use DEM for accessing info on slope and elevation but t
 
 Here's the article [https://towardsdatascience.com/planning-the-perfect-hike-with-networkx-and-openstreetmap-2fbeaded3cc6](https://towardsdatascience.com/planning-the-perfect-hike-with-networkx-and-openstreetmap-2fbeaded3cc6)
 
+
+Here some interesting videos on how to compute slope calculus using DEMs [https://www.youtube.com/watch?v=2g526ZoMu24&ab_channel=OpenSourceOptions](https://www.youtube.com/watch?v=2g526ZoMu24&ab_channel=OpenSourceOptions)[https://www.youtube.com/watch?v=5dDZeEXws9Q&ab_channel=MakingSenseRemotely](https://www.youtube.com/watch?v=5dDZeEXws9Q&ab_channel=MakingSenseRemotely)
+</div>
 
