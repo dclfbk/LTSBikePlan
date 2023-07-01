@@ -24,6 +24,7 @@ In summary, it follow three steps:
 - Download of road network from OpenStreetMap
 - Prepare the network
 - Compute slopes and export the map in html.
+  
 For the slopes, the slope_raster() function, to retrieve the z values from a digital elevation model was used. This raster was obtained from STRM NASA mission (but we can use Tinitaly DEM) or Coperticus (it works for all Europe). [https://land.copernicus.eu/imagery-in-situ/eu-dem](https://land.copernicus.eu/imagery-in-situ/eu-dem)
 
 ```R
