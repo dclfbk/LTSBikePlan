@@ -24,6 +24,7 @@ Leonardo Venturoso - UNITN
 </div>
 
 <div style="text-align: justify">
+
 # Abstract: 
 
 LTS-BikePlan is an advanced analysis tool developed to identify safe and accessible cycling routes by integrating diverse data sources and establishing a comprehensive planning framework for bicycle infrastructure. The tool utilizes the concept of "Level of Traffic Stress" (LTS) to evaluate comfort and safety levels for cyclists. It considers various data, including OpenStreetMap (OSM) data, geographic information system (GIS) data such as Digital Elevation Model (DEM), and relevant data from Public Administration sources. By amalgamating these datasets, LTS-BikePlan provides valuable insights and recommendations to enhance the cyclability of the Italian road network. The tool contributes to the promotion of sustainable mobility and facilitates tactical urbanism initiatives aimed at improving cycling infrastructure, connectivity, and overall bikeability. The effectiveness of LTS-BikePlan is demonstrated through case studies that assess both poor and good cycling conditions, further validating its utility and practical applicability.
