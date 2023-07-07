@@ -58,71 +58,84 @@ network$slope_class = network$slope %>%
 round(prop.table(table(network$slope_class))*100,1)
 ```
 
-I have started working on a Python version (work in progress)
+I have started working on a Python version:
 ```Python
-import os
-import urllib.request
+#slope calc using SRTM dem
+
+import osmnx as ox
+import folium
 import geopandas as gpd
-import rasterio
-from rasterio.warp import calculate_default_transform, reproject, Resampling
-from rasterio.plot import show
-import numpy as np
-from scipy import ndimage
 import pandas as pd
-from rasterstats import zonal_stats
+import numpy as np
+import rasterio
 from shapely.geometry import LineString
+from pyproj import CRS, Transformer
+from rasterio.windows import Window
+from geopy.distance import geodesic
 
-# Download and load the DEM
-url = "https://github.com/U-Shift/Declives-RedeViaria/releases/download/0.2/IsleOfWightNASA_clip.tif"
-filename = os.path.basename(url)
-urllib.request.urlretrieve(url, filename)
+# Get the network
+G = ox.graph_from_place('Montereale Valcellina, Italy', network_type='all')
+edges = ox.graph_to_gdfs(G, nodes=False)
 
-# Load the DEM with rasterio
-dem = rasterio.open(filename)
+# Filter the major roads
+major_roads = ['primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary',
+               'tertiary_link', 'trunk', 'trunk_link', 'residential', 'cycleway',
+               'living_street', 'unclassified', 'motorway', 'motorway_link',
+               'pedestrian', 'steps', 'track']
+edges = edges[edges['highway'].isin(major_roads)]
 
-# Assume network is a GeoDataFrame
-network = gpd.read_file("path_to_network_file")
+# Set the path to the DEM file
+dem_path = '/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/area_interested.tif'
 
-# Plot the dem and the network
-show(dem)
-network.plot()
+# Load the DEM
+dem = rasterio.open(dem_path)
 
-# To get the slope, first we need to calculate the gradient (change in elevation)
-dem_array = dem.read(1)
-gradient_x, gradient_y = np.gradient(dem_array)
+# Define a Transformer from EPSG:4326 to a local projection (in this case, the Friuli Grid, EPSG:3004)
+transformer = Transformer.from_crs(CRS('EPSG:4326'), CRS('EPSG:3004'), always_xy=True)
 
-# Calculate slope (converting to degrees)
-slope = np.arctan(np.sqrt(gradient_x**2 + gradient_y**2)) * 180 / np.pi
-slope = slope * 100 # convert to percentage
+# Calculate the slope
+def calc_slope(row):
+    coords = row['geometry'].coords.xy
+    start = (coords[0][0], coords[1][0])
+    end = (coords[0][-1], coords[1][-1])
 
-# Write out slope as new geotiff
-meta = dem.meta
-meta.update(dtype=rasterio.float32)
+    start_elevation = float(list(dem.sample([start]))[0][0])
+    end_elevation = float(list(dem.sample([end]))[0][0])
+    dz = end_elevation - start_elevation
 
-with rasterio.open('slope.tif', 'w', **meta) as dest:
-    dest.write(slope.astype(rasterio.float32), 1)
+    if abs(dz) > 100:  # Adjust this value based on what you consider to be an "outlier"
+        return 0
 
-# For each road segment, calculate zonal statistics (mean slope along the line)
-slope_stats = zonal_stats(network, 'slope.tif', stats="mean")
+    start_x, start_y = transformer.transform(*start)
+    end_x, end_y = transformer.transform(*end)
+    dx = end_x - start_x
+    dy = end_y - start_y
+    distance = np.sqrt(dx ** 2 + dy ** 2)
 
-# Add slope stats to network dataframe
-network['slope'] = [x['mean'] for x in slope_stats]
+    slope = (dz / distance) * 100 if distance != 0 else 0
+    return slope
+
+# Apply function to each row in the GeoDataFrame
+edges['slope'] = edges.apply(calc_slope, axis=1)
+
+# Replace NaN slope values with 0
+edges['slope'] = edges['slope'].fillna(0)
 
 # Classify slopes
-network['slope_class'] = pd.cut(
-    network['slope'],
-    bins=[0, 3, 5, 8, 10, 20, np.inf],
-    labels=["0-3: flat", "3-5: mild", "5-8: medium", "8-10: hard", "10-20: extreme", ">20: impossible"],
-    include_lowest=True
-)
+edges['slope_class'] = pd.cut(edges['slope'],
+                              bins=[-30, 3, 5, 8, 10, 20, np.inf],
+                              labels=["0-3: flat", "3-5: mild", "5-8: medium",
+                                      "8-10: hard", "10-20: extreme", ">20: impossible"],
+                              right=False)
+edges['slope_class'] = edges['slope_class'].fillna("0-3: flat")
 
-# Calculate proportion of each slope class
-slope_class_distribution = round(network['slope_class'].value_counts(normalize=True) * 100, 1)
-
+# Calculate the proportion of each slope class
+slope_class_distribution = round(edges['slope_class'].value_counts(normalize=True) * 100, 1)
 print(slope_class_distribution)
 
+
 ```
-The `rasterstats` package in Python provides a set of raster analysis tools, including functions for computing statistics of raster datasets (e.g., geospatial imagery) based on vector geometries (e.g., polygons, lines, or points).
+The `rasterstats` [https://pythonhosted.org/rasterstats/](https://pythonhosted.org/rasterstats/) package in Python provides a set of raster analysis tools, including functions for computing statistics of raster datasets (e.g., geospatial imagery) based on vector geometries (e.g., polygons, lines, or points).
 
 In this context, zonal statistics is a spatial analysis operation where statistics are computed for regions (zones) defined by the geometries in a vector layer.
 
