@@ -314,4 +314,22 @@ class BikePathAnalysis:
             if control in ['traffic_signals', 'stop']:
                 return 1, "LTS 1-2 with traffic signals or stop"
             return int(max_lts), "Node LTS is max intersecting LTS"
+        
+    @staticmethod
+    def slope_penalty(edges):
+        # Define a function to adjust the lts based on slope_class
+        def adjust_lts(row):
+            if row['slope_class'] in ["0-3: flat", "3-5: mild", "5-8: medium"]:
+                return row['lts']
+            elif row['slope_class'] == "8-10: hard":
+                return min(row['lts'] + 1, 4)
+            elif row['slope_class'] in ["10-20: extreme", ">20: impossible"]:
+                return min(row['lts'] + 2, 4)
+            else:
+                return row['lts']
+
+        # Apply the function to each row of the edges GeoDataFrame
+        edges['lts'] = edges.apply(adjust_lts, axis=1)
+        
+        return edges
 
