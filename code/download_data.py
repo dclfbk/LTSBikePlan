@@ -24,7 +24,6 @@ major_roads = ['primary', 'primary_link', 'secondary', 'secondary_link', 'tertia
                'pedestrian', 'steps', 'track']
 gdf_edges = gdf_edges[gdf_edges['highway'].isin(major_roads)]
 
-
 # Store the original MultiIndex
 original_index = gdf_edges.index
 
