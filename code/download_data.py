@@ -9,8 +9,7 @@ from slope_function import SlopeCalculator
 import sys
 
 # Get the city from command-line arguments
-#city = sys.argv[1]
-city = "Montereale Valcellina, Italy"
+city = sys.argv[1]
 
 # Download the OSM data for the city/region involved.
 G = ox.graph_from_place(city, network_type="all")

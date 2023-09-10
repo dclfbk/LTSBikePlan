@@ -118,13 +118,17 @@ class BikePathAnalysis:
 
     
     @staticmethod
-    def get_max_speed(gdf_edges, national=90, local=50, motorway=130, primary=90, secondary=90):
+    def get_max_speed(gdf_edges, national=90, local=50, motorway=130, primary=90, secondary=90, urban=50):
         """
         Italian Context: get maxspeed for different roads.
         If not available, make assumptions based on road type.
         This errs on the high end of assumptions.
         """
+        import pandas as pd
+        import numpy as np
+
         pd.options.mode.chained_assignment = None  # default='warn'
+
         # create a list of conditions
         # When multiple conditions are satisfied, the first one encountered in conditions is used
         conditions = [
@@ -132,19 +136,45 @@ class BikePathAnalysis:
             (gdf_edges['maxspeed'].isna()) & (gdf_edges['highway'] == 'motorway'),
             (gdf_edges['maxspeed'].isna()) & (gdf_edges['highway'] == 'primary'),
             (gdf_edges['maxspeed'].isna()) & (gdf_edges['highway'] == 'secondary'),
+            (gdf_edges['maxspeed'].isna()) & (gdf_edges['highway'] == 'urban'),
             (gdf_edges['maxspeed'].isna()),
-            ]
+        ]
 
         # create a list of the values we want to assign for each condition
-        values = [national, motorway, primary, secondary, local]
+        values = [national, motorway, primary, secondary, urban, local]
 
         # create a new column and use np.select to assign values to it using our lists as arguments
         gdf_edges['maxspeed_assumed'] = np.select(conditions, values, default=gdf_edges['maxspeed'])
-        
-        # if multiple speed values present, use the largest one
-        gdf_edges['maxspeed_assumed'] = gdf_edges['maxspeed_assumed'].apply(lambda x: np.array(x, dtype = 'int')).apply(lambda x: np.max(x)) 
+
+        def convert_to_int(val):
+            # If the value is a list
+            if isinstance(val, list):
+                # Convert list elements to integers if possible, otherwise handle special cases
+                int_list = []
+                for item in val:
+                    try:
+                        int_list.append(int(item))
+                    except ValueError:
+                        if item == 'IT:urban':
+                            int_list.append(urban)
+                        # handle other special cases if needed
+                return max(int_list) if int_list else val
+
+            # If the value is not a list
+            try:
+                return int(val)
+            except ValueError:
+                if val == 'IT:urban':
+                    return urban
+                # handle other special cases if needed
+                return val
+
+
+        gdf_edges['maxspeed_assumed'] = gdf_edges['maxspeed_assumed'].apply(convert_to_int)
 
         return gdf_edges
+
+
 
     @staticmethod
     def get_average_width_based_on_highway(highway_type, is_oneway):
