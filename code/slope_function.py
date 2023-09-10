@@ -11,8 +11,8 @@ sf = importr('sf')
 stplanr = importr('stplanr')
 
 # DEM interested:
-dem_path = '/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/area.tif'
-
+#dem_path = '/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/area.tif'
+dem_path = '/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/w51065_s10.tif'
 class SlopeCalculator:
 
     @staticmethod
@@ -108,5 +108,8 @@ class SlopeCalculator:
         edges = gpd.read_file(geojson_file_path)
         # Delete the temporary file
         os.remove(geojson_file_path)
+
+        # Delete the DEM file to save memory
+        # os.remove(dem_path)
 
         return edges
