@@ -2903,7 +2903,7 @@
   <data key="d1">45.8896139</data>
   <data key="d2">11.0413371</data>
   <data key="d3">3</data>
-  <data key="d5">1.0</data>
+  <data key="d5">2.0</data>
   <data key="d6">Node LTS is max intersecting LTS</data>
 </node>
 <node id="262492368">
@@ -4924,8 +4924,8 @@
   <data key="d6">Node LTS is max intersecting LTS</data>
 </node>
 <node id="269494379">
-  <data key="d1">45.8892382</data>
-  <data key="d2">11.0421922</data>
+  <data key="d1">45.8892475</data>
+  <data key="d2">11.042215</data>
   <data key="d3">3</data>
   <data key="d5">2.0</data>
   <data key="d6">Node LTS is max intersecting LTS</data>
@@ -5197,8 +5197,15 @@
   <data key="d6">Node LTS is max intersecting LTS</data>
 </node>
 <node id="269608483">
-  <data key="d1">45.8893179</data>
-  <data key="d2">11.0421114</data>
+  <data key="d1">45.8893114</data>
+  <data key="d2">11.0421074</data>
+  <data key="d3">3</data>
+  <data key="d5">2.0</data>
+  <data key="d6">Node LTS is max intersecting LTS</data>
+</node>
+<node id="11184829200">
+  <data key="d1">45.8893669</data>
+  <data key="d2">11.0421294</data>
   <data key="d3">3</data>
   <data key="d5">1.0</data>
   <data key="d6">Node LTS is max intersecting LTS</data>
@@ -5262,20 +5269,6 @@
 <node id="430833911">
   <data key="d1">45.8892172</data>
   <data key="d2">11.0453314</data>
-  <data key="d3">3</data>
-  <data key="d5">1.0</data>
-  <data key="d6">Node LTS is max intersecting LTS</data>
-</node>
-<node id="269608498">
-  <data key="d1">45.8893375</data>
-  <data key="d2">11.0420623</data>
-  <data key="d3">3</data>
-  <data key="d5">1.0</data>
-  <data key="d6">Node LTS is max intersecting LTS</data>
-</node>
-<node id="2482401341">
-  <data key="d1">45.8897175</data>
-  <data key="d2">11.0421766</data>
   <data key="d3">3</data>
   <data key="d5">1.0</data>
   <data key="d6">Node LTS is max intersecting LTS</data>
@@ -14973,6 +14966,13 @@
   <data key="d2">11.0443892</data>
   <data key="d3">3</data>
   <data key="d5">2.0</data>
+  <data key="d6">Node LTS is max intersecting LTS</data>
+</node>
+<node id="2482401341">
+  <data key="d1">45.8897175</data>
+  <data key="d2">11.0421766</data>
+  <data key="d3">3</data>
+  <data key="d5">1.0</data>
   <data key="d6">Node LTS is max intersecting LTS</data>
 </node>
 <node id="2499751939">
@@ -24925,16 +24925,16 @@
 <edge source="262492159" target="791722629" id="0">
   <data key="d7">2.48153e+07</data>
   <data key="d16">['Via Girolamo Tartarotti']</data>
-  <data key="d8">pedestrian</data>
+  <data key="d8">residential</data>
   <data key="d19">['30']</data>
   <data key="d9">LINESTRING (658310.6484340623 5083835.143235481, 658324.0642831386 5083832.695941306, 658334.7267341876 5083828.021428102, 658378.4921375267 5083809.118632975)</data>
   <data key="d10">72.788</data>
-  <data key="d11">m13</data>
-  <data key="d12">1</data>
+  <data key="d11">m5</data>
+  <data key="d12">2</data>
   <data key="d17">2.0</data>
   <data key="d18">30.0</data>
-  <data key="d13">Setting LTS to 1 because highway='pedestrian'.</data>
-  <data key="d14">mixed traffic, highway $=$ "pedestrian"</data>
+  <data key="d13">Setting LTS to 2 because maxspeed is up to 40 km/h, 3 or fewer lanes and highway='residential'.</data>
+  <data key="d14">mixed traffic, speed $\leq$ 40 km/h, highway $=$ "residential", $\leq$ 3 lanes</data>
 </edge>
 <edge source="1669791687" target="262492159" id="0">
   <data key="d7">1.83419e+08</data>
@@ -27468,7 +27468,7 @@
 <edge source="1619079095" target="528238974" id="0">
   <data key="d7">[ 245033633, 402522595, 39773860 ]</data>
   <data key="d15">['2']</data>
-  <data key="d16">['Viale Prima Armata', 'Via Dante Alighieri']</data>
+  <data key="d16">['Via Dante Alighieri', 'Viale Prima Armata']</data>
   <data key="d8">residential</data>
   <data key="d19">['30']</data>
   <data key="d9">LINESTRING (658331.1517651867 5083364.7515008645, 658336.3226306094 5083357.468388387, 658353.159546382 5083332.717928354, 658356.9831634776 5083327.112462148)</data>
@@ -28607,7 +28607,7 @@
 </edge>
 <edge source="6384840125" target="2519506915" id="0">
   <data key="d7">[ 244655600, 244543107 ]</data>
-  <data key="d16">['Ciclabile via Zeni', 'Pista Ciclo/Pedonale Via Zeni']</data>
+  <data key="d16">['Pista Ciclo/Pedonale Via Zeni', 'Ciclabile via Zeni']</data>
   <data key="d8">cycleway</data>
   <data key="d9">LINESTRING (657682.8447822934 5083768.797521167, 657681.7768640798 5083757.997479237, 657682.4485404271 5083753.878892511, 657682.7841359267 5083745.582690144, 657672.1788439166 5083594.748572658, 657670.3739572206 5083579.960826912)</data>
   <data key="d10">189.523</data>
@@ -30154,7 +30154,7 @@
 <edge source="9205654" target="258566265" id="0">
   <data key="d7">[ 637268696, 2132546, 26828574 ]</data>
   <data key="d15">['2']</data>
-  <data key="d16">['Via del Brennero', 'Via del Brennero - Strada Statale 12 del Brennero', 'Via del Brennero -']</data>
+  <data key="d16">['Via del Brennero - Strada Statale 12 del Brennero', 'Via del Brennero', 'Via del Brennero -']</data>
   <data key="d8">primary</data>
   <data key="d19">['70']</data>
   <data key="d9">LINESTRING (657949.0413469722 5085363.967132193, 657942.8901350865 5085325.521296218, 657938.9590529059 5085301.651648739, 657934.0388395167 5085265.449650249, 657928.0789316038 5085217.981299271, 657906.0046094317 5085027.930747349, 657898.8824794265 5084956.941487135)</data>
@@ -31257,7 +31257,7 @@
 <edge source="258566265" target="9205654" id="0">
   <data key="d7">[ 637268696, 2132546, 26828574 ]</data>
   <data key="d15">['2']</data>
-  <data key="d16">['Via del Brennero', 'Via del Brennero - Strada Statale 12 del Brennero', 'Via del Brennero -']</data>
+  <data key="d16">['Via del Brennero -', 'Via del Brennero - Strada Statale 12 del Brennero', 'Via del Brennero']</data>
   <data key="d8">primary</data>
   <data key="d19">['70']</data>
   <data key="d9">LINESTRING (657898.8824794265 5084956.941487135, 657906.0046094317 5085027.930747349, 657928.0789316038 5085217.981299271, 657934.0388395167 5085265.449650249, 657938.9590529059 5085301.651648739, 657942.8901350865 5085325.521296218, 657949.0413469722 5085363.967132193)</data>
@@ -31429,7 +31429,7 @@
   <data key="d15">['2']</data>
   <data key="d16">['Viale Trento']</data>
   <data key="d8">primary</data>
-  <data key="d19">['50', '30']</data>
+  <data key="d19">['30', '50']</data>
   <data key="d9">LINESTRING (658332.0660456354 5086052.842940228, 658318.5467581638 5086016.164592561, 658304.5172289724 5085977.583236445)</data>
   <data key="d10">80.149</data>
   <data key="d11">m10</data>
@@ -32904,7 +32904,7 @@
 </edge>
 <edge source="415750609" target="258556924" id="0">
   <data key="d7">[ 35443090, 110900052 ]</data>
-  <data key="d16">['Via Chiocchietti', 'Via Driopozzo']</data>
+  <data key="d16">['Via Driopozzo', 'Via Chiocchietti']</data>
   <data key="d8">residential</data>
   <data key="d9">LINESTRING (658563.4391960183 5084744.761390393, 658557.3041231537 5084740.023716973, 658545.8505072775 5084736.850741443, 658469.7373538562 5084727.262944198, 658455.0980658322 5084725.42047347)</data>
   <data key="d10">110.815</data>
@@ -33208,7 +33208,7 @@
 </edge>
 <edge source="258562208" target="262492152" id="0">
   <data key="d7">[ 209244160, 835521970 ]</data>
-  <data key="d16">['Borgo Santa Caterina', 'Via Dante Alighieri']</data>
+  <data key="d16">['Via Dante Alighieri', 'Borgo Santa Caterina']</data>
   <data key="d8">residential</data>
   <data key="d19">['30']</data>
   <data key="d9">LINESTRING (658261.7632124564 5083841.152637087, 658283.5826390176 5083845.246043032, 658300.7255636731 5083847.630095595, 658310.6768923316 5083844.349279384)</data>
@@ -35764,19 +35764,19 @@
   <data key="d13">Setting LTS to 2 because maxspeed is up to 40 km/h, 3 or fewer lanes and highway='residential'.</data>
   <data key="d14">mixed traffic, speed $\leq$ 40 km/h, highway $=$ "residential", $\leq$ 3 lanes</data>
 </edge>
-<edge source="791722629" target="269608498" id="0">
+<edge source="791722629" target="269608483" id="0">
   <data key="d7">2.48153e+07</data>
   <data key="d16">['Via Girolamo Tartarotti']</data>
-  <data key="d8">pedestrian</data>
+  <data key="d8">residential</data>
   <data key="d19">['30']</data>
-  <data key="d9">LINESTRING (658378.4921375267 5083809.118632975, 658424.5007444872 5083785.3929576455, 658427.8537267026 5083783.911218554, 658435.5427198784 5083779.850040181)</data>
-  <data key="d10">63.998</data>
-  <data key="d11">m13</data>
-  <data key="d12">1</data>
+  <data key="d9">LINESTRING (658378.4921375267 5083809.118632975, 658424.5007444872 5083785.3929576455, 658427.8537267026 5083783.911218554, 658439.1160446726 5083777.039842891)</data>
+  <data key="d10">68.489</data>
+  <data key="d11">m5</data>
+  <data key="d12">2</data>
   <data key="d17">2.0</data>
   <data key="d18">30.0</data>
-  <data key="d13">Setting LTS to 1 because highway='pedestrian'.</data>
-  <data key="d14">mixed traffic, highway $=$ "pedestrian"</data>
+  <data key="d13">Setting LTS to 2 because maxspeed is up to 40 km/h, 3 or fewer lanes and highway='residential'.</data>
+  <data key="d14">mixed traffic, speed $\leq$ 40 km/h, highway $=$ "residential", $\leq$ 3 lanes</data>
 </edge>
 <edge source="262492368" target="8435731402" id="0">
   <data key="d7">2.42438e+07</data>
@@ -40124,7 +40124,7 @@
 <edge source="5968447332" target="330830842" id="0">
   <data key="d7">[ 24823532, 632109606 ]</data>
   <data key="d15">['1']</data>
-  <data key="d16">['Viale Caproni', 'Piazzale Alcide De Gasperi']</data>
+  <data key="d16">['Piazzale Alcide De Gasperi', 'Viale Caproni']</data>
   <data key="d8">secondary</data>
   <data key="d9">LINESTRING (657051.5402228348 5081368.975120131, 657050.759154832 5081400.6954088295, 657049.7555576887 5081404.438748453, 657045.334758709 5081410.018741198)</data>
   <data key="d10">42.737</data>
@@ -41997,7 +41997,7 @@
 </edge>
 <edge source="1083632478" target="270101326" id="0">
   <data key="d7">[ 24794337, 24794335 ]</data>
-  <data key="d16">['Via Francesco Fogolari', 'Via Giovanni Segantini']</data>
+  <data key="d16">['Via Giovanni Segantini', 'Via Francesco Fogolari']</data>
   <data key="d8">residential</data>
   <data key="d19">['30']</data>
   <data key="d9">LINESTRING (658178.727793732 5083451.306349793, 658192.1599632326 5083453.717503638, 658228.5958171106 5083459.507225302, 658236.3655875905 5083460.495206623)</data>
@@ -42589,7 +42589,7 @@
 </edge>
 <edge source="269440257" target="2524491401" id="0">
   <data key="d7">[ 259882384, 26828658, 26828660 ]</data>
-  <data key="d16">['Via Antonio Balista', 'Via Alessandro Manzoni']</data>
+  <data key="d16">['Via Alessandro Manzoni', 'Via Antonio Balista']</data>
   <data key="d8">residential</data>
   <data key="d9">LINESTRING (657788.0201357121 5084305.151014572, 657795.834225677 5084300.402996898, 657825.0080600393 5084282.714236178, 657839.4126048163 5084275.54399462)</data>
   <data key="d10">59.241</data>
@@ -43483,7 +43483,7 @@
 </edge>
 <edge source="2524491401" target="269440257" id="0">
   <data key="d7">[ 259882384, 26828658, 26828660 ]</data>
-  <data key="d16">['Via Antonio Balista', 'Via Alessandro Manzoni']</data>
+  <data key="d16">['Via Alessandro Manzoni', 'Via Antonio Balista']</data>
   <data key="d8">residential</data>
   <data key="d9">LINESTRING (657839.4126048163 5084275.54399462, 657825.0080600393 5084282.714236178, 657795.834225677 5084300.402996898, 657788.0201357121 5084305.151014572)</data>
   <data key="d10">59.241</data>
@@ -44017,8 +44017,8 @@
   <data key="d7">2.48156e+07</data>
   <data key="d16">['Via Giosuè Carducci']</data>
   <data key="d8">residential</data>
-  <data key="d9">LINESTRING (658445.9034784001 5083769.075573442, 658442.7552339764 5083763.469553493, 658419.0888021684 5083720.516988628, 658396.5313048814 5083680.027655592)</data>
-  <data key="d10">101.785</data>
+  <data key="d9">LINESTRING (658447.6459670002 5083770.154116979, 658442.7552339764 5083763.469553493, 658419.0888021684 5083720.516988628, 658396.5313048814 5083680.027655592)</data>
+  <data key="d10">103.635</data>
   <data key="d11">m9</data>
   <data key="d12">2</data>
   <data key="d17">2.0</data>
@@ -44031,8 +44031,8 @@
   <data key="d16">['Via Girolamo Tartarotti']</data>
   <data key="d8">residential</data>
   <data key="d19">['30']</data>
-  <data key="d9">LINESTRING (658445.9034784001 5083769.075573442, 658455.122404679 5083764.086361851, 658514.1565210414 5083726.820138259, 658571.3099596289 5083696.32131621, 658577.7220511456 5083693.016934295)</data>
-  <data key="d10">152.007</data>
+  <data key="d9">LINESTRING (658447.6459670002 5083770.154116979, 658455.122404679 5083764.086361851, 658514.1565210414 5083726.820138259, 658571.3099596289 5083696.32131621, 658577.7220511456 5083693.016934295)</data>
+  <data key="d10">151.161</data>
   <data key="d11">m5</data>
   <data key="d12">2</data>
   <data key="d17">2.0</data>
@@ -45056,23 +45056,49 @@
 <edge source="269608483" target="269494379" id="0">
   <data key="d7">2.48153e+07</data>
   <data key="d16">['Via Girolamo Tartarotti']</data>
-  <data key="d8">pedestrian</data>
+  <data key="d8">residential</data>
   <data key="d19">['30']</data>
-  <data key="d9">LINESTRING (658439.4078965925 5083777.7699549, 658445.9034784001 5083769.075573442)</data>
-  <data key="d10">10.847</data>
+  <data key="d9">LINESTRING (658439.1160446726 5083777.039842891, 658447.6459670002 5083770.154116979)</data>
+  <data key="d10">10.947</data>
+  <data key="d11">m5</data>
+  <data key="d12">2</data>
+  <data key="d17">2.0</data>
+  <data key="d18">30.0</data>
+  <data key="d13">Setting LTS to 2 because maxspeed is up to 40 km/h, 3 or fewer lanes and highway='residential'.</data>
+  <data key="d14">mixed traffic, speed $\leq$ 40 km/h, highway $=$ "residential", $\leq$ 3 lanes</data>
+</edge>
+<edge source="269608483" target="11184829200" id="0">
+  <data key="d7">2.48169e+07</data>
+  <data key="d16">['Via delle Scuole']</data>
+  <data key="d8">pedestrian</data>
+  <data key="d9">LINESTRING (658439.1160446726 5083777.039842891, 658440.6650521997 5083783.249735401)</data>
+  <data key="d10">6.402</data>
   <data key="d11">m13</data>
   <data key="d12">1</data>
   <data key="d17">2.0</data>
-  <data key="d18">30.0</data>
+  <data key="d18">50.0</data>
   <data key="d13">Setting LTS to 1 because highway='pedestrian'.</data>
   <data key="d14">mixed traffic, highway $=$ "pedestrian"</data>
 </edge>
-<edge source="269608483" target="8366468427" id="0">
+<edge source="11184829200" target="8366468427" id="0">
   <data key="d7">2.48169e+07</data>
   <data key="d16">['Via Roma']</data>
   <data key="d8">pedestrian</data>
-  <data key="d9">LINESTRING (658439.4078965925 5083777.7699549, 658460.4009509948 5083792.615720932, 658509.9164434937 5083800.520935924)</data>
-  <data key="d10">75.674</data>
+  <data key="d9">LINESTRING (658440.6650521997 5083783.249735401, 658460.4009509948 5083792.615720932, 658509.9164434937 5083800.520935924)</data>
+  <data key="d10">71.804</data>
+  <data key="d11">m13</data>
+  <data key="d12">1</data>
+  <data key="d17">2.0</data>
+  <data key="d18">50.0</data>
+  <data key="d13">Setting LTS to 1 because highway='pedestrian'.</data>
+  <data key="d14">mixed traffic, highway $=$ "pedestrian"</data>
+</edge>
+<edge source="11184829200" target="2482401341" id="0">
+  <data key="d7">2.48169e+07</data>
+  <data key="d16">['Via delle Scuole']</data>
+  <data key="d8">pedestrian</data>
+  <data key="d9">LINESTRING (658440.6650521997 5083783.249735401, 658441.9108763835 5083788.262289455, 658443.3297888165 5083822.296061085)</data>
+  <data key="d10">39.246</data>
   <data key="d11">m13</data>
   <data key="d12">1</data>
   <data key="d17">2.0</data>
@@ -45093,12 +45119,12 @@
   <data key="d13">Setting LTS to 1 because highway='pedestrian'.</data>
   <data key="d14">mixed traffic, highway $=$ "pedestrian"</data>
 </edge>
-<edge source="8366468427" target="269608483" id="0">
+<edge source="8366468427" target="11184829200" id="0">
   <data key="d7">2.48169e+07</data>
   <data key="d16">['Via Roma']</data>
   <data key="d8">pedestrian</data>
-  <data key="d9">LINESTRING (658509.9164434937 5083800.520935924, 658460.4009509948 5083792.615720932, 658439.4078965925 5083777.7699549)</data>
-  <data key="d10">75.674</data>
+  <data key="d9">LINESTRING (658509.9164434937 5083800.520935924, 658460.4009509948 5083792.615720932, 658440.6650521997 5083783.249735401)</data>
+  <data key="d10">71.804</data>
   <data key="d11">m13</data>
   <data key="d12">1</data>
   <data key="d17">2.0</data>
@@ -45276,7 +45302,7 @@
 </edge>
 <edge source="9646128695" target="9646128705" id="0">
   <data key="d7">[ 1049653980, 1049653981 ]</data>
-  <data key="d16">['Via Forni', 'Via del Ghetto']</data>
+  <data key="d16">['Via del Ghetto', 'Via Forni']</data>
   <data key="d8">pedestrian</data>
   <data key="d9">LINESTRING (658656.0115245247 5083804.153417602, 658652.5649944373 5083824.121141523, 658649.9691085457 5083839.374592805, 658652.932769865 5083845.509640856, 658657.2535516567 5083847.766101373)</data>
   <data key="d10">47.428</data>
@@ -45384,46 +45410,6 @@
   <data key="d8">pedestrian</data>
   <data key="d9">LINESTRING (658689.5187735361 5083772.982819059, 658688.5875092027 5083765.398996702, 658684.7743170226 5083763.933761418, 658658.0434159267 5083753.665076711)</data>
   <data key="d10">40.286</data>
-  <data key="d11">m13</data>
-  <data key="d12">1</data>
-  <data key="d17">2.0</data>
-  <data key="d18">50.0</data>
-  <data key="d13">Setting LTS to 1 because highway='pedestrian'.</data>
-  <data key="d14">mixed traffic, highway $=$ "pedestrian"</data>
-</edge>
-<edge source="269608498" target="269608483" id="0">
-  <data key="d7">2.48153e+07</data>
-  <data key="d16">['Via Girolamo Tartarotti']</data>
-  <data key="d8">pedestrian</data>
-  <data key="d19">['30']</data>
-  <data key="d9">LINESTRING (658435.5427198784 5083779.850040181, 658439.4078965925 5083777.7699549)</data>
-  <data key="d10">4.381</data>
-  <data key="d11">m13</data>
-  <data key="d12">1</data>
-  <data key="d17">2.0</data>
-  <data key="d18">30.0</data>
-  <data key="d13">Setting LTS to 1 because highway='pedestrian'.</data>
-  <data key="d14">mixed traffic, highway $=$ "pedestrian"</data>
-</edge>
-<edge source="269608498" target="2482401341" id="0">
-  <data key="d7">2.48169e+07</data>
-  <data key="d16">['Via delle Scuole']</data>
-  <data key="d8">pedestrian</data>
-  <data key="d9">LINESTRING (658435.5427198784 5083779.850040181, 658441.9108763835 5083788.262289455, 658443.3297888165 5083822.296061085)</data>
-  <data key="d10">44.623</data>
-  <data key="d11">m13</data>
-  <data key="d12">1</data>
-  <data key="d17">2.0</data>
-  <data key="d18">50.0</data>
-  <data key="d13">Setting LTS to 1 because highway='pedestrian'.</data>
-  <data key="d14">mixed traffic, highway $=$ "pedestrian"</data>
-</edge>
-<edge source="2482401341" target="416626426" id="0">
-  <data key="d7">2.48169e+07</data>
-  <data key="d16">['Via delle Scuole']</data>
-  <data key="d8">pedestrian</data>
-  <data key="d9">LINESTRING (658443.3297888165 5083822.296061085, 658443.4009381286 5083824.065571974, 658441.6762637085 5083868.080239444, 658438.0848052355 5083890.401257608)</data>
-  <data key="d10">68.461</data>
   <data key="d11">m13</data>
   <data key="d12">1</data>
   <data key="d17">2.0</data>
@@ -46008,7 +45994,7 @@
 </edge>
 <edge source="1599039769" target="1599038222" id="0">
   <data key="d7">[ 24855816, 27034047 ]</data>
-  <data key="d16">['Via Giuseppe Di Vittorio', "Via dell'Artigiano"]</data>
+  <data key="d16">["Via dell'Artigiano", 'Via Giuseppe Di Vittorio']</data>
   <data key="d8">unclassified</data>
   <data key="d19">['50']</data>
   <data key="d9">LINESTRING (656936.54079176 5080887.157674802, 656839.6244827488 5080795.697553382, 656826.3398865729 5080791.203325672)</data>
@@ -51697,7 +51683,7 @@
 </edge>
 <edge source="6279098003" target="400878866" id="0">
   <data key="d7">[ 42223264, 27163923 ]</data>
-  <data key="d16">['Via Giulio Salvetti', 'Via Angelo Giovanni Tiella']</data>
+  <data key="d16">['Via Angelo Giovanni Tiella', 'Via Giulio Salvetti']</data>
   <data key="d8">residential</data>
   <data key="d19">['30']</data>
   <data key="d9">LINESTRING (658533.4024286671 5085595.375727798, 658519.9592615253 5085592.974424571, 658507.7115764003 5085595.106408927)</data>
@@ -51725,7 +51711,7 @@
 </edge>
 <edge source="400878866" target="6279098003" id="0">
   <data key="d7">[ 42223264, 27163923 ]</data>
-  <data key="d16">['Via Giulio Salvetti', 'Via Angelo Giovanni Tiella']</data>
+  <data key="d16">['Via Angelo Giovanni Tiella', 'Via Giulio Salvetti']</data>
   <data key="d8">residential</data>
   <data key="d19">['30']</data>
   <data key="d9">LINESTRING (658507.7115764003 5085595.106408927, 658519.9592615253 5085592.974424571, 658533.4024286671 5085595.375727798)</data>
@@ -54913,7 +54899,7 @@
 </edge>
 <edge source="309547711" target="10048934890" id="0">
   <data key="d7">[ 148093048, 28182314 ]</data>
-  <data key="d16">['Albaredo - Zugna', 'Albaredo - Zugna (Curva Stella)']</data>
+  <data key="d16">['Albaredo - Zugna (Curva Stella)', 'Albaredo - Zugna']</data>
   <data key="d8">unclassified</data>
   <data key="d9">LINESTRING (659528.4257777411 5079425.558140036, 659526.8550021935 5079436.779785266, 659525.1919967695 5079446.453716924, 659522.9693520678 5079459.759800064, 659520.8122159631 5079472.63398558, 659518.818447685 5079483.689098375, 659516.7622133095 5079496.265708419, 659515.3978721304 5079509.12695005, 659514.078687937 5079522.044942125, 659509.2465743995 5079529.280382129, 659501.7327378852 5079534.15658506, 659494.1432428781 5079534.7283569835, 659486.3218709051 5079532.53701798, 659479.3608972126 5079526.799098017, 659476.0605017683 5079521.611207988, 659476.0981957052 5079515.919992844, 659477.6848621748 5079509.812820283, 659480.8087170244 5079501.332699323, 659483.9363405498 5079493.008322317, 659484.1578454472 5079483.797574499, 659474.8809760516 5079472.952695899, 659465.0296310333 5079462.693397983, 659453.9128764819 5079451.489919217, 659442.5630604867 5079441.492278648, 659439.6775435207 5079438.294009592)</data>
   <data key="d10">248.907</data>
@@ -54939,7 +54925,7 @@
 </edge>
 <edge source="10048934890" target="309547711" id="0">
   <data key="d7">[ 148093048, 28182314 ]</data>
-  <data key="d16">['Albaredo - Zugna (Curva Stella)', 'Albaredo - Zugna']</data>
+  <data key="d16">['Albaredo - Zugna', 'Albaredo - Zugna (Curva Stella)']</data>
   <data key="d8">unclassified</data>
   <data key="d9">LINESTRING (659439.6775435207 5079438.294009592, 659442.5630604867 5079441.492278648, 659453.9128764819 5079451.489919217, 659465.0296310333 5079462.693397983, 659474.8809760516 5079472.952695899, 659484.1578454472 5079483.797574499, 659483.9363405498 5079493.008322317, 659480.8087170244 5079501.332699323, 659477.6848621748 5079509.812820283, 659476.0981957052 5079515.919992844, 659476.0605017683 5079521.611207988, 659479.3608972126 5079526.799098017, 659486.3218709051 5079532.53701798, 659494.1432428781 5079534.7283569835, 659501.7327378852 5079534.15658506, 659509.2465743995 5079529.280382129, 659514.078687937 5079522.044942125, 659515.3978721304 5079509.12695005, 659516.7622133095 5079496.265708419, 659518.818447685 5079483.689098375, 659520.8122159631 5079472.63398558, 659522.9693520678 5079459.759800064, 659525.1919967695 5079446.453716924, 659526.8550021935 5079436.779785266, 659528.4257777411 5079425.558140036)</data>
   <data key="d10">248.907</data>
@@ -55017,7 +55003,7 @@
 </edge>
 <edge source="310101703" target="745816166" id="0">
   <data key="d7">[ 148093048, 148093049 ]</data>
-  <data key="d16">['Albaredo - Zugna', 'Albaredo - Zugna (Curva Stella)']</data>
+  <data key="d16">['Albaredo - Zugna (Curva Stella)', 'Albaredo - Zugna']</data>
   <data key="d8">unclassified</data>
   <data key="d9">LINESTRING (659319.9960495547 5079382.018614834, 659323.5653058672 5079387.635788729, 659331.5209412661 5079400.02514057, 659351.4652617056 5079407.241818519, 659369.7613817834 5079408.157003232, 659384.3566849853 5079409.177176315, 659396.9613073921 5079412.380807263, 659405.1230473458 5079414.636366781, 659414.2511387289 5079416.171920051, 659423.5476909357 5079422.9370656395, 659432.1141161369 5079431.506719624, 659438.159287882 5079436.609551683)</data>
   <data key="d10">137.514</data>
@@ -55792,7 +55778,7 @@
 </edge>
 <edge source="745816166" target="310101703" id="0">
   <data key="d7">[ 148093048, 148093049 ]</data>
-  <data key="d16">['Albaredo - Zugna (Curva Stella)', 'Albaredo - Zugna']</data>
+  <data key="d16">['Albaredo - Zugna', 'Albaredo - Zugna (Curva Stella)']</data>
   <data key="d8">unclassified</data>
   <data key="d9">LINESTRING (659438.159287882 5079436.609551683, 659432.1141161369 5079431.506719624, 659423.5476909357 5079422.9370656395, 659414.2511387289 5079416.171920051, 659405.1230473458 5079414.636366781, 659396.9613073921 5079412.380807263, 659384.3566849853 5079409.177176315, 659369.7613817834 5079408.157003232, 659351.4652617056 5079407.241818519, 659331.5209412661 5079400.02514057, 659323.5653058672 5079387.635788729, 659319.9960495547 5079382.018614834)</data>
   <data key="d10">137.514</data>
@@ -57590,7 +57576,7 @@
 </edge>
 <edge source="1599038222" target="1599039769" id="0">
   <data key="d7">[ 24855816, 27034047 ]</data>
-  <data key="d16">['Via Giuseppe Di Vittorio', "Via dell'Artigiano"]</data>
+  <data key="d16">["Via dell'Artigiano", 'Via Giuseppe Di Vittorio']</data>
   <data key="d8">unclassified</data>
   <data key="d19">['50']</data>
   <data key="d9">LINESTRING (656826.3398865729 5080791.203325672, 656839.6244827488 5080795.697553382, 656936.54079176 5080887.157674802)</data>
@@ -58224,7 +58210,7 @@
 <edge source="330830842" target="5968447332" id="0">
   <data key="d7">[ 24823532, 632109606 ]</data>
   <data key="d15">['1']</data>
-  <data key="d16">['Viale Caproni', 'Piazzale Alcide De Gasperi']</data>
+  <data key="d16">['Piazzale Alcide De Gasperi', 'Viale Caproni']</data>
   <data key="d8">secondary</data>
   <data key="d9">LINESTRING (657045.334758709 5081410.018741198, 657049.7555576887 5081404.438748453, 657050.759154832 5081400.6954088295, 657051.5402228348 5081368.975120131)</data>
   <data key="d10">42.737</data>
@@ -58710,7 +58696,7 @@
 </edge>
 <edge source="9444853286" target="334233803" id="0">
   <data key="d7">[ 30315216, 27164072 ]</data>
-  <data key="d16">['Via Venezia', 'Via Ronchi']</data>
+  <data key="d16">['Via Ronchi', 'Via Venezia']</data>
   <data key="d8">residential</data>
   <data key="d9">LINESTRING (657847.8688122273 5082880.637618642, 657782.6379616547 5082877.28480657, 657764.4132125068 5082874.585708407)</data>
   <data key="d10">83.512</data>
@@ -60814,7 +60800,7 @@
 </edge>
 <edge source="369289430" target="369289556" id="0">
   <data key="d7">[ 135568089, 135568090 ]</data>
-  <data key="d16">['Via Milite Ignoto', 'Piazzale Silvio Defrancesco']</data>
+  <data key="d16">['Piazzale Silvio Defrancesco', 'Via Milite Ignoto']</data>
   <data key="d8">residential</data>
   <data key="d9">LINESTRING (658150.8592109636 5084400.15258333, 658122.8200007261 5084406.228778555, 658106.24314991 5084355.320498049, 658100.1412507447 5084343.1798944045, 658093.4106415748 5084335.592536127)</data>
   <data key="d10">105.88</data>
@@ -60918,7 +60904,7 @@
 </edge>
 <edge source="369442685" target="726844893" id="0">
   <data key="d7">[ 206495466, 24755652 ]</data>
-  <data key="d16">['Viale dei Colli', 'Via Noriglio']</data>
+  <data key="d16">['Via Noriglio', 'Viale dei Colli']</data>
   <data key="d8">secondary</data>
   <data key="d19">['30']</data>
   <data key="d9">LINESTRING (659843.7516810638 5083572.818287856, 659810.0898192218 5083595.562918265, 659788.8664575248 5083608.667423733, 659771.3612731819 5083620.300392718, 659747.944383297 5083633.570757277, 659736.5439824904 5083639.402332749, 659728.4112887591 5083642.260907275, 659707.1797590151 5083647.571992007, 659687.9156955776 5083650.954970305, 659648.3778205862 5083652.92558565, 659580.540546498 5083653.999930203)</data>
@@ -60932,7 +60918,7 @@
 </edge>
 <edge source="726844893" target="369442685" id="0">
   <data key="d7">[ 206495466, 24755652 ]</data>
-  <data key="d16">['Viale dei Colli', 'Via Noriglio']</data>
+  <data key="d16">['Via Noriglio', 'Viale dei Colli']</data>
   <data key="d8">secondary</data>
   <data key="d19">['30']</data>
   <data key="d9">LINESTRING (659580.540546498 5083653.999930203, 659648.3778205862 5083652.92558565, 659687.9156955776 5083650.954970305, 659707.1797590151 5083647.571992007, 659728.4112887591 5083642.260907275, 659736.5439824904 5083639.402332749, 659747.944383297 5083633.570757277, 659771.3612731819 5083620.300392718, 659788.8664575248 5083608.667423733, 659810.0898192218 5083595.562918265, 659843.7516810638 5083572.818287856)</data>
@@ -70538,7 +70524,7 @@
 </edge>
 <edge source="540359247" target="419693626" id="0">
   <data key="d7">[ 240823961, 241104732 ]</data>
-  <data key="d16">['Piazza San Marco', 'Via della Terra']</data>
+  <data key="d16">['Via della Terra', 'Piazza San Marco']</data>
   <data key="d8">pedestrian</data>
   <data key="d9">LINESTRING (658680.7894111027 5083689.833093786, 658681.6198253325 5083698.626141318, 658683.4349078806 5083704.442694624, 658676.29632648 5083723.059459906)</data>
   <data key="d10">34.871</data>
@@ -79070,7 +79056,7 @@
 </edge>
 <edge source="5120589729" target="1165495843" id="0">
   <data key="d7">[ 100854082, 36708534 ]</data>
-  <data key="d16">['Via Sabbioni', 'Via Graser']</data>
+  <data key="d16">['Via Graser', 'Via Sabbioni']</data>
   <data key="d8">residential</data>
   <data key="d9">LINESTRING (658211.4152264289 5084779.974889447, 658209.8740224068 5084775.588518479, 658203.7695339136 5084744.147657637)</data>
   <data key="d10">36.689</data>
@@ -79135,7 +79121,7 @@
 </edge>
 <edge source="1165495843" target="5120589729" id="0">
   <data key="d7">[ 100854082, 36708534 ]</data>
-  <data key="d16">['Via Sabbioni', 'Via Graser']</data>
+  <data key="d16">['Via Graser', 'Via Sabbioni']</data>
   <data key="d8">residential</data>
   <data key="d9">LINESTRING (658203.7695339136 5084744.147657637, 658209.8740224068 5084775.588518479, 658211.4152264289 5084779.974889447)</data>
   <data key="d10">36.689</data>
@@ -82059,6 +82045,19 @@
   <data key="d13">Setting LTS to 2 because highway='track'.</data>
   <data key="d14">mixed traffic, highway $=$ "track"</data>
 </edge>
+<edge source="2482401341" target="416626426" id="0">
+  <data key="d7">2.48169e+07</data>
+  <data key="d16">['Via delle Scuole']</data>
+  <data key="d8">pedestrian</data>
+  <data key="d9">LINESTRING (658443.3297888165 5083822.296061085, 658443.4009381286 5083824.065571974, 658441.6762637085 5083868.080239444, 658438.0848052355 5083890.401257608)</data>
+  <data key="d10">68.461</data>
+  <data key="d11">m13</data>
+  <data key="d12">1</data>
+  <data key="d17">2.0</data>
+  <data key="d18">50.0</data>
+  <data key="d13">Setting LTS to 1 because highway='pedestrian'.</data>
+  <data key="d14">mixed traffic, highway $=$ "pedestrian"</data>
+</edge>
 <edge source="2499751939" target="298030452" id="0">
   <data key="d7">2.42514e+08</data>
   <data key="d15">['2']</data>
@@ -82541,7 +82540,7 @@
 </edge>
 <edge source="2971440782" target="993181772" id="0">
   <data key="d7">[ 246141249, 112881692 ]</data>
-  <data key="d16">['Via Valteri', 'Via Fontani']</data>
+  <data key="d16">['Via Fontani', 'Via Valteri']</data>
   <data key="d8">residential</data>
   <data key="d9">LINESTRING (660478.6444420055 5083308.4700422585, 660477.9604471318 5083309.097135813, 660461.7434511529 5083324.563913178, 660449.1504850741 5083337.411950236, 660437.6497204442 5083347.964719357, 660422.2594352406 5083362.997193854, 660406.2976439623 5083377.914832744, 660391.4527140623 5083391.682973966, 660378.4347742179 5083403.263828521, 660359.6817484573 5083416.241478492, 660351.5178552549 5083422.078000179)</data>
   <data key="d10">170.6</data>
@@ -83156,7 +83155,7 @@
   <data key="d15">['2']</data>
   <data key="d16">['Via del Brennero']</data>
   <data key="d8">primary</data>
-  <data key="d19">['50', '70']</data>
+  <data key="d19">['70', '50']</data>
   <data key="d9">LINESTRING (658163.778966449 5085667.260024678, 658145.0844552882 5085638.943644211, 658119.6054931665 5085608.841840813)</data>
   <data key="d10">73.312</data>
   <data key="d11">m12</data>
@@ -83186,7 +83185,7 @@
   <data key="d15">['2']</data>
   <data key="d16">['Via del Brennero']</data>
   <data key="d8">primary</data>
-  <data key="d19">['50', '30']</data>
+  <data key="d19">['30', '50']</data>
   <data key="d9">LINESTRING (658190.370662224 5085699.6584769385, 658200.3684166534 5085710.831636196, 658215.1784730915 5085734.123761832, 658227.876628842 5085761.08628323)</data>
   <data key="d10">72.364</data>
   <data key="d11">m10</data>
@@ -83216,7 +83215,7 @@
   <data key="d15">['2']</data>
   <data key="d16">['Via del Brennero']</data>
   <data key="d8">primary</data>
-  <data key="d19">['50', '70']</data>
+  <data key="d19">['70', '50']</data>
   <data key="d9">LINESTRING (658119.6054931665 5085608.841840813, 658145.0844552882 5085638.943644211, 658163.778966449 5085667.260024678)</data>
   <data key="d10">73.312</data>
   <data key="d11">m12</data>
@@ -86155,7 +86154,7 @@
 </edge>
 <edge source="9646128705" target="9646128695" id="0">
   <data key="d7">[ 1049653980, 1049653981 ]</data>
-  <data key="d16">['Via Forni', 'Via del Ghetto']</data>
+  <data key="d16">['Via del Ghetto', 'Via Forni']</data>
   <data key="d8">pedestrian</data>
   <data key="d9">LINESTRING (658657.2535516567 5083847.766101373, 658652.932769865 5083845.509640856, 658649.9691085457 5083839.374592805, 658652.5649944373 5083824.121141523, 658656.0115245247 5083804.153417602)</data>
   <data key="d10">47.428</data>
@@ -87076,7 +87075,7 @@
 </edge>
 <edge source="3759038180" target="9210765" id="0">
   <data key="d7">[ 69922343, 372347305, 530890668, 372347308, 69922352, 230404479 ]</data>
-  <data key="d15">['6', '4', '2']</data>
+  <data key="d15">['2', '6', '4']</data>
   <data key="d8">motorway_link</data>
   <data key="d19">['40']</data>
   <data key="d9">LINESTRING (655448.4804084648 5078949.916995422, 655416.2201270845 5079039.846413535, 655414.1101373305 5079047.153078565, 655412.2942273242 5079053.266462653, 655399.7311816873 5079089.838260507, 655391.2356708939 5079118.807854013, 655387.2633023503 5079139.352863913, 655385.1858023563 5079161.479554248, 655386.6718252484 5079183.395425717, 655392.0485065337 5079205.3754974, 655405.1390146563 5079242.257035105, 655417.1436709247 5079266.048685246, 655423.2407626682 5079286.245877957, 655429.1748372789 5079333.075774647)</data>
