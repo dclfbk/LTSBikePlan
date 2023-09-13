@@ -11,8 +11,8 @@ sf = importr('sf')
 stplanr = importr('stplanr')
 
 # DEM interested:
-#dem_path = '/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/area.tif'
-dem_path = '/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/w51065_s10.tif'
+dem_path = '/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/area.tif'
+#dem_path = '/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/w51065_s10.tif'
 class SlopeCalculator:
 
     @staticmethod
