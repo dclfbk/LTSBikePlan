@@ -37,7 +37,6 @@ def main():
     # Run download data file with the city/region as an argument from OSM and DEM for slope calculation
     os.system(f"python {base_path}download_data.py \"{city}\"")
 
-    # Commented out as per your original code
     # os.system(f"python {base_path}download_wcs.py \"{city}\"")
     
     # Run LTS calculus using nbconvert without overwriting the original files
