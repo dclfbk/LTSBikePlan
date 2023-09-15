@@ -36,7 +36,6 @@ gdf_edges.index = original_index
 
 # plot downloaded graph - this is slow for a large area
 #fig, ax = ox.plot_graph(G, node_size=0, edge_color="w", edge_linewidth=0.2)
-
 #print(gdf_edges.columns)
 
 pickle_path = "/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/gdf_data.pkl"
