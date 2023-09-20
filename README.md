@@ -2,7 +2,7 @@
 Level of Traffic Stress Bike Planning and Infrastructure Network Analysis for Safe and Accessible Cycling
 
 The final document is [here]().
-The final presentation is []()
+The final presentation is [here]()
 
 ## Topic
 
@@ -61,7 +61,7 @@ The LTSBikePlan bases its methodology on [OSM](https://www.openstreetmap.org/) d
 <a name="tasks"></a>
 ### Tasks
 
-- [ ] Translate [Furth, Mekuria et al. work on LTS](https://scholarworks.sjsu.edu/mti_publications/74/) scripts into Python, R, JS and SQL architecture.
+- [X] Translate [Furth, Mekuria et al. work on LTS](https://scholarworks.sjsu.edu/mti_publications/74/) scripts into Python, R and JS architecture.
 - [X] Validate the level of traffic stress classification using slope.
 - [ ] Validate the tool with different cities (Udine, Bologna etc.) by including measures on the flow and network analysis to address bikeability.
 - [ ] Allowing the possibility to integrate other data (e.g. from P.A.) in the models.
