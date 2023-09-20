@@ -302,7 +302,6 @@ class BikePathAnalysis:
             conditions.append(gdf_edges['highway'] == 'track')
             values.append('m15')
 
-        # ... [rest of the conditions remain unchanged]
         conditions.extend([
             (gdf_edges['maxspeed_assumed'] <= 50) & (gdf_edges['highway'] == 'service') & (gdf_edges['service'] == 'parking_aisle'),
             (gdf_edges['maxspeed_assumed'] <= 50) & (gdf_edges['highway'] == 'service') & (gdf_edges['service'] == 'driveway'),
