@@ -42,8 +42,10 @@ def main():
     # Run LTS calculus using nbconvert without overwriting the original files
     os.system(f"jupyter nbconvert --to notebook --execute {base_path}lts_calculus.ipynb --output {base_path}lts_calculus.ipynb")
     
-    # Set the CITY environment variable and run LTS plot
-    os.system(f"CITY=\"{city}\" jupyter nbconvert --to notebook --execute {base_path}lts_plot.ipynb --output {base_path}lts_plot.ipynb")
+    # Set the CITY environment variable and run LTS maps
+    os.system(f"CITY=\"{city}\" jupyter nbconvert --to notebook --execute {base_path}lts_analysis_map.ipynb --output {base_path}lts_analysis_map.ipynb")
+    os.system(f"CITY=\"{city}\" jupyter nbconvert --to notebook --execute {base_path}lts_h3_choropleth_map.ipynb --output {base_path}lts_h3_choropleth_map.ipynb")
+
 
 if __name__ == "__main__":
     main()
