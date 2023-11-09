@@ -41,6 +41,13 @@
     
             <div class="folium-map" id="map_33fd0f57304059f39a9551a9005fee8c" ></div>
         
+    
+<div style="position: fixed; bottom: 50px; left: 50px; width: 150px; height: 100px; 
+background-color: white; border:2px solid grey; z-index:9999; font-size:14px;">
+&nbsp; Legend <br>
+&nbsp; Street &nbsp; <i style="background-color:#ff7800;">&nbsp;&nbsp;&nbsp;&nbsp;</i><br>
+&nbsp; Bridge &nbsp; <i style="background-color:#0A3CB0;">&nbsp;&nbsp;&nbsp;&nbsp;</i><br>
+</div>
 </body>
 <script>
     
@@ -12984,6 +12991,80 @@
             L.control.layers(
                 layer_control_5d6fffd92985a5baa5e034e33bd85663.base_layers,
                 layer_control_5d6fffd92985a5baa5e034e33bd85663.overlays,
+                {"autoZIndex": true, "collapsed": true, "position": "topright"}
+            ).addTo(map_33fd0f57304059f39a9551a9005fee8c);
+            tile_layer_70828f64126b9bac701e668cc3bcc03c.remove();
+            tile_layer_e61c27470396c327d882f031fca566cf.remove();
+        
+    
+            var poly_line_ef36b805f50cacf49453d7c428601d24 = L.polyline(
+                [[46.1629957, 12.6611916], [46.1619918, 12.6611254], [46.1610599, 12.6614555], [46.1609136, 12.661459], [46.1608243, 12.6614611], [46.1603739, 12.6615432], [46.1600932, 12.6615508], [46.1598996, 12.661514], [46.1594021, 12.6612157]],
+                {"bubblingMouseEvents": true, "color": "#ff7800", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#ff7800", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 6}
+            ).addTo(feature_group_0e915aa1c289f407ff89845b09ba7932);
+        
+    
+            var poly_line_2cac4bba7803f56c463aee56e8119bb6 = L.polyline(
+                [[46.1082685, 12.669373], [46.1043351, 12.6735186], [46.1037361, 12.6741802], [46.102601, 12.6772945], [46.1011382, 12.6787115], [46.0999111, 12.6794174], [46.099265, 12.6797642], [46.098977, 12.6799364], [46.0988209, 12.6800362], [46.0987794, 12.6801744], [46.0987317, 12.680224], [46.098581, 12.6803369], [46.0985889, 12.6807083], [46.0973257, 12.681626], [46.097211, 12.6816583]],
+                {"bubblingMouseEvents": true, "color": "#ff7800", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#ff7800", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 6}
+            ).addTo(feature_group_0e915aa1c289f407ff89845b09ba7932);
+        
+    
+            var marker_db6a8bf26eb9287ba369939114a26d4a = L.marker(
+                [46.1629957, 12.6611916],
+                {}
+            ).addTo(map_33fd0f57304059f39a9551a9005fee8c);
+        
+    
+        var popup_05256c7a79dbb175def52fc26c79c024 = L.popup({"maxWidth": "100%"});
+
+        
+            
+                var html_0a5587e31cd697d3b7938f9c39b35129 = $(`<div id="html_0a5587e31cd697d3b7938f9c39b35129" style="width: 100.0%; height: 100.0%;">Gap Via Roma - Largo Duomo - Piazza Roma - Via Marziano Ciotti</div>`)[0];
+                popup_05256c7a79dbb175def52fc26c79c024.setContent(html_0a5587e31cd697d3b7938f9c39b35129);
+            
+        
+
+        marker_db6a8bf26eb9287ba369939114a26d4a.bindPopup(popup_05256c7a79dbb175def52fc26c79c024)
+        ;
+
+        
+    
+    
+            var marker_635c6860ca2c432c061edd614e901cf4 = L.marker(
+                [46.1082685, 12.669373],
+                {}
+            ).addTo(map_33fd0f57304059f39a9551a9005fee8c);
+        
+    
+        var popup_5537973ee5838c10d6dac6d1089bb692 = L.popup({"maxWidth": "100%"});
+
+        
+            
+                var html_63f48c88502fc5b992cdf761d7654204 = $(`<div id="html_63f48c88502fc5b992cdf761d7654204" style="width: 100.0%; height: 100.0%;">Gap Via Montereale - Largo Nazario Sauro</div>`)[0];
+                popup_5537973ee5838c10d6dac6d1089bb692.setContent(html_63f48c88502fc5b992cdf761d7654204);
+            
+        
+
+        marker_635c6860ca2c432c061edd614e901cf4.bindPopup(popup_5537973ee5838c10d6dac6d1089bb692)
+        ;
+
+        
+    
+    
+            var layer_control_89c8c71202af1d9315932d25015c62fb = {
+                base_layers : {
+                    "openstreetmap" : tile_layer_a1a6ac5aa54b779ca24069681063da25,
+                    "cartodbpositron" : tile_layer_70828f64126b9bac701e668cc3bcc03c,
+                    "cartodbdark_matter" : tile_layer_e61c27470396c327d882f031fca566cf,
+                },
+                overlays :  {
+                    "Declustered gaps" : feature_group_0e915aa1c289f407ff89845b09ba7932,
+                    "Gap numbers" : feature_group_52fc7ffcabb437750a59a05856501a02,
+                },
+            };
+            L.control.layers(
+                layer_control_89c8c71202af1d9315932d25015c62fb.base_layers,
+                layer_control_89c8c71202af1d9315932d25015c62fb.overlays,
                 {"autoZIndex": true, "collapsed": true, "position": "topright"}
             ).addTo(map_33fd0f57304059f39a9551a9005fee8c);
             tile_layer_70828f64126b9bac701e668cc3bcc03c.remove();
