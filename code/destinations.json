@@ -1,0 +1,94 @@
+{
+    "categories": [
+        {
+            "category_name": "Opportunity",
+            "weight": 40,
+            "types": [
+                {
+                    "type_name": "school",
+                    "weight": 30,
+                    "scoring_process": "A"
+                },
+                {
+                    "type_name": "college",
+                    "weight": 30,
+                    "scoring_process": "C"
+                },
+                {
+                    "type_name": "university",
+                    "weight": 25,
+                    "scoring_process": "C"
+                },
+                {
+                    "type_name": "library",
+                    "weight": 15,
+                    "scoring_process": "B"
+                }
+            ]
+        },
+        {
+            "category_name": "Core services",
+            "weight": 40,
+            "types": [
+                {
+                    "type_name": "doctors",
+                    "weight": 20,
+                    "scoring_process": "B"
+                },
+                {
+                    "type_name": "dentist",
+                    "weight": 10,
+                    "scoring_process": "B"
+                },
+                {
+                    "type_name": "hospital",
+                    "weight": 20,
+                    "scoring_process": "C"
+                },
+                {
+                    "type_name": "pharmacy",
+                    "weight": 15,
+                    "scoring_process": "B"
+                },
+                {
+                    "type_name": "supermarket",
+                    "weight": 15,
+                    "scoring_process": "D"
+                },
+                {
+                    "type_name": "bar",
+                    "weight": 10,
+                    "scoring_process": "C"
+                },
+                
+                {
+                    "type_name": "cafe",
+                    "weight": 10,
+                    "scoring_process": "C"
+                }
+            ]
+        },
+        {
+            "category_name": "Recreation",
+            "weight": 20,
+            "types": [
+                {
+                    "type_name": "nature_reserve",
+                    "weight": 30,
+                    "scoring_process": "A"
+                },
+                {
+                    "type_name": "park",
+                    "weight": 30,
+                    "scoring_process": "A"
+                },
+
+                {
+                    "type_name": "sports_centre",
+                    "weight": 40,
+                    "scoring_process": "B"
+                }
+            ]
+        }
+    ]
+}
