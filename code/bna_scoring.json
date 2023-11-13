@@ -1,0 +1,60 @@
+{
+    "scoring_process": [
+        {
+            "process": "A",
+            "criteria": [
+                {
+                    "description": "First low stress destination",
+                    "points": 30
+                },
+                {
+                    "description": "Second low stress destination",
+                    "points": 20
+                },
+                {
+                    "description": "Third low stress destination",
+                    "points": 20
+                }
+            ]
+        },
+        {
+            "process": "B",
+            "criteria": [
+                {
+                    "description": "First low stress destination",
+                    "points": 40
+                },
+                {
+                    "description": "Second low stress destination",
+                    "points": 20
+                },
+                {
+                    "description": "Third low stress destination",
+                    "points": 10
+                }
+            ]
+        },
+        {
+            "process": "C",
+            "criteria": [
+                {
+                    "description": "First low stress destination",
+                    "points": 70
+                }
+            ]
+        },
+        {
+            "process": "D",
+            "criteria": [
+                {
+                    "description": "First low stress destination",
+                    "points": 60
+                },
+                {
+                    "description": "Second low stress destination",
+                    "points": 20
+                }
+            ]
+        }
+    ]
+}
