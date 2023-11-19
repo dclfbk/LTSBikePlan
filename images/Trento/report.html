@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>report</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="/Users/leonardo/Desktop/Tesi/LTSBikePlan/code/report.css" />
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<h1
+id="trento---level-of-traffic-stress-bike-planning-and-infrastructure-network-analysis-for-safe-and-accessible-cycling">Trento
+- Level of Traffic Stress Bike Planning and Infrastructure Network
+Analysis for Safe and Accessible Cycling</h1>
+<h2 id="introduction">Introduction</h2>
+<p>Some introductory text here…</p>
+<h2 id="section-6-accident-analysis">Section 6: Accident Analysis</h2>
+<figure>
+<embed
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/accident_map.html" />
+<figcaption aria-hidden="true">Accident Map</figcaption>
+</figure>
+<figure>
+<embed
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/heatmap_map.html" />
+<figcaption aria-hidden="true">Heatmap Map</figcaption>
+</figure>
+<figure>
+<embed
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/kde_map.html" />
+<figcaption aria-hidden="true">KDE Map</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/frequencyaccidentsbyroads_plot.png"
+alt="Frequency of Accidents by Road type" />
+<figcaption aria-hidden="true">Frequency of Accidents by Road
+type</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/accidentsbynumberlanes_plot.png"
+alt="Accidents by Number of Lanes" />
+<figcaption aria-hidden="true">Accidents by Number of Lanes</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/accidentsbymaxspeed_plot.png"
+alt="Accidents by MaxSpeed" />
+<figcaption aria-hidden="true">Accidents by MaxSpeed</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/lanes_speed_distribution_plot.png"
+alt="Lanes Speed Distribution" />
+<figcaption aria-hidden="true">Lanes Speed Distribution</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/accidents_lts_plot.png"
+alt="Accident by LTS" />
+<figcaption aria-hidden="true">Accident by LTS</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/perc_accidents_lts_plot.png"
+alt="Percentage of Accidents by LTS" />
+<figcaption aria-hidden="true">Percentage of Accidents by
+LTS</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/accidents_stress_level_plot.png"
+alt="Number of Accidents by Stress Level" />
+<figcaption aria-hidden="true">Number of Accidents by Stress
+Level</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/perc_accidents_stress_level_plot.png"
+alt="Percentage of Accidents by Stress Level" />
+<figcaption aria-hidden="true">Percentage of Accidents by Stress
+Level</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/accidents_lts_intersection_plot.png"
+alt="Number of Accidents by LTS Value - Intersections" />
+<figcaption aria-hidden="true">Number of Accidents by LTS Value -
+Intersections</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/perc_accidents_lts_intersection_plot.png"
+alt="Percentage of Accidents by LTS Value - Intersections" />
+<figcaption aria-hidden="true">Percentage of Accidents by LTS Value -
+Intersections</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/accidents_stress_level_intersection_plot.png"
+alt="Number of Accidents by Stress Level - Intersections" />
+<figcaption aria-hidden="true">Number of Accidents by Stress Level -
+Intersections</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/perc_accidents_stress_level_intersection_plot.png"
+alt="Percentage of Accidents by Stress Level - Intersections" />
+<figcaption aria-hidden="true">Percentage of Accidents by Stress Level -
+Intersections</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/DBSCAN_accident_clusters_plot.png"
+alt="DBSCAN Accident Clusters" />
+<figcaption aria-hidden="true">DBSCAN Accident Clusters</figcaption>
+</figure>
+<h2 id="section-7-another-section">Section 7: Another Section</h2>
+<h2 id="section-8-additional-analysis">Section 8: Additional
+Analysis</h2>
+</body>
+</html>
