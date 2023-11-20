@@ -32,7 +32,8 @@ image_names = ["accident_map.html",
                "perc_accidents_lts_intersection_plot.png",
                "accidents_stress_level_intersection_plot.png",
                "perc_accidents_stress_level_intersection_plot.png",
-               "DBSCAN_accident_clusters_plot.png"]
+               "DBSCAN_accident_clusters_plot.png",
+               "choropleth_lts_accidents_map.html"]
 image_paths = [os.path.join(city_img_path, img) for img in image_names]
 
 accident_file_exists = os.path.exists(os.path.join(base_path, "accidents_trento.geojson"))
@@ -81,6 +82,9 @@ if accident_file_exists:
 ![Percentage of Accidents by Stress Level - Intersections]({image_paths[14]})
 
 ![DBSCAN Accident Clusters]({image_paths[15]})
+
+![Chropleth Map Accidents]({image_paths[16]})
+
 """
 markdown_content += """
 ## Section 7: Another Section 

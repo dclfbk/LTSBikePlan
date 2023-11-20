@@ -39,6 +39,9 @@ Some introductory text here...
 
 ![DBSCAN Accident Clusters](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/DBSCAN_accident_clusters_plot.png)
 
+![Chropleth Map Accidents](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/choropleth_lts_accidents_map.html)
+
+
 ## Section 7: Another Section 
 
 ## Section 8: Additional Analysis 
