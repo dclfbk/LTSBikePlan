@@ -48,6 +48,24 @@
             "criteria": [
                 {
                     "description": "First low stress destination",
+                    "points": 40
+                },
+                {
+                    "description": "Second low stress destination",
+                    "points": 20
+                },
+                {
+                    "description": "Third low stress destination",
+                    "points": 10
+                }
+            ]
+        },
+
+        {
+            "process": "E",
+            "criteria": [
+                {
+                    "description": "First low stress destination",
                     "points": 60
                 },
                 {
@@ -55,6 +73,30 @@
                     "points": 20
                 }
             ]
+        },
+        {
+            "process": "F",
+            "criteria": [
+                {
+                    "description": "First low stress destination",
+                    "points": 70
+                },
+                {
+                    "description": "Second low stress destination",
+                    "points": 20
+                }
+            ]
+        },
+        {
+            "process": "G",
+            "criteria": [
+                {
+                    "description": "First low stress destination",
+                    "points": 60
+                }
+
+            ]
         }
+
     ]
 }
