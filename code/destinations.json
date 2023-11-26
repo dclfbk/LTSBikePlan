@@ -20,74 +20,126 @@
                     "type_name": "kindergarten",
                     "weight": 25,
                     "scoring_process": "A"
+                },
+
+                {
+                    "type_name": "university",
+                    "weight": 25,
+                    "scoring_process": "A"
                 }
             ]
         },
         {
             "category_name": "Core services",
-            "weight": 40,
+            "weight": 30,
             "types": [
                 {
                     "type_name": "doctors",
                     "weight": 20,
-                    "scoring_process": "B"
+                    "scoring_process": "D"
                 },
                 {
                     "type_name": "dentist",
                     "weight": 10,
-                    "scoring_process": "B"
+                    "scoring_process": "D"
                 },
                 {
                     "type_name": "hospital",
-                    "weight": 20,
+                    "weight": 30,
                     "scoring_process": "C"
                 },
                 {
                     "type_name": "pharmacy",
                     "weight": 10,
-                    "scoring_process": "B"
+                    "scoring_process": "D"
                 },
                 {
                     "type_name": "supermarket",
+                    "weight": 30,
+                    "scoring_process": "E"
+                }
+
+            ]
+        },
+        {
+            "category_name": "Retail",
+            "weight": 20,
+            "types": [
+ 
+                {
+                    "type_name": "retail",
                     "weight": 20,
                     "scoring_process": "D"
                 },
                 {
-                    "type_name": "train_station",
+                    "type_name": "shop",
+                    "weight": 20,
+                    "scoring_process": "D"
+                },
+                {
+                    "type_name": "mall",
                     "weight": 20,
                     "scoring_process": "D"
                 }
             ]
         },
         {
-            "category_name": "Recreation",
-            "weight": 20,
+            "category_name": "Transit",
+            "weight": 15,
             "types": [
                 {
-                    "type_name": "nature_reserve",
-                    "weight": 10,
-                    "scoring_process": "A"
+                    "type_name": "train_station",
+                    "weight": 40,
+                    "scoring_process": "G"
                 },
                 {
-                    "type_name": "park",
+                    "type_name": "bus_station",
                     "weight": 30,
-                    "scoring_process": "A"
+                    "scoring_process": "G"
+                },
+                {
+                    "type_name": "bus_stop",
+                    "weight": 30,
+                    "scoring_process": "G"
+                }
+            ]
+        },
+        
+        {
+            "category_name": "Recreation",
+            "weight": 15,
+            "types": [
+                {
+                    "type_name": "park",
+                    "weight": 25,
+                    "scoring_process": "B"
+                },
+                {
+                    "type_name": "fitness_centre",
+                    "weight": 25,
+                    "scoring_process": "B"
                 },
 
                 {
                     "type_name": "sports_centre",
-                    "weight": 30,
+                    "weight": 15,
                     "scoring_process": "B"
                 },
+
+                {
+                    "type_name": "restaurant",
+                    "weight": 15,
+                    "scoring_process": "B"
+                },
+
                 {
                     "type_name": "bar",
-                    "weight": 15,
+                    "weight": 10,
                     "scoring_process": "C"
                 },
-                
                 {
                     "type_name": "cafe",
-                    "weight": 15,
+                    "weight": 10,
                     "scoring_process": "C"
                 }
             ]
