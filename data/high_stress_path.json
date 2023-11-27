@@ -1,0 +1,13 @@
+{
+    "osmid": 34214300,
+    "highway": "track",
+    "length": 78.953,
+    "rule": "m15",
+    "lts": "4",
+    "slope": "10.117738829227491",
+    "slope_class": "10-20: extreme",
+    "message": "Setting LTS to 2 because highway='track'.",
+    "short_message": "mixed traffic, highway $=$ \"track\"",
+    "lanes_assumed": "2",
+    "maxspeed_assumed": "50"
+}
