@@ -7,11 +7,13 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import osmnx as ox
 from slope_function import SlopeCalculator
 import sys
+import os
 import numpy as np
 import geopandas as gpd
 from sklearn.neighbors import NearestNeighbors
 from shapely.geometry import Point
 from geopandas.tools import sjoin
+import folium
 
 # Function Definitions
 
@@ -61,6 +63,12 @@ def classify_edges_by_quintiles(gdf_edges, gdf_buildings, quintiles):
 # Get the city from command-line arguments
 city = sys.argv[1]
 
+# Sanitize the city name
+city_sanitized = city.split(",")[0].replace(" ", "_")
+city_images = "/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/"
+# Create the path for the new folder
+city_folder_path = os.path.join(city_images, city_sanitized) 
+
 # Download the OSM data for the city/region involved.
 G = ox.graph_from_place(city, network_type="all")
 
@@ -104,3 +112,42 @@ pickle_path = "/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/gdf_data.pkl"
 # Save the GeoDataFrames to a pickle file
 with open(pickle_path, 'wb') as f:
     pickle.dump((gdf_nodes, gdf_edges, city), f)
+
+# Reproject to WGS84
+gdf_edges = gdf_edges.to_crs(epsg=4326)
+
+# Create a colormap for slope classes
+color_palette = ["#267300", "#70A800", "#FFAA00", "#E60000", "#A80000", "#730000"]
+slope_classes = ["0-3: flat", "3-5: mild", "5-8: medium", "8-10: hard", "10-20: extreme", ">20: impossible"]
+colors = dict(zip(slope_classes, color_palette))
+
+# Calculate the mean of latitudes and longitudes
+mean_latitude = gdf_edges.geometry.apply(lambda geom: geom.centroid.y).mean()
+mean_longitude = gdf_edges.geometry.apply(lambda geom: geom.centroid.x).mean()
+
+# Create a folium map centered on the mean of latitudes and longitudes
+map_osm = folium.Map(location=[mean_latitude, mean_longitude], zoom_start=11)
+
+# Add slope information to the map
+for _, row in gdf_edges.iterrows():
+    color = colors.get(str(row['slope_class']), "#000000")  # default color is black
+    folium.GeoJson(
+        row['geometry'], 
+        style_function=lambda _, color=color: {'color': color}  # use default argument to capture color
+    ).add_to(map_osm)
+
+# Create a custom legend HTML string
+legend_html = '''
+<div style="position: fixed; top: 10px; right: 10px; z-index: 1000; background-color: white; padding: 5px; border: 1px solid grey; font-size: 12px;">
+<p><b>Slope</b></p>
+'''
+for slope_class, color in colors.items():
+    legend_html += f'<p><i class="fa fa-square" style="color:{color};"></i> {slope_class}</p>'
+legend_html += '</div>'
+
+# Add the legend HTML to the map
+map_osm.get_root().html.add_child(folium.Element(legend_html))
+
+file_path = os.path.join(city_folder_path, 'slope_map.html')
+
+map_osm.save(file_path)

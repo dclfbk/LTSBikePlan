@@ -351,11 +351,16 @@ class BikePathAnalysis:
             if row['context'] == "urban":
                 if row['slope_class'] in ["0-3: flat", "3-5: mild"]:
                     return row['lts']
-                elif row['slope_class'] in ["5-8: medium", "8-10: hard"]:
+                elif row['slope_class'] == "5-8: medium":
+                    if not np.isnan(row['length']) and row['length'] >= 500:
+                        return min(row['lts'] + 1, 4)
+                    elif not np.isnan(row['length']):
+                        return row['lts']
+                elif row['slope_class'] == "8-10: hard":
                     if not np.isnan(row['length']) and row['length'] >= 500:
                         return min(row['lts'] + 2, 4)
-                    else:
-                        return min(row['lts'] + 1, 4)
+                    elif not np.isnan(row['length']):
+                        return min(row['lts'] + 1, 4) 
                 elif row['slope_class'] in ["10-20: extreme", ">20: impossible"]:
                     return min(row['lts'] + 2, 4)
                 else:
