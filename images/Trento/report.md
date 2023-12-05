@@ -33,11 +33,17 @@ The goal is to shed light on the network's stress levels, bikeability, and safet
 ![Polar Plot](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/sno_polar_plot.png)
 
 ## Section 3: Cluster Analysis
-![DBSCAN clustering plot](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/lts_cluster.png)
+![DBSCAN High Stress Map](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/dbscan_lts_cluster_geo.png)
 
-![HDBSCAN clustering plot](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/lts_hdbscan_cluster.png)
+![DBSCAN High Stress](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/dbscan_lts_cluster.png)
 
-![OPTICS clustering plot](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/lts_cluster_analysis_result.png)
+![HDBSCAN High Stress Map](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/hdbscan_lts_cluster_geo.png)
+
+![HDBSCAN High Stress](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/hdbscan_lts_cluster.png)
+
+![OPTICS High Stress Map](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/optics_lts_cluster_geo.png)
+
+![OPTICS High Stress](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/optics_lts_cluster.png)
 
 ## Section 4: Network Analysis
 
