@@ -28,12 +28,306 @@
   <![endif]-->
 </head>
 <body>
-<h1
-id="trento---level-of-traffic-stress-bike-planning-and-infrastructure-network-analysis-for-safe-and-accessible-cycling">Trento
-- Level of Traffic Stress Bike Planning and Infrastructure Network
-Analysis for Safe and Accessible Cycling</h1>
+<div class="blue-stripe-header">
+<h2>
+Trento - Level of Traffic Stress Bike Planning and Infrastructure
+Network Analysis for Safe and Accessible Cycling
+</h2>
+</div>
 <h2 id="introduction">Introduction</h2>
-<p>Some introductory text here…</p>
+<div class='introduction-text'>
+
+This report offers an in-depth analysis of a selected region’s road
+network, focusing on the Level of Traffic Stress (LTS) and its relation
+to perceived risk. It integrates slope data from OpenStreetMap and uses
+DBSCAN, HDBSCAN, and OPTICS algorithms for cluster analysis to identify
+areas of high stress. The study includes a classical network analysis,
+examining various centrality metrics and strongly connected components,
+using LTS values as weights, and evaluates intersection density for
+bikeability. Additionally, it assesses travel times to points of
+interest and identifies stress gaps using a modified IPDC procedure. The
+report also features a destination access analysis to calculate region’s
+bike network analysis score, categorizing common destinations within an
+H3 hexagonal grid, and analyzes accidents in relation to BNA scores and
+connectivity. The goal is to shed light on the network’s stress levels,
+bikeability, and safety.
+<div/>
+
+<h2 id="section-1-slope-and-level-of-traffic-stress">Section 1: Slope
+and Level of Traffic Stress</h2>
+<figure>
+<embed
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/slope_map.html" />
+<figcaption aria-hidden="true">Slope Map</figcaption>
+</figure>
+<figure>
+<embed
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/lts_map.html" />
+<figcaption aria-hidden="true">Level of Traffic Stress Map</figcaption>
+</figure>
+<figure>
+<embed
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/choropleth_lts_map.html" />
+<figcaption aria-hidden="true">LTS H3 Choropleth map</figcaption>
+</figure>
+<h2 id="section-2-exploratory-spatial-data-analysis">Section 2:
+Exploratory Spatial Data Analysis</h2>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/network_base.png"
+alt="City Network" />
+<figcaption aria-hidden="true">City Network</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/streetnetworkorientation_plot.png"
+alt="Street Network Orientation" />
+<figcaption aria-hidden="true">Street Network Orientation</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/sno_polar_plot.png"
+alt="Polar Plot" />
+<figcaption aria-hidden="true">Polar Plot</figcaption>
+</figure>
+<h2 id="section-3-cluster-analysis">Section 3: Cluster Analysis</h2>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/lts_cluster.png"
+alt="DBSCAN clustering plot" />
+<figcaption aria-hidden="true">DBSCAN clustering plot</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/lts_hdbscan_cluster.png"
+alt="HDBSCAN clustering plot" />
+<figcaption aria-hidden="true">HDBSCAN clustering plot</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/lts_cluster_analysis_result.png"
+alt="OPTICS clustering plot" />
+<figcaption aria-hidden="true">OPTICS clustering plot</figcaption>
+</figure>
+<h2 id="section-4-network-analysis">Section 4: Network Analysis</h2>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/nodes_degree_centrality.png"
+alt="Nodes Degree Centrality" />
+<figcaption aria-hidden="true">Nodes Degree Centrality</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/nodes_closeness_centrality.png"
+alt="Nodes Closeness Centrality" />
+<figcaption aria-hidden="true">Nodes Closeness Centrality</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/nodes_betweenness_centrality.png"
+alt="Nodes Betweenness Centrality" />
+<figcaption aria-hidden="true">Nodes Betweenness Centrality</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/edge_betweenness_centrality.png"
+alt="Edges Betweenness Centrality" />
+<figcaption aria-hidden="true">Edges Betweenness Centrality</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/lts_distrib_nodes_plot.png"
+alt="LTS Distribution for Nodes" />
+<figcaption aria-hidden="true">LTS Distribution for Nodes</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/lts_distrib_edges_plot.png"
+alt="LTS Distribution for Edges" />
+<figcaption aria-hidden="true">LTS Distribution for Edges</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/nodess_betweenness_centrality.png"
+alt="Nodes Degree Centrality weighted by LTS" />
+<figcaption aria-hidden="true">Nodes Degree Centrality weighted by
+LTS</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/nodess_closeness_centrality.png"
+alt="Nodes Closeness Centrality weighted by LTS" />
+<figcaption aria-hidden="true">Nodes Closeness Centrality weighted by
+LTS</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/nodess_betweenness_centrality.png"
+alt="Nodes Betweenness Centrality weighted by LTS" />
+<figcaption aria-hidden="true">Nodes Betweenness Centrality weighted by
+LTS</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/edgez_betweenness_centrality.png"
+alt="Edges Betweenness Centrality weighted by LTS" />
+<figcaption aria-hidden="true">Edges Betweenness Centrality weighted by
+LTS</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/deg_central_map.png"
+alt="Histogram of Degree Centrality" />
+<figcaption aria-hidden="true">Histogram of Degree
+Centrality</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/deg_central_map_top_nodes.png"
+alt="Top 10 Nodes by Degree Centrality" />
+<figcaption aria-hidden="true">Top 10 Nodes by Degree
+Centrality</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/clos_central_map.png"
+alt="Histogram of Closeness Centrality" />
+<figcaption aria-hidden="true">Histogram of Closeness
+Centrality</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/clos_central_map_top_nodes.png"
+alt="Top 10 Nodes by Closeness Centrality" />
+<figcaption aria-hidden="true">Top 10 Nodes by Closeness
+Centrality</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/betw_central_map.png"
+alt="Histogram of Betweenness Centrality" />
+<figcaption aria-hidden="true">Histogram of Betweenness
+Centrality</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/betw_central_map_top_nodes.png"
+alt="Top 10 Nodes by Betweenness Centrality" />
+<figcaption aria-hidden="true">Top 10 Nodes by Betweenness
+Centrality</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/edge_bet_central_map.png"
+alt="Histogram of Edge Betweenness Centrality" />
+<figcaption aria-hidden="true">Histogram of Edge Betweenness
+Centrality</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/edge_bet_central_map_top_nodes.png"
+alt="Top 10 Edges by Edge Betweenness Centrality" />
+<figcaption aria-hidden="true">Top 10 Edges by Edge Betweenness
+Centrality</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/g_high_stres_map.png"
+alt="High Stress Subgraph" />
+<figcaption aria-hidden="true">High Stress Subgraph</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/component_1.png"
+alt="SCC 1" />
+<figcaption aria-hidden="true">SCC 1</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/component_2.png"
+alt="SCC 2" />
+<figcaption aria-hidden="true">SCC 2</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/component_3.png"
+alt="SCC 3" />
+<figcaption aria-hidden="true">SCC 3</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/component_4.png"
+alt="SCC 4" />
+<figcaption aria-hidden="true">SCC 4</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/component_5.png"
+alt="SCC 5" />
+<figcaption aria-hidden="true">SCC 5</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/kde_est_simplifiedgraph.png"
+alt="KDE - Intersection" />
+<figcaption aria-hidden="true">KDE - Intersection</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/nearest_poi_plot.png"
+alt="Nearest POI - Biking Distance" />
+<figcaption aria-hidden="true">Nearest POI - Biking
+Distance</figcaption>
+</figure>
+<h2 id="section-5-gap-analysis">Section 5: Gap Analysis</h2>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/Top10connectedcomponents_plot.png"
+alt="Top 10 Connected Components" />
+<figcaption aria-hidden="true">Top 10 Connected Components</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/highlowstresscomponents_plot.png"
+alt="High Low Stress Comoponents" />
+<figcaption aria-hidden="true">High Low Stress Comoponents</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/gaps_plot.png"
+alt="Gaps Plot" />
+<figcaption aria-hidden="true">Gaps Plot</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/contact_nodes_plot.png"
+alt="Contact Nodes Plot" />
+<figcaption aria-hidden="true">Contact Nodes Plot</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/heter_gapclosure_benefits.png"
+alt="Heterogeneity of Gap Closure - Benefits" />
+<figcaption aria-hidden="true">Heterogeneity of Gap Closure -
+Benefits</figcaption>
+</figure>
+<figure>
+<embed
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/gaps_classified_plot.html" />
+<figcaption aria-hidden="true">Gaps Classified Plot</figcaption>
+</figure>
+<h2 id="section-5-destination-access-analysis">Section 5: Destination
+Access Analysis</h2>
+<figure>
+<embed
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/hexagonal_grid_population.html" />
+<figcaption aria-hidden="true">Hexagonal Grid - Population</figcaption>
+</figure>
+<figure>
+<embed
+src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/bna_score_map.html" />
+<figcaption aria-hidden="true">BNA Score Map</figcaption>
+</figure>
 <h2 id="section-6-accident-analysis">Section 6: Accident Analysis</h2>
 <figure>
 <embed
@@ -141,8 +435,5 @@ alt="DBSCAN Accident Clusters" />
 src="/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/choropleth_lts_accidents_map.html" />
 <figcaption aria-hidden="true">Chropleth Map Accidents</figcaption>
 </figure>
-<h2 id="section-7-another-section">Section 7: Another Section</h2>
-<h2 id="section-8-additional-analysis">Section 8: Additional
-Analysis</h2>
 </body>
 </html>
