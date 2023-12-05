@@ -46,7 +46,7 @@ network_image_names = ["nodes_degree_centrality.png",
                        "kde_est_simplifiedgraph.png",
                        "nearest_poi_plot.png",
                        ]
-clu_image_names = ["lts_cluster.png", "lts_hdbscan_cluster.png", "lts_cluster_analysis_result.png"]
+clu_image_names = ["dbscan_lts_cluster_geo.png","dbscan_lts_cluster.png","hdbscan_lts_cluster_geo.png","hdbscan_lts_cluster.png","optics_lts_cluster_geo.png","optics_lts_cluster.png"]
 acc_image_names = ["accident_map.html", 
                "heatmap_map.html", 
                "kde_map.html",
@@ -119,11 +119,17 @@ The goal is to shed light on the network's stress levels, bikeability, and safet
 ![Polar Plot]({esda_image_paths[2]})
 
 ## Section 3: Cluster Analysis
-![DBSCAN clustering plot]({clu_image_paths[0]})
+![DBSCAN High Stress Map]({clu_image_paths[0]})
 
-![HDBSCAN clustering plot]({clu_image_paths[1]})
+![DBSCAN High Stress]({clu_image_paths[1]})
 
-![OPTICS clustering plot]({clu_image_paths[2]})
+![HDBSCAN High Stress Map]({clu_image_paths[2]})
+
+![HDBSCAN High Stress]({clu_image_paths[3]})
+
+![OPTICS High Stress Map]({clu_image_paths[4]})
+
+![OPTICS High Stress]({clu_image_paths[5]})
 
 ## Section 4: Network Analysis
 
