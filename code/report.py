@@ -72,6 +72,7 @@ gap_image_names = ["Top10connectedcomponents_plot.png",
                    "gaps_classified_plot.html"]
 
 da_image_names = ["hexagonal_grid_population.html", "bna_score_map.html"]
+sump_image_names = ["gap_quadrants.html", "risk_accidents_hexagon.html"]
 
 lts_image_paths = [os.path.join(city_img_path, img) for img in lts_image_names]
 esda_image_paths = [os.path.join(city_img_path, img) for img in esda_image_names]
@@ -80,6 +81,8 @@ clu_image_paths = [os.path.join(city_img_path, img) for img in clu_image_names]
 net_image_paths = [os.path.join(city_img_path, img) for img in network_image_names]
 gap_image_paths = [os.path.join(city_img_path, img) for img in gap_image_names]
 da_image_paths = [os.path.join(city_img_path, img) for img in da_image_names]
+sump_image_paths = [os.path.join(city_img_path, img) for img in sump_image_names]
+
 
 accident_file_exists = os.path.exists(os.path.join(base_path, "accidents_trento.geojson"))
 
@@ -185,7 +188,7 @@ The goal is to shed light on the network's stress levels, bikeability, and safet
 
 ![Nearest POI - Biking Distance]({net_image_paths[25]})
 
-## Section 5: Gap Analysis
+## Section 4: Gap Analysis
 
 ![Top 10 Connected Components]({gap_image_paths[0]})
 
@@ -244,6 +247,12 @@ if accident_file_exists:
 ![DBSCAN Accident Clusters]({acc_image_paths[15]})
 
 ![Chropleth Map Accidents]({acc_image_paths[16]})
+
+## Section 7: Sum-Up Analysis
+
+![H3 hexagons risk accidents]({sump_image_paths[1]})
+
+![Gap associated with risks of accidents]({sump_image_paths[0]})
 
 """
 markdown_content += """
