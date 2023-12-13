@@ -99,7 +99,7 @@ The goal is to shed light on the network's stress levels, bikeability, and safet
 
 ![Nearest POI - Biking Distance](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/nearest_poi_plot.png)
 
-## Section 5: Gap Analysis
+## Section 4: Gap Analysis
 
 ![Top 10 Connected Components](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/Top10connectedcomponents_plot.png)
 
@@ -156,6 +156,12 @@ The goal is to shed light on the network's stress levels, bikeability, and safet
 ![DBSCAN Accident Clusters](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/DBSCAN_accident_clusters_plot.png)
 
 ![Chropleth Map Accidents](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/choropleth_lts_accidents_map.html)
+
+## Section 7: Sum-Up Analysis
+
+![H3 hexagons risk accidents](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/risk_accidents_hexagon.html)
+
+![Gap associated with risks of accidents](/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/Trento/gap_quadrants.html)
 
 
 
