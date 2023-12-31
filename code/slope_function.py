@@ -12,8 +12,9 @@ stplanr = importr('stplanr')
 
 # DEM interested:
 #dem_path = '/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/area.tif' #Pordenonese
-dem_path = '/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/merged_dem.tif' # Trento
-# dem_path = '/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/w49565_s10.tif' #Bologna
+dem_path = '/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/merged_dem.tif' # TrentoExtended
+#dem_path = '/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/w51065_s10.tif'
+
 class SlopeCalculator:
 
     @staticmethod
