@@ -87,11 +87,27 @@ def classify_edges_by_quintiles(gdf_edges, gdf_buildings, quintiles):
 # Get the city from command-line arguments
 city = sys.argv[1]
 
+def extract_city(citta):
+    # Splitting by comma and taking the first part
+    first_part = citta.split(",")[0]
+
+    # Handling cases where the city name might have a hyphen (like 'Bolzano - Bozen')
+    city_name = first_part.split("-")[0].strip()
+
+    # Replacing spaces with underscores after handling the hyphen
+    city_sanitized = city_name.replace(" ", "_")
+
+    return city_sanitized
+
 # Sanitize the city name
-city_sanitized = city.split(",")[0].replace(" ", "_")
+city_sanitized = extract_city(city)
+print(city_sanitized)
 city_images = "/Users/leonardo/Desktop/Tesi/LTSBikePlan/images/"
 # Create the path for the new folder
 city_folder_path = os.path.join(city_images, city_sanitized) 
+
+if not os.path.exists(city_folder_path):
+    os.makedirs(city_folder_path)
 
 # Download the OSM data for the city/region involved.
 G = ox.graph_from_place(city, network_type="all")
