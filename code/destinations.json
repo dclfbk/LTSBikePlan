@@ -24,7 +24,7 @@
 
                 {
                     "type_name": "university",
-                    "weight": 25,
+                    "weight": 30,
                     "scoring_process": "A"
                 }
             ]
