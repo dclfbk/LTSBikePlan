@@ -6,6 +6,8 @@ import osmnx as ox
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import osmnx as ox
 from slope_function import SlopeCalculator
+from slope_function2 import SlopeCalculator2
+from slope_function3 import SlopeCalculator3
 import sys
 import os
 import numpy as np
@@ -137,8 +139,12 @@ gdf_edges = gdf_edges_classified.to_crs(gdf_edges.crs)
 # Store the original MultiIndex
 original_index = gdf_edges.index
 
+dem_path = '/Users/leonardo/Desktop/Tesi/LTSBikePlan/data/w51075_s10.tif'
+
 # Transform the gdf_edges using the SlopeCalculator
-gdf_edges = SlopeCalculator.calc_slope(gdf_edges)
+#gdf_edges = SlopeCalculator.calc_slope(gdf_edges)
+#gdf_edges = SlopeCalculator2.calc_slope(gdf_edges,dem_path)
+gdf_edges = SlopeCalculator3.calc_slope(gdf_edges,dem_path)
 
 # Reassign the original MultiIndex to gdf_edges2
 gdf_edges.index = original_index
