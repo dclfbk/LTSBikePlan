@@ -59,14 +59,15 @@ The LTSBikePlan bases its methodology on [OSM](https://www.openstreetmap.org/) d
 ##### Example cities
 
 <a name="tasks"></a>
+
 ### Tasks
 
 - [X] Translate [Furth, Mekuria et al. work on LTS](https://scholarworks.sjsu.edu/mti_publications/74/) scripts into Python, R and JS architecture.
 - [X] Validate the level of traffic stress classification using slope.
-- [ ] Validate the tool with different cities (Udine, Bologna etc.) by including measures on the flow and network analysis to address bikeability.
+- [X] Validate the tool with different cities (Trento, Bolzano, Bologna etc.) by including measures on the flow and network analysis to address bikeability.
 - [ ] Allowing the possibility to integrate other data (e.g. from P.A.) in the models.
-- [ ] Create a report of the results that will highlight possible solutions for tactical urbanism strategies in critical areas.
-- [ ] Create a webapp for the Italian road network
+- [X] Create a report of the results that will highlight possible solutions for tactical urbanism strategies in critical areas.
+- [X] Create a webapp for the Italian road network
 - [ ] \(Optional) Create a web app to show the computed results and other statistics
 
 ![](images/demo.jpeg)
