@@ -1,8 +1,9 @@
 # LTSBikePlan
 Level of Traffic Stress Bike Planning and Infrastructure Network Analysis for Safe and Accessible Cycling
 
-The final document is [here]().
-The final presentation is [here]()
+Cite this work \
+Venturoso, L., Usmani, M., Nanni, R., & Napolitano, M. (2026). LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety. Journal of Urban Technology, 1–42. https://doi.org/10.1080/10630732.2026.2639290
+
 
 ## Topic
 
