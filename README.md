@@ -73,6 +73,18 @@ pip install -e .[geo]
 - `LTSBP_IMAGES_DIR` - Runtime output images directory.
   - Default: `images/`
 
+### DEM Download (Manual)
+LTSBikePlan requires a DEM `.tif` file for slope computation.
+
+1. Open: `https://tinitaly.pi.ingv.it/Download_Area1_1.html`
+2. Select the tile/quadrant(s) covering your study area.
+3. Download the `.tif` file(s).
+4. Provide the DEM to LTSBikePlan by either:
+   - setting `LTSBP_DEM_PATH=/absolute/path/to/your_dem.tif`, or
+   - placing a default file at `data/w51075_s10.tif`.
+
+If your area spans multiple tiles, merge them first into a single `.tif`.
+
 ## Usage & Commands
 
 Check setup and manual inputs:
