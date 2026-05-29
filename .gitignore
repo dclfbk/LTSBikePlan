@@ -25,3 +25,13 @@ data/
 dist/
 build/
 *.egg-info/
+
+# Editor and CI local policy
+.vscode/
+.github/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*~
