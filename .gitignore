@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# macOS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+
+# Local caches
+code/cache/
+
+# Project outputs and large artifacts
+images/
+docs/
+data/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/

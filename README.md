@@ -1,74 +1,143 @@
 # LTSBikePlan
-Level of Traffic Stress Bike Planning and Infrastructure Network Analysis for Safe and Accessible Cycling
+**Level of Traffic Stress bike-network pipeline for city-scale planning.**
 
-Cite this work \
-Venturoso, L., Usmani, M., Nanni, R., & Napolitano, M. (2026). LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety. Journal of Urban Technology, 1–42. https://doi.org/10.1080/10630732.2026.2639290
+LTSBikePlan computes bike network stress from OpenStreetMap + terrain data, then generates maps and analysis outputs to support safer cycling infrastructure decisions.
 
+## Citation
+If you use this project, please cite:
 
-## Topic
+Venturoso, L., Usmani, M., Nanni, R., & Napolitano, M. (2026).
+*LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety.*
+Journal of Urban Technology, 1-42. https://doi.org/10.1080/10630732.2026.2639290
 
-LTSBikePlan is an analysis tool aimed to identify safe and accessible cycling by developing a planning for bicycle infrastructure that takes into account the level of traffic stress from different data sources.
+## Key Features
+- Modular CLI pipeline (`fetch`, `compute-lts`, `maps`, `report`, `run`, `run-full`, `doctor`).
+- LTS classification engine for edges and nodes with explicit decision-rule mapping.
+- DEM-based slope integration with selectable slope strategies.
+- Core map generation (`slope_map`, `lts_map`, `choropleth_lts_map`).
+- Extended analysis modules for ESDA, clusters, network, gap, destination-access, accidents, and sum-up.
+- Report generation (`report.md` + `report.html`) including only available artifacts.
+- Manual-input diagnostics via `ltsbikeplan doctor`.
 
-The starting infrastructural data are those of OpenStreetMap, to which are then added information data on the real use of the roads by cyclists, pedestrians and cars. Then other open data on connectivity measure will be taken into account for use cases.
+## Tech Stack
 
+| Area | Tech |
+|---|---|
+| Language | Python 3.9+ |
+| Packaging | `pyproject.toml` + setuptools |
+| Core libs | `numpy`, `pandas`, `requests` |
+| Geo/network | `geopandas`, `osmnx`, `shapely`, `networkx`, `folium`, `rasterio` |
+| ML/analysis | `scikit-learn`, `matplotlib` |
+| Optional | `rpy2`, `richdem` |
+| Testing | `unittest` |
+| CI | GitHub Actions |
 
-- [LTSBikePlan](#ltsbikeplan)
-  - [Topic](#topic)
-    - [Basic idea](#basic-idea)
-    - [Products](#products)
-    - [Test LTSBikePlan for cities in Italy.](#test-ltsbikeplan-for-cities-in-italy)
-        - [How to use it?](#how-to-use-it)
-        - [Data](#data)
-        - [Example cities](#example-cities)
-    - [Tasks](#tasks)
-  
-<a name="idea"></a>
-### Basic idea
+Dependency definitions:
+- `pyproject.toml`
+- `requirements.lock.txt`
+- `requirements-geo.lock.txt`
 
-Adapt the [Furth, Mekuria et al. work on LTS](https://scholarworks.sjsu.edu/mti_publications/74/), validate it to compute bike network connectivity in Italian road network taking into account other variables such as slope gradient and other connectivity measures for different use cases.
- 
-My thesis proposal can be accessed [here](https://github.com/DigitalCommonsLab/LTSBikePlan/blob/main/docs/Index%20%26%20Thesis%20documents/thesis_proposal.html). Keep in mind, it will be periodically updated.	
+## Getting Started
 
-<a name="products"></a>
-### Products
+### Prerequisites
+- Python 3.9+
+- `pip`
+- (Optional, for HTML report) `pandoc`
 
-1. [Test LTSBikePlan for cities in Italy]().
- 
-2. A [series of scripts](https://github.com/DigitalCommonsLab/LTSBikePlan/tree/main/code) that come together into an [Markdown report](). 
+### Installation
+```bash
+git clone <your-fork-or-repo-url>
+cd LTSBikePlan
 
-<a name="product2"></a>
-### Test LTSBikePlan for cities in Italy. 
+python -m venv .venv
+source .venv/bin/activate
 
-<a name="use"></a>
-##### How to use it?
+pip install --upgrade pip
+pip install -r requirements.lock.txt
+pip install -e .
+```
 
-1. Clone this repository. 
-2. Edit the main.py file with your study area, and run the Python files locally to obtain the results.
-3. Wait for a while, keep in mind larger areas take longer.
-4. Check out your results as an HTML file. 
+For geospatial/full pipeline modules:
+```bash
+pip install -r requirements-geo.lock.txt
+pip install -e .[geo]
+```
 
-<a name="data"></a>
-##### Data
+### Environment Variables
+- `LTSBP_DEM_PATH` - Path to DEM `.tif` file used by `fetch`.
+  - Default: `data/w51075_s10.tif`
+- `LTSBP_SLOPE_STRATEGY` - Slope strategy selector (`v1`, `v2`, `v3`).
+  - Default: `v3`
+- `LTSBP_DATA_DIR` - Runtime data directory.
+  - Default: `data/`
+- `LTSBP_IMAGES_DIR` - Runtime output images directory.
+  - Default: `images/`
 
-The LTSBikePlan bases its methodology on [OSM](https://www.openstreetmap.org/) data and on [Tinitaly](https://tinitaly.pi.ingv.it/) DEM data (DTM), however other data is accessed from other data sources. Particularly for this project, this other datasets were used:
+## Usage & Commands
 
-- Italy:
-  - (...)
-  - (...)
-  
-<a name="example"></a>
-##### Example cities
+Check setup and manual inputs:
+```bash
+ltsbikeplan doctor --city "Trento, Italy"
+```
 
-<a name="tasks"></a>
+Run modular pipeline:
+```bash
+ltsbikeplan fetch --city "Trento, Italy"
+ltsbikeplan compute-lts
+ltsbikeplan maps --city "Trento, Italy"
+ltsbikeplan report --city "Trento, Italy"
+```
 
-### Tasks
+Run core end-to-end:
+```bash
+ltsbikeplan run --city "Trento, Italy" --with-report
+```
 
-- [X] Translate [Furth, Mekuria et al. work on LTS](https://scholarworks.sjsu.edu/mti_publications/74/) scripts into Python, R and JS architecture.
-- [X] Validate the level of traffic stress classification using slope.
-- [X] Validate the tool with different cities (Trento, Bolzano, Bologna etc.) by including measures on the flow and network analysis to address bikeability.
-- [ ] Allowing the possibility to integrate other data (e.g. from P.A.) in the models.
-- [X] Create a report of the results that will highlight possible solutions for tactical urbanism strategies in critical areas.
-- [X] Create a webapp for the Italian road network
-- [ ] \(Optional) Create a web app to show the computed results and other statistics
+Run full pipeline (includes extended analysis modules):
+```bash
+ltsbikeplan run-full --city "Trento, Italy" --with-report
+```
 
-![](images/demo.jpeg)
+Run tests:
+```bash
+python -m unittest discover -s tests -p "test_*.py"
+```
+
+## Manual Inputs
+
+Required:
+- DEM raster (`LTSBP_DEM_PATH` or default `data/w51075_s10.tif`).
+
+Optional (for extended sections):
+- Accidents file: `data/accidents_<city>.geojson`.
+- Population/destination datasets (used by destination-access/sum-up modules).
+
+## Project Structure
+```text
+LTSBikePlan/
+├── code/
+│   ├── cli.py                        # thin CLI entry wrapper
+│   ├── ltsbikeplan/
+│   │   ├── assets/                   # static assets (rule dict, report css)
+│   │   ├── domain/                   # core LTS domain logic
+│   │   ├── services/                 # reusable services (graph, slope, report...)
+│   │   ├── pipeline/                 # runtime pipelines and section modules
+│   │   ├── cli.py                    # official CLI implementation
+│   │   └── runtime_requirements.py   # manual input registry
+│   └── old_code/                     # archived notebooks/legacy scripts
+├── tests/                            # unit and smoke tests
+├── .github/workflows/ci.yml          # CI pipeline
+├── pyproject.toml                    # package metadata + entrypoints
+├── requirements.lock.txt             # pinned core dependencies
+├── requirements-geo.lock.txt         # pinned geospatial dependencies
+└── README.md
+```
+
+## Contributing
+1. Create a feature branch.
+2. Keep changes modular under `code/ltsbikeplan/`.
+3. Run tests locally before opening PR:
+   - `python -m unittest discover -s tests -p "test_*.py"`
+
+## License
+This project is licensed under the **WTFPL v2**. See `LICENSE`.
