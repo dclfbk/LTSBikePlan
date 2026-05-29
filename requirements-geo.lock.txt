@@ -1,0 +1,6 @@
+# Reproducible geospatial stack (tested subset)
+geopandas==1.0.1
+matplotlib==3.9.4
+networkx==3.2.1
+osmnx==2.0.5
+shapely==2.0.7

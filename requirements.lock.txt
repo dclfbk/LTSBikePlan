@@ -1,0 +1,4 @@
+# Reproducible core runtime set (tested)
+numpy==2.0.2
+pandas==2.2.3
+requests==2.32.4
