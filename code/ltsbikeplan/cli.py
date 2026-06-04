@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
+import warnings
 from pathlib import Path
 
 from .config import AppConfig
@@ -70,6 +72,10 @@ def cmd_doctor(city: str, config: AppConfig) -> None:
     for item in MANUAL_OPTIONAL_INPUTS:
         print(f"- {item['name']}: {item['path_pattern']}")
 
+    pandoc_ok = shutil.which("pandoc") is not None
+    print("\nSystem tools:")
+    print(f"- pandoc (required for HTML report): {'OK' if pandoc_ok else 'MISSING'}")
+
     print(f"\nCity context: {city}")
 
 
@@ -103,6 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    warnings.filterwarnings("ignore", message=r"networkx backend defined more than once: nx-loopback", category=RuntimeWarning)
     parser = build_parser()
     args = parser.parse_args(argv)
     config = AppConfig.from_project_layout()

@@ -42,7 +42,7 @@ class GraphLoaderService:
 class UrbanContextClassifier:
     def calculate_building_distances(self, gdf_buildings):
         print(f"Calculating distances for {len(gdf_buildings)} buildings...")
-        gdf_projected = gdf_buildings.to_crs(epsg=32632)
+        gdf_projected = gdf_buildings.to_crs(gdf_buildings.estimate_utm_crs() or 32632)
         building_coords = np.array(list(gdf_projected.geometry.centroid.apply(lambda x: (x.x, x.y))))
         nbrs = NearestNeighbors(n_neighbors=2, algorithm="ball_tree").fit(building_coords)
         distances, _ = nbrs.kneighbors(building_coords)
@@ -56,7 +56,9 @@ class UrbanContextClassifier:
         print(f"Urban threshold set at {urban_threshold} units")
         gdf_edges = gdf_edges.copy()
         gdf_edges["context"] = "countryside"
-        gdf_buildings = gdf_buildings.to_crs(gdf_edges.crs)
+        target_crs = gdf_edges.estimate_utm_crs() or gdf_edges.crs
+        gdf_edges = gdf_edges.to_crs(target_crs)
+        gdf_buildings = gdf_buildings.to_crs(target_crs)
 
         for index, edge in gdf_edges.iterrows():
             edge_centroid = edge.geometry.centroid

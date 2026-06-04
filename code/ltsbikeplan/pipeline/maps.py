@@ -12,10 +12,16 @@ from ltsbikeplan.utils import sanitize_city_name
 
 def _load_lts_data(data_dir: str, city: str) -> gpd.GeoDataFrame:
     city_sanitized = sanitize_city_name(city)
-    all_lts_df = pd.read_csv(os.path.join(data_dir, f"{city_sanitized}_all_lts.csv"))
+    all_lts_df = pd.read_csv(os.path.join(data_dir, f"{city_sanitized}_all_lts.csv"), low_memory=False)
     all_lts_df["geometry"] = all_lts_df["geometry"].apply(wkt.loads)
     all_lts = gpd.GeoDataFrame(all_lts_df, geometry="geometry", crs="EPSG:32632")
     return all_lts.to_crs(epsg=4326)
+
+
+def _map_center(all_lts: gpd.GeoDataFrame) -> list[float]:
+    projected = all_lts.to_crs(all_lts.estimate_utm_crs() or all_lts.crs)
+    center_point = gpd.GeoSeries([projected.unary_union.centroid], crs=projected.crs).to_crs(epsg=4326).iloc[0]
+    return [center_point.y, center_point.x]
 
 
 def generate_lts_map(data_dir: str, images_dir: str, city: str) -> None:
@@ -28,7 +34,7 @@ def generate_lts_map(data_dir: str, images_dir: str, city: str) -> None:
     lts_classes = [1, 2, 3, 4, 0]
     colors = dict(zip(lts_classes, color_palette))
 
-    center = [all_lts.geometry.centroid.y.mean(), all_lts.geometry.centroid.x.mean()]
+    center = _map_center(all_lts)
     fmap = folium.Map(location=center, zoom_start=11.5)
 
     for _, row in all_lts.iterrows():
@@ -44,8 +50,10 @@ def generate_h3_choropleth_map(data_dir: str, images_dir: str, city: str) -> Non
     os.makedirs(city_folder, exist_ok=True)
 
     all_lts = _load_lts_data(data_dir, city)
-    all_lts["lon"] = all_lts.geometry.centroid.x
-    all_lts["lat"] = all_lts.geometry.centroid.y
+    projected = all_lts.to_crs(all_lts.estimate_utm_crs() or all_lts.crs)
+    lon_lat = gpd.GeoSeries(projected.geometry.centroid, crs=projected.crs).to_crs(epsg=4326)
+    all_lts["lon"] = lon_lat.x
+    all_lts["lat"] = lon_lat.y
 
     bins = pd.cut(all_lts["lts"].fillna(0), bins=[-1, 1.5, 2.5, 3.5, 4.5], labels=[1, 2, 3, 4]).astype(str)
     all_lts["lts_class"] = bins

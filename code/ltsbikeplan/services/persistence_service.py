@@ -4,6 +4,7 @@ import os
 import pickle
 
 import folium
+import geopandas as gpd
 
 
 class PersistenceService:
@@ -20,13 +21,16 @@ class PersistenceService:
 
     @staticmethod
     def save_slope_map(gdf_edges, output_path: str) -> None:
+        projected_crs = gdf_edges.estimate_utm_crs() or gdf_edges.crs
+        gdf_edges_projected = gdf_edges.to_crs(projected_crs)
         gdf_edges_wgs = gdf_edges.to_crs(epsg=4326)
         color_palette = ["#267300", "#70A800", "#FFAA00", "#E60000", "#A80000", "#730000"]
         slope_classes = ["0-3: flat", "3-5: mild", "5-8: medium", "8-10: hard", "10-20: extreme", ">20: impossible"]
         colors = dict(zip(slope_classes, color_palette))
 
-        mean_latitude = gdf_edges_wgs.geometry.apply(lambda geom: geom.centroid.y).mean()
-        mean_longitude = gdf_edges_wgs.geometry.apply(lambda geom: geom.centroid.x).mean()
+        centroid_points = gpd.GeoSeries(gdf_edges_projected.geometry.centroid, crs=gdf_edges_projected.crs).to_crs(epsg=4326)
+        mean_latitude = centroid_points.y.mean()
+        mean_longitude = centroid_points.x.mean()
         map_osm = folium.Map(location=[mean_latitude, mean_longitude], zoom_start=11)
 
         for _, row in gdf_edges_wgs.iterrows():
