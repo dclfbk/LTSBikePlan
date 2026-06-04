@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 
 from ltsbikeplan.assets import asset_path
@@ -24,5 +25,7 @@ def run_report(city: str, data_dir: str, images_dir: str) -> None:
         file_handle.write(markdown_content)
 
     html_file_path = os.path.join(context.city_img_path, "report.html")
-    command = ["pandoc", "-s", md_file_path, "-c", str(asset_path("report.css")), "-o", html_file_path]
+    if shutil.which("pandoc") is None:
+        return
+    command = ["pandoc", "-s", md_file_path, "-c", str(asset_path("report.css")), "--metadata", "title=LTSBikePlan Report", "-o", html_file_path]
     subprocess.run(command, check=True)

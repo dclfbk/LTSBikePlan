@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 
 import folium
@@ -36,7 +37,9 @@ def run_accident_analysis(data_dir: str, images_dir: str, city: str) -> None:
     if not os.path.exists(accident_path):
         return
 
-    accidents = gpd.read_file(accident_path)
+    with open(accident_path, "r") as file_handle:
+        accident_geojson = json.load(file_handle)
+    accidents = gpd.GeoDataFrame.from_features(accident_geojson["features"], crs="EPSG:4326")
     if accidents.empty:
         return
     accidents = accidents.to_crs(4326)

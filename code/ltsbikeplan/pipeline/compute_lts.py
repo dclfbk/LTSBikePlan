@@ -60,7 +60,12 @@ def run_compute_lts(data_dir: str) -> str:
 
     gdf_not_allowed = gdf_not_allowed.copy()
     gdf_not_allowed["lts"] = 0
-    all_lts = pd.concat([separated_edges, parking_lts, no_parking_lts, lts_no_lane, gdf_not_allowed])
+    lts_frames = [
+        frame
+        for frame in [separated_edges, parking_lts, no_parking_lts, lts_no_lane, gdf_not_allowed]
+        if not frame.empty and frame.notna().any().any()
+    ]
+    all_lts = pd.concat(lts_frames) if lts_frames else pd.DataFrame()
     all_lts = BikePathAnalysis.slope_penalty(all_lts)
 
     with open(asset_path("LTS_decisionrule_dict.json"), "r") as file_handle:

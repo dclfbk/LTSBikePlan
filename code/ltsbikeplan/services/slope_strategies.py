@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 
@@ -49,7 +50,9 @@ class SlopeCalculatorR:
         geojson_file
         """
         geojson_file_path = ro.r(r_script)[0]
-        out_edges = gpd.read_file(geojson_file_path)
+        with open(geojson_file_path, "r") as file_handle:
+            out_edges_geojson = json.load(file_handle)
+        out_edges = gpd.GeoDataFrame.from_features(out_edges_geojson["features"], crs="EPSG:32632")
         os.remove(geojson_file_path)
         return out_edges
 
@@ -68,18 +71,63 @@ class SlopeCalculatorGDAL:
     def extract_slope_for_roads(edges, slope_path):
         with rasterio.open(slope_path) as slope_raster:
             edges = edges.to_crs(slope_raster.crs)
+            slope_values = []
             for _, row in edges.iterrows():
                 geom = mapping(row.geometry)
                 try:
                     out_image, _ = mask(slope_raster, [geom], crop=True, nodata=np.nan)
-                    edges.loc[row.name, "slope"] = np.nanmean(out_image[0])
+                    slope_values.append(np.nanmean(out_image[0]))
                 except ValueError:
-                    edges.loc[row.name, "slope"] = np.nan
+                    slope_values.append(np.nan)
+        edges = edges.copy()
+        edges["slope"] = slope_values
         return edges
 
     @staticmethod
     def calc_slope(edges, dem_path):
         slope_path = SlopeCalculatorGDAL.calculate_slope(dem_path)
+        edges_with_slope = SlopeCalculatorGDAL.extract_slope_for_roads(edges, slope_path)
+        edges_with_slope["slope_class"] = pd.cut(
+            edges_with_slope["slope"],
+            bins=[0, 3, 5, 8, 10, 20, np.inf],
+            labels=["0-3: flat", "3-5: mild", "5-8: medium", "8-10: hard", "10-20: extreme", ">20: impossible"],
+            right=False,
+        )
+        return edges_with_slope
+
+
+class SlopeCalculatorRasterioSimple:
+    """Pure-Python fallback slope strategy without GDAL/richdem/rpy2.
+
+    Uses a lightweight gradient approximation over DEM and samples mean slope
+    along each road segment.
+    """
+
+    @staticmethod
+    def calculate_slope(dem_path):
+        with rasterio.open(dem_path) as src:
+            dem = src.read(1).astype("float64")
+            transform = src.transform
+            xres = abs(transform.a) if transform.a else 1.0
+            yres = abs(transform.e) if transform.e else 1.0
+
+            gy, gx = np.gradient(dem, yres, xres)
+            slope = np.sqrt(gx * gx + gy * gy) * 100.0
+            slope = np.clip(slope, 0, 100)
+
+            profile = src.profile
+            profile.update(dtype="float32", count=1)
+
+        with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as temp_file:
+            slope_path = temp_file.name
+
+        with rasterio.open(slope_path, "w", **profile) as dst:
+            dst.write(slope.astype("float32"), 1)
+        return slope_path
+
+    @staticmethod
+    def calc_slope(edges, dem_path):
+        slope_path = SlopeCalculatorRasterioSimple.calculate_slope(dem_path)
         edges_with_slope = SlopeCalculatorGDAL.extract_slope_for_roads(edges, slope_path)
         edges_with_slope["slope_class"] = pd.cut(
             edges_with_slope["slope"],
@@ -109,13 +157,16 @@ class SlopeCalculatorRichdem:
     def extract_slope_for_roads(edges, slope_path):
         with rasterio.open(slope_path) as slope_raster:
             edges = edges.to_crs(slope_raster.crs)
+            slope_values = []
             for _, row in edges.iterrows():
                 geom = mapping(row.geometry)
                 try:
                     out_image, _ = mask(slope_raster, [geom], crop=True, nodata=np.nan)
-                    edges.loc[row.name, "slope"] = np.nanmean(out_image[0])
+                    slope_values.append(np.nanmean(out_image[0]))
                 except ValueError:
-                    edges.loc[row.name, "slope"] = np.nan
+                    slope_values.append(np.nan)
+        edges = edges.copy()
+        edges["slope"] = slope_values
         return edges
 
     @staticmethod

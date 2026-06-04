@@ -42,7 +42,7 @@ Dependency definitions:
 ### Prerequisites
 - Python 3.9+
 - `pip`
-- (Optional, for HTML report) `pandoc`
+- (Optional, for HTML report) `pandoc` (system package, not a pip dependency)
 
 ### Installation
 ```bash
