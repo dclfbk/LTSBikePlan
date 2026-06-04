@@ -57,6 +57,23 @@ pip install -r requirements.lock.txt
 pip install -e .
 ```
 
+Install directly from a GitHub release tag:
+```bash
+pip install "git+https://github.com/dclfbk/LTSBikePlan.git@v2.0.3"
+```
+
+After installing, use the CLI from any shell:
+```bash
+ltsbikeplan doctor --city "Trento, Italy"
+ltsbikeplan run-full --city "Bolzano, Italy" --with-report
+```
+
+If you want to reuse the code from another Python project, import the package modules directly:
+```python
+from ltsbikeplan.cli import main
+from ltsbikeplan.services.slope_service import SlopeService
+```
+
 For geospatial/full pipeline modules:
 ```bash
 pip install -r requirements-geo.lock.txt
