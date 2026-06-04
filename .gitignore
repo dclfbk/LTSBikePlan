@@ -15,11 +15,12 @@ venv/
 
 # Local caches
 code/cache/
-
+code/old_code/
 # Project outputs and large artifacts
 images/
 docs/
 data/
+cache/
 
 # Build artifacts
 dist/
