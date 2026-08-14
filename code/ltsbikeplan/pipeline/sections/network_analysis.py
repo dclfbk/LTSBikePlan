@@ -39,9 +39,9 @@ NETWORK_OUTPUTS = [
 ]
 
 
-def run_network_analysis(data_dir: str, images_dir: str, city: str) -> None:
-    out_dir = city_output_dir(images_dir, city)
-    graph = load_graph(data_dir, city)
+def run_network_analysis(data_dir: str, images_dir: str, area_slug: str) -> None:
+    out_dir = city_output_dir(images_dir, area_slug)
+    graph = load_graph(data_dir, area_slug)
     undirected = nx.Graph(graph)
 
     degree = nx.degree_centrality(undirected)

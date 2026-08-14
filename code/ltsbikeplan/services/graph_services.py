@@ -5,6 +5,8 @@ import geopandas as gpd
 import osmnx as ox
 from sklearn.neighbors import NearestNeighbors
 
+from ltsbikeplan.domain.crs import WORKING_CRS
+
 
 class GraphLoaderService:
     def download_graph(self, city: str):
@@ -42,7 +44,7 @@ class GraphLoaderService:
 class UrbanContextClassifier:
     def calculate_building_distances(self, gdf_buildings):
         print(f"Calculating distances for {len(gdf_buildings)} buildings...")
-        gdf_projected = gdf_buildings.to_crs(gdf_buildings.estimate_utm_crs() or 32632)
+        gdf_projected = gdf_buildings.to_crs(gdf_buildings.estimate_utm_crs() or WORKING_CRS)
         building_coords = np.array(list(gdf_projected.geometry.centroid.apply(lambda x: (x.x, x.y))))
         nbrs = NearestNeighbors(n_neighbors=2, algorithm="ball_tree").fit(building_coords)
         distances, _ = nbrs.kneighbors(building_coords)

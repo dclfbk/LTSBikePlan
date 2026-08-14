@@ -7,12 +7,38 @@ import uuid
 import xml.etree.ElementTree as et
 
 import geopandas as gpd
+import numpy as np
 import osmnx as ox
 import pandas as pd
 
 from ltsbikeplan.assets import asset_path
+from ltsbikeplan.domain.area_spec import AreaSpec
+from ltsbikeplan.domain.crs import WORKING_CRS
+from ltsbikeplan.domain.gap_analysis import annotate_gap_components, summarize_gap_components
 from ltsbikeplan.domain.lts_rules import BikePathAnalysis
-from ltsbikeplan.utils import sanitize_city_name
+from ltsbikeplan.domain.network_centrality import annotate_edge_centrality
+from ltsbikeplan.services.export_service import ExportService
+
+# Minimum low-stress "island" length for a high-stress edge touching it to
+# count as a priority intervention candidate - without this, a 2-edge
+# residential loop in an isolated hamlet competes equally with a 15km urban
+# low-stress network. See domain/gap_analysis.py::annotate_gap_components.
+MIN_GAP_ISLAND_LENGTH_KM = 1.0
+
+# Order matters: the first non-"no"/"none" value wins. The 4 raw OSM tags
+# stay noisy/inconsistent for direct display (different tagging schemes put
+# the cycleway type on different keys) - this collapses them into one field
+# for the web viewer's popup, while the raw tags remain in the export for
+# anyone who wants them.
+_CYCLEWAY_TAG_PRIORITY = ("cycleway", "cycleway:both", "cycleway:right", "cycleway:left")
+
+
+def derive_cycleway_type(row):
+    for column in _CYCLEWAY_TAG_PRIORITY:
+        value = row.get(column)
+        if isinstance(value, str) and value not in ("no", "none"):
+            return value
+    return np.nan
 
 
 def _save_and_correct_graphml(graph, filepath: str) -> None:
@@ -42,15 +68,32 @@ def _save_and_correct_graphml(graph, filepath: str) -> None:
     os.remove(temp_path)
 
 
-def run_compute_lts(data_dir: str) -> str:
-    pickle_path = os.path.join(data_dir, "gdf_data.pkl")
+def run_compute_lts(data_dir: str, area: AreaSpec) -> str:
+    area_slug = area.slug
+    area_dir = os.path.join(data_dir, area_slug)
+    os.makedirs(area_dir, exist_ok=True)
+    pickle_path = os.path.join(area_dir, "gdf_data.pkl")
     with open(pickle_path, "rb") as file_handle:
         gdf_nodes, gdf_edges, city = pickle.load(file_handle)
 
+    # Captured before any pd.concat below, which drops GeoDataFrame/crs
+    # metadata - this is the only reliable source of the edges' *actual*
+    # CRS (whatever the DEM raster used by SlopeService was in), since the
+    # code used to just relabel the concatenated result as EPSG:4326
+    # without reprojecting (see the explicit reprojection at the bottom of
+    # this function for the fix).
+    source_edges_crs = gdf_edges.crs
+
+    steps_edges, gdf_edges = BikePathAnalysis.steps_analysis(gdf_edges)
     gdf_allowed, gdf_not_allowed = BikePathAnalysis.biking_permitted(gdf_edges)
     separated_edges, unseparated_edges = BikePathAnalysis.is_separated_path(gdf_allowed)
     separated_edges = separated_edges.copy()
-    separated_edges.loc[:, "lts"] = 1
+    # Plain column assignment (not `.loc[:, ...]`) - the latter raises
+    # "cannot set a frame with no defined index and a scalar" on newer
+    # pandas when separated_edges is empty, which is the common case for
+    # small/rural areas with no dedicated cycleways (found running the
+    # Atrani pilot after this refactor made per-comune runs routine).
+    separated_edges["lts"] = 1
 
     to_analyze, no_lane = BikePathAnalysis.is_bike_lane(unseparated_edges)
     parking_detected, parking_not_detected = BikePathAnalysis.parking_present(to_analyze)
@@ -62,7 +105,7 @@ def run_compute_lts(data_dir: str) -> str:
     gdf_not_allowed["lts"] = 0
     lts_frames = [
         frame
-        for frame in [separated_edges, parking_lts, no_parking_lts, lts_no_lane, gdf_not_allowed]
+        for frame in [separated_edges, parking_lts, no_parking_lts, lts_no_lane, gdf_not_allowed, steps_edges]
         if not frame.empty and frame.notna().any().any()
     ]
     all_lts = pd.concat(lts_frames) if lts_frames else pd.DataFrame()
@@ -73,58 +116,82 @@ def run_compute_lts(data_dir: str) -> str:
     all_lts["message"] = all_lts["rule"].map(data["rule_message_dict"])
     all_lts["short_message"] = all_lts["rule"].map(data["simplified_message_dict"])
 
+    # Fields for the web viewer's click popup - "" not None for istat_code
+    # so it doesn't hit _save_and_correct_graphml's NaN/None-replacement
+    # below for areas resolved via --city (no ISTAT code available).
+    all_lts["comune"] = area.name
+    all_lts["istat_code"] = area.istat_code or ""
+    all_lts["cycleway_type"] = all_lts.apply(derive_cycleway_type, axis=1)
+    all_lts = annotate_gap_components(all_lts, area_slug, min_island_length_km=MIN_GAP_ISLAND_LENGTH_KM)
+    all_lts = annotate_edge_centrality(all_lts)
+
     gdf_nodes = gdf_nodes.copy()
     gdf_nodes["lts"], gdf_nodes["message"] = zip(*gdf_nodes.apply(BikePathAnalysis.calculate_lts_nodes, args=(all_lts,), axis=1))
 
-    city_sanitized = sanitize_city_name(city)
-    nodes_csv = os.path.join(data_dir, f"{city_sanitized}_gdf_nodes.csv")
-    lts_csv = os.path.join(data_dir, f"{city_sanitized}_all_lts.csv")
-    graphml_path = os.path.join(data_dir, f"{city_sanitized}_lts.graphml")
+    nodes_csv = os.path.join(area_dir, f"{area_slug}_gdf_nodes.csv")
+    lts_csv = os.path.join(area_dir, f"{area_slug}_all_lts.csv")
+    lts_parquet = os.path.join(area_dir, f"{area_slug}_all_lts.parquet")
+    lts_geojson = os.path.join(area_dir, f"{area_slug}_all_lts.geojson")
+    graphml_path = os.path.join(area_dir, f"{area_slug}_lts.graphml")
+    gap_components_json = os.path.join(area_dir, f"{area_slug}_gap_components.json")
+
+    export_columns = [
+        "osmid",
+        "lanes",
+        "name",
+        "highway",
+        "maxspeed",
+        "geometry",
+        "length",
+        "rule",
+        "lts",
+        "slope",
+        "slope_class",
+        "lanes_assumed",
+        "maxspeed_assumed",
+        "message",
+        "short_message",
+        "comune",
+        "istat_code",
+        "surface",
+        "cycleway_type",
+        "gap_component",
+        "is_gap_edge",
+        "gap_connects",
+        "centrality",
+        "centrality_class",
+    ]
 
     gdf_nodes.to_csv(nodes_csv)
-    all_lts[
-        [
-            "osmid",
-            "lanes",
-            "name",
-            "highway",
-            "maxspeed",
-            "geometry",
-            "length",
-            "rule",
-            "lts",
-            "slope",
-            "slope_class",
-            "lanes_assumed",
-            "maxspeed_assumed",
-            "message",
-            "short_message",
-        ]
-    ].to_csv(lts_csv)
+    all_lts[export_columns].to_csv(lts_csv)
 
-    all_lts = gpd.GeoDataFrame(all_lts, geometry="geometry")
-    all_lts.crs = "EPSG:4326"
+    # Reproject to the single internal working CRS instead of relabeling the
+    # concatenated frame as EPSG:4326 without transforming coordinates - the
+    # previous behaviour only "worked" because every hardcoded EPSG:32632
+    # read-back elsewhere (maps.py, destination_access.py) happened to match
+    # the DEM tile used for Trento. See domain/crs.py.
+    all_lts = gpd.GeoDataFrame(all_lts, geometry="geometry", crs=source_edges_crs)
+    all_lts = all_lts.to_crs(WORKING_CRS)
+
+    ExportService.write_geoparquet(all_lts[export_columns], lts_parquet)
+    ExportService.write_geojson(all_lts[export_columns], lts_geojson)
+
+    gap_summary = summarize_gap_components(all_lts, area_slug)
+    with open(gap_components_json, "w") as file_handle:
+        json.dump(gap_summary, file_handle)
+
+    # gdf_nodes was never reprojected (SlopeService only touches edges), so
+    # its `geometry` column is still in the graph's original CRS (EPSG:4326)
+    # while `all_lts` is now in WORKING_CRS. graph_from_gdfs positions nodes
+    # from their `x`/`y` columns (not `geometry`), so both must be updated
+    # explicitly to keep nodes and edges spatially consistent in the export.
+    gdf_nodes = gdf_nodes.to_crs(WORKING_CRS)
+    gdf_nodes["x"] = gdf_nodes.geometry.x
+    gdf_nodes["y"] = gdf_nodes.geometry.y
+
     graph = ox.graph_from_gdfs(
         gdf_nodes,
-        all_lts[
-            [
-                "osmid",
-                "lanes",
-                "name",
-                "highway",
-                "maxspeed",
-                "geometry",
-                "length",
-                "rule",
-                "lts",
-                "slope",
-                "slope_class",
-                "lanes_assumed",
-                "maxspeed_assumed",
-                "message",
-                "short_message",
-            ]
-        ],
+        all_lts[export_columns],
     )
     _save_and_correct_graphml(graph, graphml_path)
 

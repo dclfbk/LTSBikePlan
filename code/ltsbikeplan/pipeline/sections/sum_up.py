@@ -5,8 +5,8 @@ import os
 from .common import city_output_dir
 
 
-def run_sum_up(data_dir: str, images_dir: str, city: str) -> None:
-    out_dir = city_output_dir(images_dir, city)
+def run_sum_up(data_dir: str, images_dir: str, area_slug: str) -> None:
+    out_dir = city_output_dir(images_dir, area_slug)
 
     gap_q = os.path.join(out_dir, "gap_quadrants.html")
     risk_h = os.path.join(out_dir, "risk_accidents_hexagon.html")

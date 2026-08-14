@@ -5,16 +5,11 @@ import os
 import folium
 import geopandas as gpd
 import pandas as pd
-from shapely import wkt
-
-from ltsbikeplan.utils import sanitize_city_name
 
 
-def _load_lts_data(data_dir: str, city: str) -> gpd.GeoDataFrame:
-    city_sanitized = sanitize_city_name(city)
-    all_lts_df = pd.read_csv(os.path.join(data_dir, f"{city_sanitized}_all_lts.csv"), low_memory=False)
-    all_lts_df["geometry"] = all_lts_df["geometry"].apply(wkt.loads)
-    all_lts = gpd.GeoDataFrame(all_lts_df, geometry="geometry", crs="EPSG:32632")
+def _load_lts_data(data_dir: str, area_slug: str) -> gpd.GeoDataFrame:
+    parquet_path = os.path.join(data_dir, area_slug, f"{area_slug}_all_lts.parquet")
+    all_lts = gpd.read_parquet(parquet_path)
     return all_lts.to_crs(epsg=4326)
 
 
@@ -24,12 +19,11 @@ def _map_center(all_lts: gpd.GeoDataFrame) -> list[float]:
     return [center_point.y, center_point.x]
 
 
-def generate_lts_map(data_dir: str, images_dir: str, city: str) -> None:
-    city_sanitized = sanitize_city_name(city)
-    city_folder = os.path.join(images_dir, city_sanitized)
+def generate_lts_map(data_dir: str, images_dir: str, area_slug: str) -> None:
+    city_folder = os.path.join(images_dir, area_slug)
     os.makedirs(city_folder, exist_ok=True)
 
-    all_lts = _load_lts_data(data_dir, city)
+    all_lts = _load_lts_data(data_dir, area_slug)
     color_palette = ["forestgreen", "dodgerblue", "#f4e800", "firebrick", "#000000"]
     lts_classes = [1, 2, 3, 4, 0]
     colors = dict(zip(lts_classes, color_palette))
@@ -44,12 +38,11 @@ def generate_lts_map(data_dir: str, images_dir: str, city: str) -> None:
     fmap.save(os.path.join(city_folder, "lts_map.html"))
 
 
-def generate_h3_choropleth_map(data_dir: str, images_dir: str, city: str) -> None:
-    city_sanitized = sanitize_city_name(city)
-    city_folder = os.path.join(images_dir, city_sanitized)
+def generate_h3_choropleth_map(data_dir: str, images_dir: str, area_slug: str) -> None:
+    city_folder = os.path.join(images_dir, area_slug)
     os.makedirs(city_folder, exist_ok=True)
 
-    all_lts = _load_lts_data(data_dir, city)
+    all_lts = _load_lts_data(data_dir, area_slug)
     projected = all_lts.to_crs(all_lts.estimate_utm_crs() or all_lts.crs)
     lon_lat = gpd.GeoSeries(projected.geometry.centroid, crs=projected.crs).to_crs(epsg=4326)
     all_lts["lon"] = lon_lat.x

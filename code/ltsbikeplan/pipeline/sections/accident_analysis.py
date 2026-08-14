@@ -8,8 +8,6 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from ltsbikeplan.utils import sanitize_city_name
-
 from .common import city_output_dir, save_placeholder
 
 
@@ -30,10 +28,9 @@ ACCIDENT_PLOTS = [
 ]
 
 
-def run_accident_analysis(data_dir: str, images_dir: str, city: str) -> None:
-    out_dir = city_output_dir(images_dir, city)
-    city_name = sanitize_city_name(city)
-    accident_path = os.path.join(data_dir, f"accidents_{city_name.lower()}.geojson")
+def run_accident_analysis(data_dir: str, images_dir: str, area_slug: str) -> None:
+    out_dir = city_output_dir(images_dir, area_slug)
+    accident_path = os.path.join(data_dir, f"accidents_{area_slug.lower()}.geojson")
     if not os.path.exists(accident_path):
         return
 

@@ -24,6 +24,42 @@ class TestLtsRules(unittest.TestCase):
         self.assertEqual(len(not_allowed), 1)
         self.assertEqual(not_allowed.iloc[0]["rule"], "p3")
 
+    def test_steps_without_ramp_are_not_bikeable(self):
+        edges = pd.DataFrame(
+            {
+                "highway": ["steps", "residential"],
+            }
+        )
+
+        steps_edges, other_edges = BikePathAnalysis.steps_analysis(edges)
+        self.assertEqual(len(steps_edges), 1)
+        self.assertEqual(len(other_edges), 1)
+        self.assertEqual(steps_edges.iloc[0]["rule"], "p8")
+        self.assertEqual(steps_edges.iloc[0]["lts"], 0)
+
+    def test_steps_with_bicycle_ramp_are_lts_1(self):
+        edges = pd.DataFrame(
+            {
+                "highway": ["steps", "steps", "steps"],
+                "ramp": ["yes", "no", "no"],
+                "ramp:bicycle": ["no", "yes", "no"],
+            }
+        )
+
+        steps_edges, other_edges = BikePathAnalysis.steps_analysis(edges)
+        self.assertEqual(len(steps_edges), 3)
+        self.assertEqual(len(other_edges), 0)
+        self.assertListEqual(list(steps_edges["rule"]), ["p9", "p9", "p8"])
+        self.assertListEqual(list(steps_edges["lts"]), [1, 1, 0])
+
+    def test_steps_analysis_without_ramp_columns(self):
+        edges = pd.DataFrame({"highway": ["steps"]})
+
+        steps_edges, other_edges = BikePathAnalysis.steps_analysis(edges)
+        self.assertEqual(steps_edges.iloc[0]["rule"], "p8")
+        self.assertEqual(steps_edges.iloc[0]["lts"], 0)
+        self.assertTrue(other_edges.empty)
+
     def test_slope_penalty_increases_lts_for_hard_long_urban_edge(self):
         edges = pd.DataFrame(
             {

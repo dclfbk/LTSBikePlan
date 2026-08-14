@@ -4,9 +4,6 @@ import os
 
 import folium
 import geopandas as gpd
-import pandas as pd
-
-from ltsbikeplan.utils import sanitize_city_name
 
 from .common import city_output_dir
 
@@ -22,22 +19,21 @@ def _map_center(all_lts_gdf: gpd.GeoDataFrame) -> list[float]:
     return [center_point.y, center_point.x]
 
 
-def run_destination_access(data_dir: str, images_dir: str, city: str) -> None:
-    out_dir = city_output_dir(images_dir, city)
-    city_name = sanitize_city_name(city)
+def run_destination_access(data_dir: str, images_dir: str, area_slug: str) -> None:
+    out_dir = city_output_dir(images_dir, area_slug)
 
-    lts_csv = os.path.join(data_dir, f"{city_name}_all_lts.csv")
+    lts_parquet = os.path.join(data_dir, area_slug, f"{area_slug}_all_lts.parquet")
     population_candidates = [
         os.path.join(data_dir, "hexagon_destinations.csv"),
         os.path.join(data_dir, "hexagon_destinations.json"),
     ]
     population_file = next((p for p in population_candidates if os.path.exists(p)), None)
 
-    if not os.path.exists(lts_csv) or population_file is None:
+    if not os.path.exists(lts_parquet) or population_file is None:
         _write_placeholder_html(
             os.path.join(out_dir, "hexagonal_grid_population.html"),
             "Destination access unavailable",
-            "Missing required input files: city LTS CSV and/or destination-population dataset.",
+            "Missing required input files: area LTS export and/or destination-population dataset.",
         )
         _write_placeholder_html(
             os.path.join(out_dir, "bna_score_map.html"),
@@ -46,8 +42,7 @@ def run_destination_access(data_dir: str, images_dir: str, city: str) -> None:
         )
         return
 
-    all_lts_df = pd.read_csv(lts_csv, low_memory=False)
-    all_lts_gdf = gpd.GeoDataFrame(all_lts_df, geometry=gpd.GeoSeries.from_wkt(all_lts_df["geometry"]), crs="EPSG:32632")
+    all_lts_gdf = gpd.read_parquet(lts_parquet)
     all_lts_wgs = all_lts_gdf.to_crs(4326)
 
     center = _map_center(all_lts_gdf)

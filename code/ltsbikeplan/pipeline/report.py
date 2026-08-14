@@ -6,12 +6,11 @@ import subprocess
 
 from ltsbikeplan.assets import asset_path
 from ltsbikeplan.services.report_service import ReportContext, ReportService
-from ltsbikeplan.utils import sanitize_city_name
 
 
-def run_report(city: str, data_dir: str, images_dir: str) -> None:
+def run_report(area_slug: str, data_dir: str, images_dir: str) -> None:
     context = ReportContext(
-        city_sanitized=sanitize_city_name(city),
+        city_sanitized=area_slug,
         data_dir=data_dir,
         code_dir="",
         images_dir=images_dir,

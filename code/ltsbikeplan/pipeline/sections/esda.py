@@ -9,9 +9,9 @@ import osmnx as ox
 from .common import city_output_dir, load_graph
 
 
-def run_esda(data_dir: str, images_dir: str, city: str) -> None:
-    out_dir = city_output_dir(images_dir, city)
-    graph = load_graph(data_dir, city)
+def run_esda(data_dir: str, images_dir: str, area_slug: str) -> None:
+    out_dir = city_output_dir(images_dir, area_slug)
+    graph = load_graph(data_dir, area_slug)
 
     fig, ax = ox.plot_graph(graph, node_size=0, edge_linewidth=0.5, show=False, close=False)
     fig.savefig(os.path.join(out_dir, "network_base.png"), dpi=200)
