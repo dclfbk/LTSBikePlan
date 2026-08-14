@@ -4,3 +4,6 @@ matplotlib==3.9.4
 networkx==3.2.1
 osmnx==2.0.5
 shapely==2.0.7
+pyrosm==0.13.1
+pillow==12.3.0
+pyarrow==25.0.1

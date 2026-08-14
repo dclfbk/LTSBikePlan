@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Builds a PMTiles vector tileset for one area's LTS export, for use by
+# web/index.html.
+#
+# Requires `tippecanoe` and `pmtiles` (https://github.com/protomaps/go-pmtiles)
+# on PATH. tippecanoe (tested with v1.36.0) writes MBTiles even when told to
+# write a .pmtiles file, so this always goes through an intermediate .mbtiles
+# and converts it - only newer tippecanoe builds support --output-format=pmtiles
+# directly.
+#
+# --maximum-zoom is explicit (not -zg): tippecanoe's zoom-guessing heuristic
+# is tuned for point density and picked z12 for both a tiny comune (Atrani)
+# and a full city (Trento, 126k edges) alike - at z12 a street network is
+# too coarse and looks pre-simplified even before the browser gets to draw
+# it. z16 keeps real street-level geometry at close zoom. Deliberately NOT
+# using --drop-densest-as-needed: for a connected road network it drops
+# whole segments (visible gaps) to shrink oversized tiles, whereas
+# tippecanoe's default line-simplification (reducing vertex precision, not
+# removing features) looks far better at the same zoom - verified visually
+# on Trento (126k edges): --drop-densest-as-needed left the city looking
+# almost empty at the zoom level `fitBounds` lands on.
+#
+# Usage: scripts/build_tiles.sh <area_slug> [data_dir]
+set -euo pipefail
+
+AREA_SLUG="${1:?Usage: build_tiles.sh <area_slug> [data_dir]}"
+DATA_DIR="${2:-${LTSBP_DATA_DIR:-data}}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+GEOJSON="$DATA_DIR/$AREA_SLUG/${AREA_SLUG}_all_lts.geojson"
+OUT_DIR="$REPO_ROOT/web/data"
+MBTILES="$(mktemp --suffix=.mbtiles)"
+trap 'rm -f "$MBTILES"' EXIT
+
+if [ ! -f "$GEOJSON" ]; then
+  echo "Missing $GEOJSON - run 'ltsbikeplan compute-lts --area \"$AREA_SLUG\"' first." >&2
+  exit 1
+fi
+
+command -v tippecanoe >/dev/null || { echo "tippecanoe not found on PATH" >&2; exit 1; }
+command -v pmtiles >/dev/null || { echo "pmtiles (go-pmtiles) not found on PATH" >&2; exit 1; }
+
+mkdir -p "$OUT_DIR"
+
+tippecanoe \
+  -o "$MBTILES" \
+  --force \
+  --maximum-zoom=16 \
+  --extend-zooms-if-still-dropping \
+  -l lts \
+  --name "${AREA_SLUG} LTS" \
+  --attribution "LTSBikePlan / OpenStreetMap contributors" \
+  "$GEOJSON"
+
+pmtiles convert --force "$MBTILES" "$OUT_DIR/${AREA_SLUG}_lts.pmtiles"
+
+# Gap-analysis panel data (list of low-stress "islands" for this area, with
+# a bbox to fly the map to) - written by compute_lts.py alongside the
+# GeoJSON. Optional: older exports predating the gap-analysis feature won't
+# have it.
+GAP_JSON="$DATA_DIR/$AREA_SLUG/${AREA_SLUG}_gap_components.json"
+if [ -f "$GAP_JSON" ]; then
+  cp "$GAP_JSON" "$OUT_DIR/${AREA_SLUG}_gap_components.json"
+fi
+
+echo "Wrote $OUT_DIR/${AREA_SLUG}_lts.pmtiles"
+echo "Open web/index.html?area=${AREA_SLUG} to view it."

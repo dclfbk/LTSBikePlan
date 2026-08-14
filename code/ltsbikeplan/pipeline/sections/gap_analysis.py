@@ -9,9 +9,9 @@ import osmnx as ox
 from .common import city_output_dir, load_graph, save_placeholder
 
 
-def run_gap_analysis(data_dir: str, images_dir: str, city: str) -> None:
-    out_dir = city_output_dir(images_dir, city)
-    graph = load_graph(data_dir, city)
+def run_gap_analysis(data_dir: str, images_dir: str, area_slug: str) -> None:
+    out_dir = city_output_dir(images_dir, area_slug)
+    graph = load_graph(data_dir, area_slug)
     undirected = nx.Graph(graph)
 
     low_nodes = [n for n, d in undirected.nodes(data=True) if str(d.get("lts", "0")) in {"1", "2"}]

@@ -21,6 +21,7 @@ images/
 docs/
 data/
 cache/
+web/data/
 
 # Build artifacts
 dist/

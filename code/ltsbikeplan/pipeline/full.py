@@ -9,11 +9,11 @@ from ltsbikeplan.pipeline.sections.network_analysis import run_network_analysis
 from ltsbikeplan.pipeline.sections.sum_up import run_sum_up
 
 
-def run_full_sections(data_dir: str, images_dir: str, city: str) -> None:
-    run_esda(data_dir, images_dir, city)
-    run_clusters(data_dir, images_dir, city)
-    run_network_analysis(data_dir, images_dir, city)
-    run_gap_analysis(data_dir, images_dir, city)
-    run_destination_access(data_dir, images_dir, city)
-    run_accident_analysis(data_dir, images_dir, city)
-    run_sum_up(data_dir, images_dir, city)
+def run_full_sections(data_dir: str, images_dir: str, area_slug: str) -> None:
+    run_esda(data_dir, images_dir, area_slug)
+    run_clusters(data_dir, images_dir, area_slug)
+    run_network_analysis(data_dir, images_dir, area_slug)
+    run_gap_analysis(data_dir, images_dir, area_slug)
+    run_destination_access(data_dir, images_dir, area_slug)
+    run_accident_analysis(data_dir, images_dir, area_slug)
+    run_sum_up(data_dir, images_dir, area_slug)

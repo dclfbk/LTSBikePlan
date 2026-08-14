@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ltsbikeplan"
-version = "0.1.0"
+version = "2.1.0"
 description = "Level of Traffic Stress bike planning toolkit"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -28,7 +28,10 @@ geo = [
   "rasterio>=1.3",
   "scikit-learn>=1.2",
   "shapely>=2.0",
-  "richdem>=0.3"
+  "richdem>=0.3",
+  "pyrosm>=0.6",
+  "pillow>=10.0",
+  "pyarrow>=14.0"
 ]
 r = [
   "rpy2>=3.5"

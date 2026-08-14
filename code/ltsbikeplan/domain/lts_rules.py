@@ -1,7 +1,37 @@
 import numpy as np
+import pandas as pd
 
 
 class BikePathAnalysis:
+    @staticmethod
+    def steps_analysis(gdf_edges):
+        # highway=steps is stairs - not rideable at all, unless the way also
+        # carries a bicycle ramp (ramp=yes or ramp:bicycle=yes), in which
+        # case it's a dedicated low-stress facility (LTS 1). Handled before
+        # biking_permitted() because the generic pipeline downstream
+        # (is_separated_path/is_bike_lane/mixed_traffic) has no notion of
+        # stairs and would otherwise fall through to a mixed-traffic default.
+        gdf_edges = gdf_edges.copy()
+        is_steps = gdf_edges["highway"] == "steps"
+
+        ramp_yes = gdf_edges["ramp"] == "yes" if "ramp" in gdf_edges.columns else pd.Series(False, index=gdf_edges.index)
+        ramp_bicycle_yes = (
+            gdf_edges["ramp:bicycle"] == "yes"
+            if "ramp:bicycle" in gdf_edges.columns
+            else pd.Series(False, index=gdf_edges.index)
+        )
+        has_bicycle_ramp = ramp_yes | ramp_bicycle_yes
+
+        steps_edges = gdf_edges[is_steps].copy()
+        other_edges = gdf_edges[~is_steps]
+
+        if not steps_edges.empty:
+            steps_has_ramp = has_bicycle_ramp[is_steps]
+            steps_edges["rule"] = np.where(steps_has_ramp, "p9", "p8")
+            steps_edges["lts"] = np.where(steps_has_ramp, 1, 0)
+
+        return steps_edges, other_edges
+
     @staticmethod
     def biking_permitted(gdf_edges):
         gdf_edges = gdf_edges.copy()
@@ -162,6 +192,13 @@ class BikePathAnalysis:
             gdf_edges["width"] = np.nan
             width_column = "width"
 
+        # OSM's `width` tag is free text in practice (units, typos, comma
+        # decimals) - coerce to numeric so the `<=` comparisons below don't
+        # crash on a str/float comparison. Non-numeric values become NaN and
+        # fall through to the highway-based estimate right after, same as
+        # values that were already missing.
+        gdf_edges[width_column] = pd.to_numeric(gdf_edges[width_column], errors="coerce")
+
         missing_widths = gdf_edges[width_column].isna()
         gdf_edges.loc[missing_widths, width_column] = gdf_edges[missing_widths].apply(
             lambda row: BikePathAnalysis.get_average_width_based_on_highway(row["highway"], row["oneway"]), axis=1
@@ -195,6 +232,13 @@ class BikePathAnalysis:
         else:
             gdf_edges["width"] = np.nan
             width_column = "width"
+
+        # OSM's `width` tag is free text in practice (units, typos, comma
+        # decimals) - coerce to numeric so the `<=` comparisons below don't
+        # crash on a str/float comparison. Non-numeric values become NaN and
+        # fall through to the highway-based estimate right after, same as
+        # values that were already missing.
+        gdf_edges[width_column] = pd.to_numeric(gdf_edges[width_column], errors="coerce")
 
         missing_widths = gdf_edges[width_column].isna()
         gdf_edges.loc[missing_widths, width_column] = gdf_edges[missing_widths].apply(

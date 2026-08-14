@@ -5,18 +5,15 @@ import os
 import matplotlib.pyplot as plt
 import osmnx as ox
 
-from ltsbikeplan.utils import sanitize_city_name
 
-
-def city_output_dir(images_dir: str, city: str) -> str:
-    path = os.path.join(images_dir, sanitize_city_name(city))
+def city_output_dir(images_dir: str, area_slug: str) -> str:
+    path = os.path.join(images_dir, area_slug)
     os.makedirs(path, exist_ok=True)
     return path
 
 
-def load_graph(data_dir: str, city: str):
-    city_name = sanitize_city_name(city)
-    return ox.load_graphml(os.path.join(data_dir, f"{city_name}_lts.graphml"))
+def load_graph(data_dir: str, area_slug: str):
+    return ox.load_graphml(os.path.join(data_dir, area_slug, f"{area_slug}_lts.graphml"))
 
 
 def save_placeholder(path: str, title: str) -> None:
