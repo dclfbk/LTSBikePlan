@@ -62,7 +62,7 @@ pip install -e .
 
 Install directly from a GitHub release tag:
 ```bash
-pip install "git+https://github.com/dclfbk/LTSBikePlan.git@v2.2.2"
+pip install "git+https://github.com/dclfbk/LTSBikePlan.git@v2.2.3"
 ```
 
 After installing, use the CLI from any shell:
@@ -159,7 +159,7 @@ A site-level `<header>` sits above the map (title + current area, language switc
    ```
    Rerun `build_national_tiles.sh` any time after processing more areas to fold them into the merged tileset.
 
-   For an unattended full-Italy rebuild (e.g. a weekly cron job on the machine serving `web/`), `scripts/build_italy_map_cron.sh` runs `fetch`+`compute-lts`+`build_tiles.sh` for every Italian provincia (`scripts/list_province.py` gets the ~107 names straight from osmit-estratti's own index, not a hardcoded list) and finishes with `build_national_tiles.sh` - one provincia failing is logged and skipped, not fatal to the run. Since it writes directly into `web/data/`, regenerating *is* publishing when the server already serves `web/` in place - no separate transfer step.
+   For an unattended full-Italy rebuild (e.g. a weekly cron job on the machine serving `web/`), `scripts/build_italy_map_cron.sh` runs `fetch`+`compute-lts`+`build_tiles.sh` for every Italian provincia (`scripts/list_province.py` gets the ~107 names straight from osmit-estratti's own index, not a hardcoded list) and finishes with `build_national_tiles.sh` - one provincia failing is logged and skipped, not fatal to the run. Since it writes directly into `web/data/`, regenerating *is* publishing when the server already serves `web/` in place - no separate transfer step. `fetch`'s own downloads (each provincia's `.osm.pbf` extract + DEM mosaic) are cached under `data/_cache/` forever by default (no expiry - a full run leaves ~107 provincia-sized files on disk permanently); set `LTSBP_CLEANUP_CACHE=1` to delete each provincia's cache right after its `compute-lts` succeeds (`scripts/cleanup_area_cache.py`), trading disk space for re-downloading everything on the next run.
 2. Serve `web/` with a static server that supports HTTP Range requests (PMTiles needs byte-range serving; Python's built-in `python -m http.server` does **not** support this - use `npx http-server web -c-1` or any CDN/object storage instead):
    ```bash
    npx http-server web -c-1
