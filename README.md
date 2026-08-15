@@ -62,7 +62,7 @@ pip install -e .
 
 Install directly from a GitHub release tag:
 ```bash
-pip install "git+https://github.com/dclfbk/LTSBikePlan.git@v2.2.1"
+pip install "git+https://github.com/dclfbk/LTSBikePlan.git@v2.2.2"
 ```
 
 After installing, use the CLI from any shell:
