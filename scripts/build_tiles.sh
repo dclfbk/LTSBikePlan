@@ -66,14 +66,5 @@ tippecanoe \
 
 pmtiles convert --force "$MBTILES" "$OUT_DIR/${AREA_SLUG}_lts.pmtiles"
 
-# Gap-analysis panel data (list of low-stress "islands" for this area, with
-# a bbox to fly the map to) - written by compute_lts.py alongside the
-# GeoJSON. Optional: older exports predating the gap-analysis feature won't
-# have it.
-GAP_JSON="$DATA_DIR/$AREA_SLUG/${AREA_SLUG}_gap_components.json"
-if [ -f "$GAP_JSON" ]; then
-  cp "$GAP_JSON" "$OUT_DIR/${AREA_SLUG}_gap_components.json"
-fi
-
 echo "Wrote $OUT_DIR/${AREA_SLUG}_lts.pmtiles"
 echo "Open web/index.html?area=${AREA_SLUG} to view it."

@@ -421,12 +421,19 @@ class GeocoderControl {
     this._panel.classList.remove("hidden");
     this._button.classList.add("active");
     this._input.focus();
+    // On a narrow phone screen there isn't room for both #panel (legend/
+    // basemap/gap list) and this flyout without one covering the other -
+    // see the mobile media query in styles.css. Hiding #panel while
+    // actively searching is a reasonable trade: nobody is reading the
+    // legend mid-search anyway.
+    document.body.classList.add("geocoder-open");
   }
 
   _close() {
     this._panel.classList.add("hidden");
     this._button.classList.remove("active");
     this._hideResults();
+    document.body.classList.remove("geocoder-open");
   }
 
   _hideResults() {

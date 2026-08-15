@@ -48,25 +48,5 @@ tippecanoe \
 
 pmtiles convert --force "$MBTILES" "$OUT_DIR/italia_lts.pmtiles"
 
-# Merge every area's gap-analysis panel data into one list. Each component's
-# "id" is already prefixed "<area_slug>:<index>" by
-# domain/gap_analysis.py::annotate_gap_components, so concatenating is safe
-# - no cross-area id collisions to resolve.
-shopt -s nullglob
-GAP_JSON_FILES=("$DATA_DIR"/*/*_gap_components.json)
-shopt -u nullglob
-if [ ${#GAP_JSON_FILES[@]} -gt 0 ]; then
-  python3 -c "
-import json, sys
-merged = []
-for path in sys.argv[1:]:
-    with open(path) as f:
-        merged.extend(json.load(f))
-merged.sort(key=lambda c: c['length_km'], reverse=True)
-with open('$OUT_DIR/italia_gap_components.json', 'w') as f:
-    json.dump(merged, f)
-" "${GAP_JSON_FILES[@]}"
-fi
-
 echo "Wrote $OUT_DIR/italia_lts.pmtiles"
 echo "Open web/index.html?area=italia to view it."

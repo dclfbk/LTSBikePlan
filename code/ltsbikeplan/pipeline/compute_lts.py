@@ -15,7 +15,7 @@ from ltsbikeplan.assets import asset_path
 from ltsbikeplan.domain.area_spec import AreaSpec
 from ltsbikeplan.domain.area_statistics import compute_area_statistics
 from ltsbikeplan.domain.crs import WORKING_CRS, chunked_to_crs
-from ltsbikeplan.domain.gap_analysis import annotate_gap_components, summarize_gap_components
+from ltsbikeplan.domain.gap_analysis import annotate_gap_components
 from ltsbikeplan.domain.lts_rules import BikePathAnalysis
 from ltsbikeplan.domain.network_centrality import annotate_edge_centrality
 from ltsbikeplan.domain.parallel_cycleway import annotate_parallel_cycleway
@@ -164,7 +164,6 @@ def run_compute_lts(data_dir: str, area: AreaSpec) -> str:
     lts_parquet = os.path.join(area_dir, f"{area_slug}_all_lts.parquet")
     lts_geojson = os.path.join(area_dir, f"{area_slug}_all_lts.geojson")
     graphml_path = os.path.join(area_dir, f"{area_slug}_lts.graphml")
-    gap_components_json = os.path.join(area_dir, f"{area_slug}_gap_components.json")
     stats_json = os.path.join(area_dir, f"{area_slug}_stats.json")
 
     export_columns = [
@@ -201,10 +200,6 @@ def run_compute_lts(data_dir: str, area: AreaSpec) -> str:
 
     ExportService.write_geoparquet(all_lts[export_columns], lts_parquet)
     ExportService.write_geojson(all_lts[export_columns], lts_geojson)
-
-    gap_summary = summarize_gap_components(all_lts, area_slug)
-    with open(gap_components_json, "w") as file_handle:
-        json.dump(gap_summary, file_handle)
 
     # Per-area indicators for web/comuni.html's cross-comune comparison page
     # - istat_code/comune added here (not part of compute_area_statistics'
