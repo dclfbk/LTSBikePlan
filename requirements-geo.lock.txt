@@ -11,3 +11,20 @@ shapely==2.1.2
 pyrosm==0.13.1
 pillow==12.3.0
 pyarrow==25.0.1
+folium==0.20.0
+rasterio==1.5.1
+scikit-learn==1.9.0
+openpyxl==3.1.5  # services/istat_registry_service.py::pd.read_excel needs this to read .xlsx
+
+# richdem (services/slope_strategies.py::SlopeCalculatorRichdem, the
+# default "v3" slope strategy) is deliberately NOT pinned here: it has no
+# prebuilt wheel and fails to *build* from source against modern CPython
+# (a C-extension incompatibility with Python's current C API, reproduced
+# on 3.12 and 3.14 - not a version-pin issue, an upstream-abandoned-
+# package issue), and separately its setup.py forces numpy<2, conflicting
+# with every other pin above. services/slope_service.py already treats it
+# as optional: a missing/failed richdem import falls back to slope
+# strategy v2 (GDAL) and then to rasterio-simple automatically, so skip it
+# here rather than let it break the whole geo install for one strategy
+# tier. Only install it by hand, into its own isolated environment, if
+# you specifically need it.
