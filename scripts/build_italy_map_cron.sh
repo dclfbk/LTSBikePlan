@@ -11,7 +11,17 @@
 # rebuilt. Safe to just re-run next time - fetch/compute-lts always
 # overwrite that area's own files, no manual cleanup needed between runs.
 #
-# Usage: scripts/build_italy_map_cron.sh [data_dir]
+# fetch's own downloads (each provincia's .osm.pbf extract + DEM mosaic)
+# are cached under data/_cache/ *forever* by design (services/osm_pbf_
+# service.py, pipeline/fetch.py - no expiry, reused if already present) -
+# left alone, a full run leaves ~107 provincia-sized .osm.pbf files on
+# disk permanently. Set LTSBP_CLEANUP_CACHE=1 to delete each provincia's
+# .pbf/DEM mosaic right after its compute-lts succeeds (via scripts/
+# cleanup_area_cache.py), trading a smaller data/_cache/ for re-downloading
+# everything on the next run. Off by default: the cache is what makes a
+# re-run (or a fixed-up single provincia) fast.
+#
+# Usage: LTSBP_CLEANUP_CACHE=1 scripts/build_italy_map_cron.sh [data_dir]
 # Suggested crontab (weekly, off-peak - a full run visits ~107 province,
 # budget several hours depending on machine/network - Trento comune alone
 # took ~1.5 min for compute-lts, and province are bigger than comuni):
@@ -49,6 +59,12 @@ for line in "${PROVINCE_LINES[@]}"; do
     FAILED+=("$provincia")
     continue
   fi
+
+  if [ "${LTSBP_CLEANUP_CACHE:-0}" = "1" ]; then
+    PYTHONPATH=code python3 scripts/cleanup_area_cache.py "$provincia" --area-level provincia "$DATA_DIR" \
+      || log "WARNING: cache cleanup failed for $provincia (LTS data itself is unaffected)"
+  fi
+
   if ! scripts/build_tiles.sh "$slug" "$DATA_DIR"; then
     log "WARNING: tile build failed for $provincia (LTS data was computed - only its .pmtiles is missing, it'll just be absent from the national tileset until re-run)"
   fi
