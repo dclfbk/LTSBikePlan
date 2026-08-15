@@ -1,0 +1,228 @@
+html, body { height: 100%; margin: 0; }
+body { display: flex; flex-direction: column; }
+
+/* Z-index layers: map (auto, bottom) < #panel (5) < #geocoder-panel (6,
+   a map-corner flyout that can visually overlap #panel on narrow
+   viewports - see the mobile media query below) < #site-header (10) <
+   .info-panel modals (20, position:fixed, must cover everything
+   including the header). */
+#map-container { position: relative; flex: 1 1 auto; min-height: 0; }
+#map { width: 100%; height: 100%; }
+
+#site-footer {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: 4px 16px; padding: 6px 16px;
+  background: white; box-shadow: 0 -1px 4px rgba(0,0,0,0.15);
+  position: relative; z-index: 10;
+  font: 12px/1.4 system-ui, sans-serif; color: #555;
+}
+#footer-credit { white-space: nowrap; }
+#footer-credit a { color: inherit; text-decoration: underline; }
+#footer-credit a:hover { color: #4c78a8; }
+#footer-hosting { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+#footer-logo { height: 18px; width: auto; vertical-align: middle; }
+
+#site-header {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: 6px 16px; padding: 10px 16px;
+  background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  position: relative; z-index: 10;
+  font: 13px/1.4 system-ui, sans-serif;
+}
+#header-brand { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+#site-title { font-size: 18px; margin: 0; white-space: nowrap; }
+#site-tagline { font-size: 13px; color: #555; }
+#area-badge { font-size: 13px; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#header-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#lang-switcher select { font: inherit; padding: 2px 4px; }
+
+/* Nominatim geocoder (see GeocoderControl in app.js - plain fetch, no
+   plugin) - a map corner control like zoom/terrain/print, not a header
+   element: a search box sitting in the header nav read as part of the
+   site's own navigation, not "search the map", which was confusing
+   (misleading users about what it does). Collapsed to a magnifying-glass
+   icon by default, matching the other icon controls it stacks with;
+   clicking it expands a flyout to the left (into the map, away from the
+   viewport edge - the control itself is pinned top-right). */
+.geocoder-control { position: relative; }
+#geocoder-panel {
+  position: absolute; top: 0; right: 100%; margin-right: 6px; width: 260px;
+  z-index: 6;
+  background: white; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  padding: 6px;
+}
+#geocoder-panel.hidden { display: none; }
+#geocoder-toggle.active { background: #4c78a8; color: white; }
+#geocoder-input {
+  font: inherit; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px;
+  width: 100%; box-sizing: border-box;
+}
+#geocoder-results { margin-top: 4px; max-height: 240px; overflow-y: auto; }
+#geocoder-results.hidden { display: none; }
+.geocoder-item { padding: 6px 8px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+.geocoder-item:last-child { border-bottom: none; }
+.geocoder-item:hover { background: #f0f0f0; }
+.nav-link {
+  font: inherit; background: none; border: 1px solid #ccc; border-radius: 4px;
+  padding: 4px 10px; cursor: pointer; color: #333;
+  text-decoration: none; display: inline-block;
+}
+.nav-link:hover { background: #f0f0f0; }
+.nav-link.active { background: #4c78a8; color: white; border-color: #4c78a8; }
+
+#panel {
+  position: absolute; top: 10px; left: 10px; z-index: 5;
+  background: white; padding: 10px 14px; border-radius: 6px;
+  font: 13px/1.4 system-ui, sans-serif; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  max-width: 220px;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 6px; margin: 2px 0;
+  cursor: pointer; user-select: none; border-radius: 3px; padding: 1px 2px;
+}
+.legend-item:hover { background: #f0f0f0; }
+.legend-item.inactive { opacity: 0.35; }
+.legend-item span.swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+.lts-face { vertical-align: middle; flex-shrink: 0; }
+#legend-hint { font-size: 11px; color: #777; margin: 4px 0 0; }
+#style-switcher { margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; }
+#style-switcher label { display: block; font-weight: normal; margin: 2px 0; cursor: pointer; }
+/* Compact icon button inside its own maplibregl-ctrl-group, stacked
+   below the zoom/compass NavigationControl (see TerrainControl in
+   app.js) - sizing/border/hover inherited from maplibregl-ctrl-group's
+   own styles, only the active (terrain-on) state needs a custom rule. */
+#terrain-toggle.active { background: #4c78a8; }
+
+.lts-popup { font: 13px/1.5 system-ui, sans-serif; }
+.lts-popup h3 { font-size: 14px; margin: 0 0 6px; }
+.lts-popup details { margin-top: 6px; }
+.lts-popup summary { cursor: pointer; color: #4c78a8; }
+.priority-note { font-size: 11px; color: #7B2CBF; margin: 4px 0 0; }
+
+.hidden { display: none !important; }
+
+/* Back inside #panel, under the basemap switcher - a plain full-width
+   button like the original, not the header nav-link style tried in
+   between (moved there and back per feedback). */
+#gap-toggle { margin-top: 8px; width: 100%; }
+#gap-toggle.active { background: #4c78a8; color: white; border-color: #4c78a8; }
+#gap-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Accordion section inside #panel, right under the toggle button -
+   collapsed (max-height 0) by default so it takes no space until opened,
+   expanding/collapsing with a max-height transition instead of an
+   abrupt show/hide. No independent background/shadow/font of its own
+   (unlike the old floating-panel version): it's just more content
+   inside #panel, which already provides all of that. max-height is a
+   safety net for unusually tall rows, not the main way the list's
+   length is bounded - GAP_LIST_PAGE_SIZE (paginated in JS) is, so the
+   panel doesn't grow into a long internally-scrolling list. */
+#gap-panel {
+  margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px;
+  max-height: 0; overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+#gap-panel.open { max-height: 480px; overflow-y: auto; }
+#gap-panel h2 { font-size: 14px; margin: 0 0 6px; }
+#gap-hint { font-size: 11px; color: #777; margin: 0 0 8px; }
+.gap-item {
+  margin: 4px 0; cursor: pointer; border-radius: 3px; padding: 3px 2px;
+}
+.gap-item:hover { background: #f0f0f0; }
+.gap-item-main { display: flex; align-items: center; gap: 6px; }
+.gap-item span.swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+.gap-item-explain { font-size: 11px; color: #777; margin: 2px 0 0 18px; }
+#gap-pager {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin-top: 8px;
+}
+#gap-pager button {
+  font: inherit; padding: 2px 8px; cursor: pointer;
+  border: 1px solid #ccc; border-radius: 4px; background: white;
+}
+#gap-pager button:disabled { opacity: 0.4; cursor: not-allowed; }
+#gap-pager-label { font-size: 11px; color: #777; }
+
+.info-panel {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  z-index: 20;
+  background: white; padding: 16px 20px; border-radius: 6px;
+  font: 13px/1.5 system-ui, sans-serif; box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  width: calc(100vw - 32px); max-width: 480px; max-height: calc(100vh - 60px); overflow-y: auto;
+  box-sizing: border-box;
+}
+.info-panel h2 { font-size: 15px; margin: 0 0 8px; }
+.info-panel h3 { font-size: 13px; margin: 14px 0 4px; color: #222; }
+.info-panel p { margin: 6px 0; }
+.info-panel a { color: #4c78a8; }
+.info-panel-close {
+  position: absolute; top: 6px; right: 8px; border: none; background: none;
+  font-size: 16px; cursor: pointer; color: #777; line-height: 1;
+}
+#about-subtitle { font-style: italic; color: #555; margin: 0 0 10px; }
+.ai-note { font-style: italic; font-size: 11px; color: #999; margin: 0 0 6px; text-align: left; }
+
+/* FAQ accordion: independent items (opening one doesn't close another) -
+   the ::after +/− indicator is driven by .faq-item.open, toggled per
+   item on click (see renderFaq in app.js). */
+.faq-item { border-top: 1px solid #eee; }
+.faq-item:first-child { border-top: none; }
+.faq-question {
+  display: block; width: 100%; text-align: left; font: inherit; font-weight: 600;
+  background: none; border: none; padding: 10px 22px 10px 0; cursor: pointer; color: #222;
+  position: relative;
+}
+.faq-question:hover { color: #4c78a8; }
+.faq-question::after { content: "+"; position: absolute; right: 2px; top: 8px; color: #999; }
+.faq-item.open .faq-question::after { content: "\2212"; }
+.faq-answer { padding: 0 0 10px; }
+.faq-answer.hidden { display: none; }
+.faq-close-answer {
+  display: block; margin-top: 8px; font: inherit; font-size: 11px;
+  color: #999; background: none; border: none; padding: 0;
+  cursor: pointer; text-decoration: underline;
+}
+.faq-close-answer:hover { color: #4c78a8; }
+
+/* Print widget (see PrintControl in app.js): keeps the map and the
+   legend (colour meaning is essential context for a printed map), drops
+   everything that's only useful interactively - header/footer chrome,
+   every map button control incl. the geocoder (.maplibregl-ctrl-group
+   covers it too - would otherwise print a stray icon/flyout in the
+   corner), and any open modal (About/FAQ/Cookie - printing mid-read of
+   one of those should print that dialog, not silently switch to
+   printing the map instead; simplest to just always hide them and let
+   the user close the modal and print again if that's what they actually
+   wanted). The scale bar is deliberately NOT hidden - also essential
+   context on a printed map. */
+@media print {
+  #site-header, #site-footer, .maplibregl-ctrl-group, .info-panel {
+    display: none !important;
+  }
+  body, #map-container, #map { height: 100vh !important; width: 100% !important; margin: 0; }
+}
+
+/* Small/phone viewports: the header's tagline is decorative context, not
+   something worth the vertical space it costs when it forces a 3-line
+   wrap (title+tagline, badge, nav buttons) on a ~375px-wide screen - every
+   header pixel is map pixel lost below it. #panel (legend/basemap/gap
+   list) gets a tighter font/padding for the same reason: its own
+   max-width already keeps it well short of full-bleed, but a plain phone
+   screen is narrow enough that even 220px reads as "most of the screen",
+   so this claws back some of that without changing its layout/content. */
+@media (max-width: 480px) {
+  #site-tagline { display: none; }
+  #panel { padding: 8px 10px; font-size: 12px; }
+
+  /* #geocoder-panel normally flies out to the left of its icon (into the
+     map, away from the viewport edge - see the comment above). On a
+     narrow phone screen that leftward space is exactly where #panel
+     (legend/basemap/gap list) already sits - not enough room for both
+     side by side - so flying out downward instead, and hiding #panel
+     for the moment (GeocoderControl._open()/_close() toggle
+     body.geocoder-open), keeps the two from ever overlapping. */
+  #geocoder-panel { top: 100%; right: 0; margin-right: 0; margin-top: 6px; }
+  body.geocoder-open #panel { display: none; }
+}

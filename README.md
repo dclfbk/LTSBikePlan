@@ -62,7 +62,7 @@ pip install -e .
 
 Install directly from a GitHub release tag:
 ```bash
-pip install "git+https://github.com/dclfbk/LTSBikePlan.git@v2.2.4"
+pip install "git+https://github.com/dclfbk/LTSBikePlan.git@v2.2.5"
 ```
 
 After installing, use the CLI from any shell:
@@ -155,8 +155,8 @@ A site-level `<header>` sits above the map (title + current area, language switc
 
 1. Build a PMTiles tileset from one or more areas' `compute-lts` output (requires [`tippecanoe`](https://github.com/felt/tippecanoe) and [`pmtiles`](https://github.com/protomaps/go-pmtiles) on `PATH`):
    ```bash
-   scripts/build_tiles.sh Trento              # single area -> web/data/Trento_lts.pmtiles (+ its gap_components.json)
-   scripts/build_national_tiles.sh            # every area processed so far -> web/data/italia_lts.pmtiles (+ merged gap_components.json)
+   scripts/build_tiles.sh Trento              # single area -> web/data/Trento_lts.pmtiles
+   scripts/build_national_tiles.sh            # every area processed so far -> web/data/italia_lts.pmtiles
    ```
    Rerun `build_national_tiles.sh` any time after processing more areas to fold them into the merged tileset.
 

@@ -6,7 +6,6 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
-from ltsbikeplan.domain.crs import chunked_to_crs
 
 LOW_STRESS_LTS = {1, 2}
 HIGH_STRESS_LTS = {3, 4}
@@ -95,33 +94,3 @@ def annotate_gap_components(
         all_lts.loc[downgrade, "gap_connects"] = np.nan
 
     return all_lts
-
-
-def summarize_gap_components(all_lts, area_slug: str) -> list:
-    """Per-component stats for the web viewer's gap panel: how big each
-    low-stress island is and where to fly the map to look at it.
-
-    Needs `all_lts` to already be a real GeoDataFrame with a CRS set (called
-    after compute_lts.py's WORKING_CRS reprojection, unlike
-    annotate_gap_components which only needs the index + `lts` column and
-    runs before that reprojection).
-    """
-    islands = all_lts[all_lts["gap_component"].notna()]
-    if islands.empty:
-        return []
-
-    islands_4326 = chunked_to_crs(islands, 4326)
-    summary = []
-    for comp_id, comp_edges in islands.groupby("gap_component"):
-        bounds = islands_4326.loc[comp_edges.index].total_bounds
-        summary.append(
-            {
-                "id": comp_id,
-                "area": area_slug,
-                "edge_count": int(len(comp_edges)),
-                "length_km": round(float(comp_edges["length"].sum()) / 1000.0, 2),
-                "bbox": [round(float(b), 6) for b in bounds],
-            }
-        )
-    summary.sort(key=lambda c: c["length_km"], reverse=True)
-    return summary
