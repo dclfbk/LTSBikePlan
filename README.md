@@ -62,7 +62,7 @@ pip install -e .
 
 Install directly from a GitHub release tag:
 ```bash
-pip install "git+https://github.com/dclfbk/LTSBikePlan.git@v2.2.0"
+pip install "git+https://github.com/dclfbk/LTSBikePlan.git@v2.2.1"
 ```
 
 After installing, use the CLI from any shell:
@@ -166,6 +166,16 @@ A site-level `<header>` sits above the map (title + current area, language switc
    ```
 3. Open `http://localhost:8080/index.html?area=Trento` (single area) or `?area=italia` (merged tileset, also the default with no `?area=`) in a browser.
 
+## Deployment (production, Ubuntu + nginx)
+
+For a real deployment that also keeps itself up to date (rather than the local `npx http-server` dev setup above), `deploy/` and `scripts/setup_server.sh` provision an Ubuntu box that serves `web/` via nginx and rebuilds the national tileset on a weekly timer:
+
+1. `sudo scripts/setup_server.sh [deploy_root]` (default `/opt/stressinbici`) - installs apt build dependencies, builds `tippecanoe` and installs `pmtiles` from their upstream releases (neither is in Ubuntu's apt repos), clones the repo, and creates the `.venv` with `requirements.lock.txt` + `requirements-geo.lock.txt` + `pip install -e .`. Safe to re-run for updates (`git pull` + reinstall).
+2. `deploy/nginx-stressinbici.conf` - nginx site config for `web/`, with `.pmtiles` served ungzipped (gzip breaks the byte-range reads the PMTiles client relies on) and short, distinct cache lifetimes for tiles/data vs. HTML/JS so both a weekly data rebuild and a code deploy (`git pull`) become visible without a manual cache purge.
+3. `deploy/ltsbikeplan-rebuild.service` + `deploy/ltsbikeplan-rebuild.timer` - a systemd timer running `scripts/build_italy_map_cron.sh` weekly (off-peak; a full run visits ~107 province and can take several hours). Each file's header comments have the exact install commands.
+
+Code updates (new features/fixes) are a separate step from data rebuilds: `git -C /opt/stressinbici/LTSBikePlan pull && sudo systemctl restart nginx` picks up `web/` changes; re-run `scripts/setup_server.sh` if `pyproject.toml`/the lockfiles changed too.
+
 ## Manual Inputs
 
 Optional (for extended sections):
@@ -187,6 +197,9 @@ LTSBikePlan/
 │   └── old_code/                     # archived notebooks/legacy scripts
 ├── scripts/build_tiles.sh            # GeoJSON -> PMTiles build for one area
 ├── scripts/build_national_tiles.sh   # merges every processed area into one PMTiles tileset
+├── scripts/build_italy_map_cron.sh   # unattended full-Italy rebuild (all province)
+├── scripts/setup_server.sh           # one-time Ubuntu provisioning for production deploy
+├── deploy/                           # nginx site config + systemd timer for production
 ├── web/                               # static MapLibre GL JS + PMTiles viewer
 ├── tests/                            # unit and smoke tests
 ├── pyproject.toml                    # package metadata + entrypoints
