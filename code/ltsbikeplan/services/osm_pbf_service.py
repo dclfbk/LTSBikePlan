@@ -31,6 +31,9 @@ EXTRA_NETWORK_ATTRIBUTES = [
     "parking:lane:right",
     "parking:lane:both",
     "parking:condition",
+    "motorroad",
+    "sac_scale",
+    "mtb:scale",
 ]
 
 # Columns BikePathAnalysis reads unconditionally (would KeyError, not just
@@ -133,6 +136,91 @@ def normalize_node_columns(gdf_nodes):
         else:
             gdf_nodes["highway"] = np.nan
     return gdf_nodes
+
+
+def extract_bicycle_route_names(pbf_path: str) -> dict:
+    """Maps OSM way id -> a display name derived from `route=bicycle`
+    relations the way is a member of.
+
+    Some cycle networks put the human-legible identity on the relation, not
+    the way - confirmed on a live Trento extract: the comune's "Bicipolitana"
+    numbered/coloured network (`cycle_network=it:tn:tn:bicipolitana_trento`)
+    tags its 14 route relations with `ref`/`colour` but no `name` at all, so
+    every one of their ~1000 member ways shows up as an unnamed fragment
+    downstream (dropped from the web viewer's priority list, which needs a
+    name - see `computeGapInterventions` in web/index.html) even though the
+    route itself is a real, well-known thing to a Trento cyclist ("linea 7
+    viola"). Relations that DO carry a `name` (regional cicloturistiche
+    routes, EuroVelo) are covered too, for the same reason applied more
+    generally: a way's own `name` tag can be absent while it's still part of
+    something with a real identity one level up.
+
+    A way in more than one qualifying relation (a shared trunk segment,
+    e.g. EuroVelo overlapping a local numbered route) gets every relation's
+    display name joined with " / " rather than picking one arbitrarily -
+    losing a name is worse than a slightly long one.
+    """
+    import pyrosm
+
+    osm = pyrosm.OSM(pbf_path)
+    relations = osm.get_data_by_custom_criteria(
+        custom_filter={"route": ["bicycle"]},
+        filter_type="keep",
+        keep_nodes=False,
+        keep_ways=False,
+        keep_relations=True,
+    )
+    if relations is None or relations.empty:
+        return {}
+
+    names_by_way: dict = {}
+    for _, row in relations.iterrows():
+        tags = row.get("tags")
+        tags = json.loads(tags) if isinstance(tags, str) else {}
+        ref = tags.get("ref")
+        # "Linea {ref}" (not e.g. "Bicipolitana - Linea {ref}") is
+        # deliberately generic - this network's own branding is Trento-
+        # specific, but the ref+colour-only-relation pattern isn't, so the
+        # fallback text shouldn't assume a Trento-only reader.
+        display = tags.get("name") or (f"Linea {ref}" if ref else None)
+        if not display:
+            continue
+        for member in tags.get("members", []):
+            if member.get("member_type") != "way":
+                continue
+            way_id = member.get("member_id")
+            existing = names_by_way.get(way_id)
+            if existing is None:
+                names_by_way[way_id] = display
+            elif display not in existing.split(" / "):
+                names_by_way[way_id] = f"{existing} / {display}"
+
+    return names_by_way
+
+
+def apply_route_name_fallback(gdf_edges, route_names: dict):
+    """Fills in `name` from `route_names` (way id -> display name, see
+    `extract_bicycle_route_names`) for edges that have no `name` of their
+    own - never overwrites a real mapped name.
+    """
+    if not route_names or "osmid" not in gdf_edges.columns:
+        return gdf_edges
+
+    gdf_edges = gdf_edges.copy()
+    if "name" not in gdf_edges.columns:
+        gdf_edges["name"] = np.nan
+
+    missing_name = gdf_edges["name"].isna() | (gdf_edges["name"].astype(str).str.strip() == "")
+
+    def _lookup(osmid):
+        # A handful of ingestion paths can carry a list of merged way ids on
+        # one edge (osmnx consolidation) rather than a single id - take the
+        # first so this never raises on an unhashable dict-lookup key.
+        key = osmid[0] if isinstance(osmid, list) else osmid
+        return route_names.get(key)
+
+    gdf_edges.loc[missing_name, "name"] = gdf_edges.loc[missing_name, "osmid"].apply(_lookup)
+    return gdf_edges
 
 
 class PyrosmGraphLoader:

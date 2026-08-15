@@ -5,6 +5,9 @@ import pickle
 
 import folium
 import geopandas as gpd
+from shapely.geometry import Point
+
+from ltsbikeplan.domain.crs import chunked_to_crs
 
 
 class PersistenceService:
@@ -22,15 +25,24 @@ class PersistenceService:
     @staticmethod
     def save_slope_map(gdf_edges, output_path: str) -> None:
         projected_crs = gdf_edges.estimate_utm_crs() or gdf_edges.crs
-        gdf_edges_projected = gdf_edges.to_crs(projected_crs)
-        gdf_edges_wgs = gdf_edges.to_crs(epsg=4326)
+        gdf_edges_projected = chunked_to_crs(gdf_edges, projected_crs)
+        gdf_edges_wgs = chunked_to_crs(gdf_edges, "EPSG:4326")
         color_palette = ["#267300", "#70A800", "#FFAA00", "#E60000", "#A80000", "#730000"]
         slope_classes = ["0-3: flat", "3-5: mild", "5-8: medium", "8-10: hard", "10-20: extreme", ">20: impossible"]
         colors = dict(zip(slope_classes, color_palette))
 
-        centroid_points = gpd.GeoSeries(gdf_edges_projected.geometry.centroid, crs=gdf_edges_projected.crs).to_crs(epsg=4326)
-        mean_latitude = centroid_points.y.mean()
-        mean_longitude = centroid_points.x.mean()
+        # Averaged in the projected (metric) CRS, then only the single
+        # resulting point is reprojected to WGS84 - not every edge
+        # centroid, which for a full-comune edge count would otherwise be
+        # exactly the kind of large to_crs() call chunked_to_crs works
+        # around elsewhere (see domain/crs.py), just for a map-centering
+        # value that doesn't need per-point precision.
+        projected_centroids = gdf_edges_projected.geometry.centroid
+        mean_point = gpd.GeoSeries([Point(projected_centroids.x.mean(), projected_centroids.y.mean())], crs=gdf_edges_projected.crs).to_crs(
+            epsg=4326
+        ).iloc[0]
+        mean_latitude = mean_point.y
+        mean_longitude = mean_point.x
         map_osm = folium.Map(location=[mean_latitude, mean_longitude], zoom_start=11)
 
         for _, row in gdf_edges_wgs.iterrows():

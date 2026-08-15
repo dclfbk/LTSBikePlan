@@ -20,6 +20,17 @@
 # on Trento (126k edges): --drop-densest-as-needed left the city looking
 # almost empty at the zoom level `fitBounds` lands on.
 #
+# --maximum-tile-bytes raises tippecanoe's per-tile size cap well above its
+# 500KB default. Below that default, a dense tile (Trento's urban core at
+# z9-13) gets its coordinate precision reduced step by step ("detail 12,
+# 11, 10, ...", visible in tippecanoe's own progress output) until it fits
+# - the same fallback used when a tile is still oversized, just triggered
+# far more often on a real street network than on typical point/polygon
+# data. That precision loss is what read as visibly jagged/blocky lines at
+# z13 (reported against a live Trento build). 5MB comfortably covers
+# Trento's densest tiles without needing the fallback; revisit upward
+# if a larger provincia/regione build still triggers it.
+#
 # Usage: scripts/build_tiles.sh <area_slug> [data_dir]
 set -euo pipefail
 
@@ -47,6 +58,7 @@ tippecanoe \
   --force \
   --maximum-zoom=16 \
   --extend-zooms-if-still-dropping \
+  --maximum-tile-bytes=5000000 \
   -l lts \
   --name "${AREA_SLUG} LTS" \
   --attribution "LTSBikePlan / OpenStreetMap contributors" \

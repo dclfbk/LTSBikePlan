@@ -11,6 +11,8 @@ import rasterio
 from rasterio.mask import mask
 from shapely.geometry import mapping
 
+from ltsbikeplan.domain.crs import chunked_to_crs
+
 
 class SlopeCalculatorR:
     @staticmethod
@@ -70,7 +72,7 @@ class SlopeCalculatorGDAL:
     @staticmethod
     def extract_slope_for_roads(edges, slope_path):
         with rasterio.open(slope_path) as slope_raster:
-            edges = edges.to_crs(slope_raster.crs)
+            edges = chunked_to_crs(edges, slope_raster.crs)
             slope_values = []
             for _, row in edges.iterrows():
                 geom = mapping(row.geometry)
@@ -156,7 +158,7 @@ class SlopeCalculatorRichdem:
     @staticmethod
     def extract_slope_for_roads(edges, slope_path):
         with rasterio.open(slope_path) as slope_raster:
-            edges = edges.to_crs(slope_raster.crs)
+            edges = chunked_to_crs(edges, slope_raster.crs)
             slope_values = []
             for _, row in edges.iterrows():
                 geom = mapping(row.geometry)

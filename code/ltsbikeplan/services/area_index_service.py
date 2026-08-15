@@ -45,14 +45,26 @@ class AreaResolver:
         filename, _ = _INDEX_FILES[level]
         return os.path.join(self.cache_dir, filename)
 
-    def _load_index(self, level: str) -> list:
-        filename, object_key = _INDEX_FILES[level]
+    def ensure_cached(self, level: str) -> str:
+        """Downloads/refreshes `level`'s topojson if missing or stale and
+        returns its local cache path, without parsing it - for callers like
+        compute_comuni_superficie_km2 below that need to read the raw file
+        directly (e.g. via geopandas' topojson driver) rather than the
+        already-decoded properties `_load_index` returns. `_load_index`
+        itself is built on top of this, so there's one download rule, not two.
+        """
+        filename, _ = _INDEX_FILES[level]
         path = self._index_path(level)
         if not os.path.exists(path) or (time.time() - os.path.getmtime(path)) > _INDEX_CACHE_MAX_AGE_SECONDS:
             response = requests.get(f"{OSMIT_ESTRATTI_BASE}/topojson/{filename}", timeout=60)
             response.raise_for_status()
             with open(path, "w") as file_handle:
                 file_handle.write(response.text)
+        return path
+
+    def _load_index(self, level: str) -> list:
+        _, object_key = _INDEX_FILES[level]
+        path = self.ensure_cached(level)
         with open(path, "r") as file_handle:
             data = json.load(file_handle)
         return data["objects"][object_key]["geometries"]
@@ -92,3 +104,28 @@ class AreaResolver:
             pbf_url=f"{OSMIT_ESTRATTI_BASE}/{props['.osm.pbf']}",
             gpkg_url=f"{OSMIT_ESTRATTI_BASE}/{props['.gpkg']}",
         )
+
+
+def compute_comuni_superficie_km2(cache_dir: str) -> dict:
+    """Surface area per comune (km²), keyed by ISTAT code - computed from
+    the comuni boundary polygons AreaResolver already downloads and caches,
+    rather than a second external dataset. ISTAT doesn't publish superficie
+    as a simple stable direct-download file (it lives behind the SITUAS
+    portal, an interactive web app) - the topojson AreaResolver already
+    fetches for name/ISTAT-code resolution turns out to have real polygon
+    geometry too (GDAL's topojson driver decodes it directly via
+    `geopandas.read_file`), which is enough to derive this ourselves.
+
+    Reprojects to WORKING_CRS (EPSG:3035, equal-area LAEA Europe) before
+    computing area - verified against Trento's real-world ~157.9 km²: this
+    gives ~159.7 km² (~1% off, OSM boundary precision vs. cadastral -
+    acceptable for a comparison-page indicator, not survey-grade).
+    """
+    import geopandas as gpd
+
+    from ltsbikeplan.domain.crs import WORKING_CRS
+
+    resolver = AreaResolver(cache_dir)
+    path = resolver.ensure_cached("comune")
+    gdf = gpd.read_file(path).set_crs("EPSG:4326").to_crs(WORKING_CRS)
+    return {row["istat"]: round(row.geometry.area / 1_000_000, 3) for _, row in gdf.iterrows()}

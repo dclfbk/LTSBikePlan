@@ -13,10 +13,12 @@ import pandas as pd
 
 from ltsbikeplan.assets import asset_path
 from ltsbikeplan.domain.area_spec import AreaSpec
-from ltsbikeplan.domain.crs import WORKING_CRS
+from ltsbikeplan.domain.area_statistics import compute_area_statistics
+from ltsbikeplan.domain.crs import WORKING_CRS, chunked_to_crs
 from ltsbikeplan.domain.gap_analysis import annotate_gap_components, summarize_gap_components
 from ltsbikeplan.domain.lts_rules import BikePathAnalysis
 from ltsbikeplan.domain.network_centrality import annotate_edge_centrality
+from ltsbikeplan.domain.parallel_cycleway import annotate_parallel_cycleway
 from ltsbikeplan.services.export_service import ExportService
 
 # Minimum low-stress "island" length for a high-stress edge touching it to
@@ -24,6 +26,14 @@ from ltsbikeplan.services.export_service import ExportService
 # residential loop in an isolated hamlet competes equally with a 15km urban
 # low-stress network. See domain/gap_analysis.py::annotate_gap_components.
 MIN_GAP_ISLAND_LENGTH_KM = 1.0
+
+# A gap edge running within this distance of a separated cycle path for at
+# least PARALLEL_CYCLEWAY_COVERAGE_THRESHOLD of its length already has a
+# low-stress alternative - riders take the parallel path, not the stressful
+# street, so it's a weak priority-intervention candidate despite its high
+# LTS. See domain/parallel_cycleway.py::annotate_parallel_cycleway.
+PARALLEL_CYCLEWAY_BUFFER_M = 30.0
+PARALLEL_CYCLEWAY_COVERAGE_THRESHOLD = 0.75
 
 # Order matters: the first non-"no"/"none" value wins. The 4 raw OSM tags
 # stay noisy/inconsistent for direct display (different tagging schemes put
@@ -93,7 +103,12 @@ def run_compute_lts(data_dir: str, area: AreaSpec) -> str:
     # pandas when separated_edges is empty, which is the common case for
     # small/rural areas with no dedicated cycleways (found running the
     # Atrani pilot after this refactor made per-comune runs routine).
-    separated_edges["lts"] = 1
+    # "s9" (see BikePathAnalysis.is_separated_path) is a path/footway a
+    # sac_scale/mtb:scale tag marks as a genuine mountain trail, not a
+    # comfortable dedicated facility - lts=0, same "not applicable" bucket
+    # as steps without a ramp, rather than the lts=1 every other separated
+    # path gets.
+    separated_edges["lts"] = np.where(separated_edges["rule"] == "s9", 0, 1)
 
     to_analyze, no_lane = BikePathAnalysis.is_bike_lane(unseparated_edges)
     parking_detected, parking_not_detected = BikePathAnalysis.parking_present(to_analyze)
@@ -125,6 +140,22 @@ def run_compute_lts(data_dir: str, area: AreaSpec) -> str:
     all_lts = annotate_gap_components(all_lts, area_slug, min_island_length_km=MIN_GAP_ISLAND_LENGTH_KM)
     all_lts = annotate_edge_centrality(all_lts)
 
+    # Reproject to the single internal working CRS instead of relabeling the
+    # concatenated frame as EPSG:4326 without transforming coordinates - the
+    # previous behaviour only "worked" because every hardcoded EPSG:32632
+    # read-back elsewhere (maps.py, destination_access.py) happened to match
+    # the DEM tile used for Trento. See domain/crs.py. Done before the
+    # parallel-cycleway step below (moved ahead of the CSV export further
+    # down for this reason) because that step buffers geometry by a metric
+    # distance and needs real meters, not the source lon/lat CRS.
+    all_lts = gpd.GeoDataFrame(all_lts, geometry="geometry", crs=source_edges_crs)
+    all_lts = chunked_to_crs(all_lts, WORKING_CRS)
+    all_lts = annotate_parallel_cycleway(
+        all_lts,
+        buffer_m=PARALLEL_CYCLEWAY_BUFFER_M,
+        coverage_threshold=PARALLEL_CYCLEWAY_COVERAGE_THRESHOLD,
+    )
+
     gdf_nodes = gdf_nodes.copy()
     gdf_nodes["lts"], gdf_nodes["message"] = zip(*gdf_nodes.apply(BikePathAnalysis.calculate_lts_nodes, args=(all_lts,), axis=1))
 
@@ -134,6 +165,7 @@ def run_compute_lts(data_dir: str, area: AreaSpec) -> str:
     lts_geojson = os.path.join(area_dir, f"{area_slug}_all_lts.geojson")
     graphml_path = os.path.join(area_dir, f"{area_slug}_lts.graphml")
     gap_components_json = os.path.join(area_dir, f"{area_slug}_gap_components.json")
+    stats_json = os.path.join(area_dir, f"{area_slug}_stats.json")
 
     export_columns = [
         "osmid",
@@ -160,18 +192,12 @@ def run_compute_lts(data_dir: str, area: AreaSpec) -> str:
         "gap_connects",
         "centrality",
         "centrality_class",
+        "parallel_cycleway_coverage",
+        "has_parallel_cycleway",
     ]
 
     gdf_nodes.to_csv(nodes_csv)
     all_lts[export_columns].to_csv(lts_csv)
-
-    # Reproject to the single internal working CRS instead of relabeling the
-    # concatenated frame as EPSG:4326 without transforming coordinates - the
-    # previous behaviour only "worked" because every hardcoded EPSG:32632
-    # read-back elsewhere (maps.py, destination_access.py) happened to match
-    # the DEM tile used for Trento. See domain/crs.py.
-    all_lts = gpd.GeoDataFrame(all_lts, geometry="geometry", crs=source_edges_crs)
-    all_lts = all_lts.to_crs(WORKING_CRS)
 
     ExportService.write_geoparquet(all_lts[export_columns], lts_parquet)
     ExportService.write_geojson(all_lts[export_columns], lts_geojson)
@@ -180,12 +206,22 @@ def run_compute_lts(data_dir: str, area: AreaSpec) -> str:
     with open(gap_components_json, "w") as file_handle:
         json.dump(gap_summary, file_handle)
 
+    # Per-area indicators for web/comuni.html's cross-comune comparison page
+    # - istat_code/comune added here (not part of compute_area_statistics'
+    # own LTS-derived indicators) so scripts/build_comuni_stats.py can join
+    # against the ISTAT registry without re-deriving them from all_lts.
+    area_statistics = compute_area_statistics(all_lts, area_slug)
+    area_statistics["istat_code"] = area.istat_code or ""
+    area_statistics["comune"] = area.name
+    with open(stats_json, "w") as file_handle:
+        json.dump(area_statistics, file_handle)
+
     # gdf_nodes was never reprojected (SlopeService only touches edges), so
     # its `geometry` column is still in the graph's original CRS (EPSG:4326)
     # while `all_lts` is now in WORKING_CRS. graph_from_gdfs positions nodes
     # from their `x`/`y` columns (not `geometry`), so both must be updated
     # explicitly to keep nodes and edges spatially consistent in the export.
-    gdf_nodes = gdf_nodes.to_crs(WORKING_CRS)
+    gdf_nodes = chunked_to_crs(gdf_nodes, WORKING_CRS)
     gdf_nodes["x"] = gdf_nodes.geometry.x
     gdf_nodes["y"] = gdf_nodes.geometry.y
 

@@ -40,6 +40,7 @@ tippecanoe \
   --force \
   --maximum-zoom=16 \
   --extend-zooms-if-still-dropping \
+  --maximum-tile-bytes=5000000 \
   -l lts \
   --name "LTSBikePlan Italia" \
   --attribution "LTSBikePlan / OpenStreetMap contributors" \

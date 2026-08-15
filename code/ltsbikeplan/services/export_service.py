@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from ltsbikeplan.domain.crs import STORAGE_CRS
+from ltsbikeplan.domain.crs import STORAGE_CRS, chunked_to_crs
 
 
 class ExportService:
@@ -22,5 +22,5 @@ class ExportService:
     @staticmethod
     def write_geojson(gdf, path: str, crs: str = STORAGE_CRS) -> str:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        gdf.to_crs(crs).to_file(path, driver="GeoJSON")
+        chunked_to_crs(gdf, crs).to_file(path, driver="GeoJSON")
         return path
