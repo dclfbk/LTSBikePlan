@@ -1,0 +1,14 @@
+# Weekly schedule for ltsbikeplan-rebuild.service - see that file for
+# install steps. Off-peak (Sunday 02:00 server-local time) since a full
+# run keeps this box busy for hours; Persistent=true catches up on the
+# next boot if the box was off/asleep when the timer would have fired.
+
+[Unit]
+Description=Weekly LTSBikePlan full-Italy tile rebuild
+
+[Timer]
+OnCalendar=Sun 02:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

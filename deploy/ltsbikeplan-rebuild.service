@@ -1,0 +1,31 @@
+# systemd unit for one run of the full-Italy rebuild
+# (scripts/build_italy_map_cron.sh). Triggered by
+# ltsbikeplan-rebuild.timer - not enabled/started directly.
+#
+# Install:
+#   sudo cp deploy/ltsbikeplan-rebuild.service deploy/ltsbikeplan-rebuild.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ltsbikeplan-rebuild.timer
+#
+# Adjust User/WorkingDirectory below if DEPLOY_ROOT passed to
+# scripts/setup_server.sh wasn't /opt/stressinbici, or if the repo should
+# run as a dedicated service account rather than root.
+#
+# Logs: journalctl -u ltsbikeplan-rebuild.service
+
+[Unit]
+Description=LTSBikePlan full-Italy tile rebuild
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/stressinbici/LTSBikePlan
+ExecStart=/opt/stressinbici/LTSBikePlan/scripts/build_italy_map_cron.sh
+# tippecanoe/pmtiles live in /usr/local/bin; the script itself activates
+# the repo's own .venv for the Python side.
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+# A full run visits ~107 province and can take several hours - give it
+# room rather than letting systemd's default timeout kill it mid-run.
+TimeoutStartSec=6h
