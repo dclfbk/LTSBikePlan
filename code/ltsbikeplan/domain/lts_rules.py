@@ -1,6 +1,21 @@
 import numpy as np
 import pandas as pd
 
+# sac_scale values beyond plain "hiking" (T1) - roots, exposure, scrambling -
+# aren't something a city or e-bike can realistically ride, even though the
+# way is legally a highway=path/footway. mtb:scale >= 2 is the same idea
+# from the mountain-bike side: per the OSM wiki, 0-1 are rideable on a
+# hybrid, 2+ needs real technical MTB handling. See
+# BikePathAnalysis.is_separated_path.
+_HARD_SAC_SCALE_VALUES = {
+    "mountain_hiking",
+    "demanding_mountain_hiking",
+    "alpine_hiking",
+    "demanding_alpine_hiking",
+    "difficult_alpine_hiking",
+}
+_HARD_MTB_SCALE_MIN = 2
+
 
 class BikePathAnalysis:
     @staticmethod
@@ -46,6 +61,14 @@ class BikePathAnalysis:
         else:
             footway_sidewalk = False
 
+        # `motorroad=yes` is the OSM tag Italian mappers use for
+        # tangenziali/superstrade where the Codice della Strada bars slow
+        # vehicles regardless of whether a bicycle=no sign was ever mapped -
+        # restricted to trunk/trunk_link since a motorroad=yes on a lower
+        # class (e.g. a primary bypass) isn't the same legal category.
+        motorroad_yes = (gdf_edges["motorroad"] == "yes") if "motorroad" in gdf_edges.columns else False
+        trunk_motorroad = motorroad_yes & gdf_edges["highway"].isin(["trunk", "trunk_link"])
+
         conditions = [
             bicycle_no,
             (gdf_edges["access"] == "no"),
@@ -53,9 +76,10 @@ class BikePathAnalysis:
             (gdf_edges["highway"] == "motorway_link"),
             (gdf_edges["highway"] == "proposed"),
             footway_sidewalk,
+            trunk_motorroad,
         ]
 
-        gdf_edges.loc[:, "rule"] = np.select(conditions, ["p2", "p6", "p3", "p4", "p7", "p5"], default="p0")
+        gdf_edges.loc[:, "rule"] = np.select(conditions, ["p2", "p6", "p3", "p4", "p7", "p5", "p10"], default="p0")
 
         gdf_allowed = gdf_edges[gdf_edges["rule"] == "p0"]
         gdf_not_allowed = gdf_edges[gdf_edges["rule"] != "p0"]
@@ -87,6 +111,24 @@ class BikePathAnalysis:
         ]
 
         gdf_edges.loc[:, "rule"] = np.select(conditions, ["s3", "s1", "s2", "s7", "s8"], default="s0")
+
+        # A highway=path/footway (s1/s2) isn't automatically a comfortable
+        # cycling facility the way a dedicated cycleway is - it can just as
+        # well be a genuine mountain trail. Where sac_scale/mtb:scale record
+        # that, reclassify to "s9": not a stress level, a physical
+        # impossibility for a city/e-bike, the same treatment
+        # BikePathAnalysis.steps_analysis gives stairs without a ramp.
+        # Restricted to s1/s2 - a cycleway (s3) or a track/opposite_track
+        # cycleway (s7/s8) is road infrastructure, not a trail, so these
+        # tags wouldn't apply there.
+        natural_trail = gdf_edges["rule"].isin(["s1", "s2"])
+        hard_sac_scale = gdf_edges["sac_scale"].isin(_HARD_SAC_SCALE_VALUES) if "sac_scale" in gdf_edges.columns else False
+        if "mtb:scale" in gdf_edges.columns:
+            hard_mtb_scale = pd.to_numeric(gdf_edges["mtb:scale"], errors="coerce") >= _HARD_MTB_SCALE_MIN
+        else:
+            hard_mtb_scale = False
+        impassable_trail = natural_trail & (hard_sac_scale | hard_mtb_scale)
+        gdf_edges.loc[impassable_trail, "rule"] = "s9"
 
         separated = gdf_edges[gdf_edges["rule"] != "s0"]
         not_separated = gdf_edges[gdf_edges["rule"] == "s0"].drop(columns="rule")

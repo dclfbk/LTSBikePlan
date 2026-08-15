@@ -2,19 +2,52 @@
 <html lang="it">
 <head>
 <meta charset="utf-8" />
-<title>LTSBikePlan viewer</title>
+<title>Stress in bici</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- Same LTS-1 face design as the legend/popup indicators (ltsFaceIcon()
+     below) - teal circle, calm smile - rather than a generic icon. -->
+<link rel="icon" href="favicon.ico" sizes="any" />
+
+<!-- SEO + social preview. web/ is served as the site root, so
+     social-preview.png sits at the same level as index.html both here and
+     once deployed - stressinbici.it/social-preview.png. Description is an
+     excerpt of the About text (see aboutBody in i18n.js) with a short
+     English line appended for sharing outside Italy - meta description
+     stays Italian-only and shorter, closer to Google's ~155-character
+     display limit. -->
+<meta name="description" content="Stress in bici è una mappa delle strade italiane vista dalla prospettiva di chi le percorre in bicicletta: ogni tratto riceve un valore di stress da 1 a 4." />
+<link rel="canonical" href="https://stressinbici.it/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Stress in bici" />
+<meta property="og:title" content="Stress in bici" />
+<meta property="og:description" content="Stress in bici è una mappa delle strade italiane vista dalla prospettiva di chi le percorre in bicicletta: ogni tratto riceve un valore di stress da 1 a 4. An LTS-based cycling stress map of Italian roads." />
+<meta property="og:image" content="https://stressinbici.it/social-preview.png" />
+<meta property="og:image:width" content="2400" />
+<meta property="og:image:height" content="1260" />
+<meta property="og:url" content="https://stressinbici.it/" />
+<meta property="og:locale" content="it_IT" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Stress in bici" />
+<meta name="twitter:description" content="Stress in bici è una mappa delle strade italiane vista dalla prospettiva di chi le percorre in bicicletta: ogni tratto riceve un valore di stress da 1 a 4. An LTS-based cycling stress map of Italian roads." />
+<meta name="twitter:image" content="https://stressinbici.it/social-preview.png" />
 <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet" />
 <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/pmtiles@3/dist/pmtiles.js"></script>
+<!-- Only used for turf.buffer() on the selected street from the priority
+     list (see focusGapIntervention) - a real geographic buffer needs actual
+     geodesic math, not something worth hand-rolling. -->
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+<!-- Only used to build the downloadable PDF (see PrintControl in app.js) -
+     a real PDF file, not the browser print dialog: exposes window.jspdf.jsPDF. -->
+<script src="https://unpkg.com/jspdf@2/dist/jspdf.umd.min.js"></script>
 <script src="i18n.js"></script>
 <style>
   html, body { height: 100%; margin: 0; }
   body { display: flex; flex-direction: column; }
 
-  /* Z-index layers: map (auto, bottom) < #panel/#gap-panel (5) <
-     #site-header (10) < .info-panel modals (20, position:fixed, must cover
-     everything including the header). */
+  /* Z-index layers: map (auto, bottom) < #panel (5) < #site-header (10) <
+     .info-panel modals (20, position:fixed, must cover everything
+     including the header). */
   #map-container { position: relative; flex: 1 1 auto; min-height: 0; }
   #map { width: 100%; height: 100%; }
 
@@ -27,6 +60,8 @@
     font: 12px/1.4 system-ui, sans-serif; color: #555;
   }
   #footer-credit { white-space: nowrap; }
+  #footer-credit a { color: inherit; text-decoration: underline; }
+  #footer-credit a:hover { color: #4c78a8; }
   #footer-hosting { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
   #footer-logo { height: 18px; width: auto; vertical-align: middle; }
 
@@ -40,12 +75,40 @@
   }
   #header-brand { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
   #site-title { font-size: 18px; margin: 0; white-space: nowrap; }
+  #site-tagline { font-size: 13px; color: #555; }
   #area-badge { font-size: 13px; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #header-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   #lang-switcher select { font: inherit; padding: 2px 4px; }
+
+  /* Nominatim geocoder (see GeocoderControl in the script below - plain
+     fetch, no plugin) - a map corner control like zoom/terrain/print, not
+     a header element: a search box sitting in the header nav read as part
+     of the site's own navigation, not "search the map", which was
+     confusing (misleading users about what it does). Collapsed to a
+     magnifying-glass icon by default, matching the other icon controls it
+     stacks with; clicking it expands a flyout to the left (into the map,
+     away from the viewport edge - the control itself is pinned top-right). */
+  .geocoder-control { position: relative; }
+  #geocoder-panel {
+    position: absolute; top: 0; right: 100%; margin-right: 6px; width: 260px;
+    background: white; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    padding: 6px;
+  }
+  #geocoder-panel.hidden { display: none; }
+  #geocoder-toggle.active { background: #4c78a8; color: white; }
+  #geocoder-input {
+    font: inherit; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px;
+    width: 100%; box-sizing: border-box;
+  }
+  #geocoder-results { margin-top: 4px; max-height: 240px; overflow-y: auto; }
+  #geocoder-results.hidden { display: none; }
+  .geocoder-item { padding: 6px 8px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+  .geocoder-item:last-child { border-bottom: none; }
+  .geocoder-item:hover { background: #f0f0f0; }
   .nav-link {
     font: inherit; background: none; border: 1px solid #ccc; border-radius: 4px;
     padding: 4px 10px; cursor: pointer; color: #333;
+    text-decoration: none; display: inline-block;
   }
   .nav-link:hover { background: #f0f0f0; }
   .nav-link.active { background: #4c78a8; color: white; border-color: #4c78a8; }
@@ -63,6 +126,7 @@
   .legend-item:hover { background: #f0f0f0; }
   .legend-item.inactive { opacity: 0.35; }
   .legend-item span.swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+  .lts-face { vertical-align: middle; flex-shrink: 0; }
   #legend-hint { font-size: 11px; color: #777; margin: 4px 0 0; }
   #style-switcher { margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; }
   #style-switcher label { display: block; font-weight: normal; margin: 2px 0; cursor: pointer; }
@@ -74,24 +138,34 @@
 
   .lts-popup { font: 13px/1.5 system-ui, sans-serif; }
   .lts-popup h3 { font-size: 14px; margin: 0 0 6px; }
-  .lts-popup .lts-badge {
-    display: inline-block; width: 10px; height: 10px; border-radius: 2px;
-    margin-right: 4px; vertical-align: middle;
-  }
   .lts-popup details { margin-top: 6px; }
   .lts-popup summary { cursor: pointer; color: #4c78a8; }
   .priority-note { font-size: 11px; color: #7B2CBF; margin: 4px 0 0; }
 
   .hidden { display: none !important; }
-  #gap-toggle { margin-top: 6px; width: 100%; }
+
+  /* Back inside #panel, under the basemap switcher - a plain full-width
+     button like the original, not the header nav-link style tried in
+     between (moved there and back per feedback). */
+  #gap-toggle { margin-top: 8px; width: 100%; }
   #gap-toggle.active { background: #4c78a8; color: white; border-color: #4c78a8; }
   #gap-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Accordion section inside #panel, right under the toggle button -
+     collapsed (max-height 0) by default so it takes no space until opened,
+     expanding/collapsing with a max-height transition instead of an
+     abrupt show/hide. No independent background/shadow/font of its own
+     (unlike the old floating-panel version): it's just more content
+     inside #panel, which already provides all of that. max-height is a
+     safety net for unusually tall rows, not the main way the list's
+     length is bounded - GAP_LIST_PAGE_SIZE (paginated in JS) is, so the
+     panel doesn't grow into a long internally-scrolling list. */
   #gap-panel {
-    position: absolute; top: 10px; left: 240px; z-index: 5;
-    background: white; padding: 10px 14px; border-radius: 6px;
-    font: 13px/1.4 system-ui, sans-serif; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-    max-width: 260px; max-height: calc(100% - 40px); overflow-y: auto;
+    margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px;
+    max-height: 0; overflow: hidden;
+    transition: max-height 0.3s ease;
   }
+  #gap-panel.open { max-height: 480px; overflow-y: auto; }
   #gap-panel h2 { font-size: 14px; margin: 0 0 6px; }
   #gap-hint { font-size: 11px; color: #777; margin: 0 0 8px; }
   .gap-item {
@@ -101,6 +175,16 @@
   .gap-item-main { display: flex; align-items: center; gap: 6px; }
   .gap-item span.swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
   .gap-item-explain { font-size: 11px; color: #777; margin: 2px 0 0 18px; }
+  #gap-pager {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    margin-top: 8px;
+  }
+  #gap-pager button {
+    font: inherit; padding: 2px 8px; cursor: pointer;
+    border: 1px solid #ccc; border-radius: 4px; background: white;
+  }
+  #gap-pager button:disabled { opacity: 0.4; cursor: not-allowed; }
+  #gap-pager-label { font-size: 11px; color: #777; }
 
   .info-panel {
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -118,25 +202,72 @@
     font-size: 16px; cursor: pointer; color: #777; line-height: 1;
   }
   #about-subtitle { font-style: italic; color: #555; margin: 0 0 10px; }
+  .ai-note { font-style: italic; font-size: 11px; color: #999; margin: 0 0 6px; text-align: left; }
+
+  /* FAQ accordion: independent items (opening one doesn't close another) -
+     the ::after +/− indicator is driven by .faq-item.open, toggled per
+     item on click (see renderFaq in the script below). */
+  .faq-item { border-top: 1px solid #eee; }
+  .faq-item:first-child { border-top: none; }
+  .faq-question {
+    display: block; width: 100%; text-align: left; font: inherit; font-weight: 600;
+    background: none; border: none; padding: 10px 22px 10px 0; cursor: pointer; color: #222;
+    position: relative;
+  }
+  .faq-question:hover { color: #4c78a8; }
+  .faq-question::after { content: "+"; position: absolute; right: 2px; top: 8px; color: #999; }
+  .faq-item.open .faq-question::after { content: "\2212"; }
+  .faq-answer { padding: 0 0 10px; }
+  .faq-answer.hidden { display: none; }
+  .faq-close-answer {
+    display: block; margin-top: 8px; font: inherit; font-size: 11px;
+    color: #999; background: none; border: none; padding: 0;
+    cursor: pointer; text-decoration: underline;
+  }
+  .faq-close-answer:hover { color: #4c78a8; }
+
+  /* Print widget (see PrintControl in the script below): keeps the map and
+     the legend (colour meaning is essential context for a printed map),
+     drops everything that's only useful interactively - header/footer
+     chrome, every map button control incl. the geocoder (.maplibregl-ctrl-
+     group covers it too - would otherwise print a stray icon/flyout in
+     the corner), and any open modal (About/FAQ/Privacy - printing mid-read
+     of one of those should print that dialog, not silently switch to
+     printing the map instead; simplest to just always hide them and let
+     the user close the modal and print again if that's what they actually
+     wanted). The scale bar is deliberately NOT hidden - also essential
+     context on a printed map. */
+  @media print {
+    #site-header, #site-footer, .maplibregl-ctrl-group, .info-panel {
+      display: none !important;
+    }
+    body, #map-container, #map { height: 100vh !important; width: 100% !important; margin: 0; }
+  }
 </style>
 </head>
 <body>
 <header id="site-header">
   <div id="header-brand">
-    <h1 id="site-title">LTSBikePlan</h1>
+    <h1 id="site-title">Stress in bici</h1>
+    <span id="site-tagline"></span>
     <span id="area-badge"></span>
   </div>
   <nav id="header-nav">
+    <!-- comuni.html (cross-comune stats/comparison page) is deliberately
+         unlinked from the main nav for now - work paused, page still
+         built and reachable directly, just not discoverable from here
+         until it's picked back up. -->
+    <button id="about-toggle" class="nav-link"></button>
+    <button id="faq-toggle" class="nav-link"></button>
+    <button id="privacy-toggle" class="nav-link"></button>
     <div id="lang-switcher">
       <select id="lang-select">
-        <option value="it">🇮🇹 Italiano</option>
-        <option value="en">🇬🇧 English</option>
-        <option value="de">🇩🇪 Deutsch</option>
-        <option value="fr">🇫🇷 Français</option>
+        <option value="it">IT</option>
+        <option value="en">EN</option>
+        <option value="de">DE</option>
+        <option value="fr">FR</option>
       </select>
     </div>
-    <button id="about-toggle" class="nav-link"></button>
-    <button id="privacy-toggle" class="nav-link"></button>
   </nav>
 </header>
 
@@ -152,11 +283,12 @@
       <label><input type="radio" name="basemap" value="dark"> <span id="bg-dark-label"></span></label>
     </div>
     <button id="gap-toggle"></button>
-  </div>
-  <div id="gap-panel" class="hidden">
-    <h2 id="gap-heading"></h2>
-    <p id="gap-hint"></p>
-    <div id="gap-list"></div>
+    <div id="gap-panel">
+      <h2 id="gap-heading"></h2>
+      <p id="gap-hint"></p>
+      <div id="gap-list"></div>
+      <div id="gap-pager"></div>
+    </div>
   </div>
 </div>
 
@@ -172,639 +304,22 @@
 
 <div id="about-panel" class="info-panel hidden">
   <button id="about-close" class="info-panel-close">&times;</button>
+  <p id="about-ai-note" class="ai-note hidden"></p>
   <h2 id="about-heading"></h2>
   <p id="about-subtitle"></p>
   <div id="about-body"></div>
+</div>
+<div id="faq-panel" class="info-panel hidden">
+  <button id="faq-close" class="info-panel-close">&times;</button>
+  <p id="faq-ai-note" class="ai-note hidden"></p>
+  <h2 id="faq-heading"></h2>
+  <div id="faq-list"></div>
 </div>
 <div id="privacy-panel" class="info-panel hidden">
   <button id="privacy-close" class="info-panel-close">&times;</button>
   <h2 id="privacy-heading"></h2>
   <p id="privacy-intro"></p>
 </div>
-<script>
-  // Below this zoom, individual streets are too close together on screen to
-  // click reliably, and the point of a click is to inspect ONE street - a
-  // single named constant so the threshold is easy to retune later.
-  const MIN_CLICK_ZOOM = 14;
-
-  // Area to load: web/index.html?area=<area_slug>, matching the file
-  // scripts/build_tiles.sh writes to web/data/<area_slug>_lts.pmtiles.
-  // "italia" (default) is the merged tileset from build_national_tiles.sh -
-  // it starts at a whole-Italy view rather than zooming to whatever areas
-  // happen to be computed so far (see the fitBounds guard below).
-  const params = new URLSearchParams(window.location.search);
-  const area = params.get("area") || "italia";
-  document.getElementById("area-badge").textContent = area.replace(/_/g, " ");
-
-  const protocol = new pmtiles.Protocol();
-  maplibregl.addProtocol("pmtiles", protocol.tile);
-
-  const pmtilesUrl = `pmtiles://${new URL(`data/${area}_lts.pmtiles`, window.location.href)}`;
-  const tiles = new pmtiles.PMTiles(pmtilesUrl.replace("pmtiles://", ""));
-  protocol.add(tiles);
-
-  const BASE_STYLES = {
-    light: "https://styles.maptoolkit.org/light.json",
-    summer: "https://styles.maptoolkit.org/summer.json",
-    cycling: "https://styles.maptoolkit.org/cycling.json",
-    dark: "https://styles.maptoolkit.org/dark.json",
-  };
-
-  // I18N comes from i18n.js. All UI text - legend labels, popup wording,
-  // gap panel, LTS decision-rule sentences (keyed by the `rule` code every
-  // edge already carries) - is looked up through it, so switching language
-  // never needs a different tileset or a Python re-run.
-  let currentLang = params.get("lang") in I18N ? params.get("lang") : "it";
-
-  function t(key) {
-    return I18N[currentLang][key] ?? I18N.it[key];
-  }
-
-  function applyUiTranslations() {
-    document.documentElement.lang = currentLang;
-    document.getElementById("lang-select").value = currentLang;
-    document.getElementById("legend-hint").textContent = t("legendHint");
-    document.getElementById("bg-light-label").textContent = t("bgLight");
-    document.getElementById("bg-summer-label").textContent = t("bgSummer");
-    document.getElementById("bg-cycling-label").textContent = t("bgCycling");
-    document.getElementById("bg-dark-label").textContent = t("bgDark");
-    document.getElementById("terrain-toggle").title = t("terrainToggle");
-    document.getElementById("gap-toggle").textContent = t("gapToggle");
-    document.getElementById("gap-heading").textContent = t("gapHeading");
-    document.getElementById("gap-hint").textContent = t("gapHint");
-    document.getElementById("about-toggle").textContent = t("aboutToggle");
-    document.getElementById("about-heading").textContent = t("aboutHeading");
-    document.getElementById("about-subtitle").textContent = t("aboutSubtitle");
-    // The only innerHTML assignment in this file: aboutBody is authored,
-    // static content we control in i18n.js (headings/bold/links), not
-    // user- or API-derived - there's nothing here to sanitize against.
-    document.getElementById("about-body").innerHTML = t("aboutBody");
-    document.getElementById("privacy-toggle").textContent = t("privacyToggle");
-    document.getElementById("privacy-heading").textContent = t("privacyHeading");
-    document.getElementById("privacy-intro").textContent = t("privacyIntro");
-    document.getElementById("footer-credit").textContent = t("footerCredit");
-    document.getElementById("footer-hosting-text").textContent = t("footerHosting");
-  }
-
-  // Every bit of view state the URL can restore: camera (zoom/lat/lon/pitch/
-  // bearing), basemap, which LTS classes the legend has active, and whether
-  // 3D terrain / the gap-analysis panel are on. Falls back to the
-  // whole-Italy default view when a param is missing (e.g. a fresh link).
-  const hasExplicitView = params.has("zoom") || params.has("lat") || params.has("lon");
-  const initialZoom = params.has("zoom") ? parseFloat(params.get("zoom")) : 5.2;
-  const initialLat = params.has("lat") ? parseFloat(params.get("lat")) : 42.3;
-  const initialLon = params.has("lon") ? parseFloat(params.get("lon")) : 12.5;
-  const initialPitch = params.has("pitch") ? parseFloat(params.get("pitch")) : 0;
-  const initialBearing = params.has("bearing") ? parseFloat(params.get("bearing")) : 0;
-  let currentBasemap = params.get("bg") in BASE_STYLES ? params.get("bg") : "dark";
-  let terrainOn = params.get("terrain") === "1";
-  let gapModeOn = params.get("gap") === "1";
-  document.getElementById("gap-panel").classList.toggle("hidden", !gapModeOn);
-  document.getElementById("gap-toggle").classList.toggle("active", gapModeOn);
-
-  const map = window.map = new maplibregl.Map({
-    container: "map",
-    style: BASE_STYLES[currentBasemap],
-    center: [initialLon, initialLat],
-    zoom: initialZoom,
-    pitch: initialPitch,
-    bearing: initialBearing,
-  });
-
-  // A MapLibre custom control stacks below whatever was added to the same
-  // position before it - adding this right after NavigationControl puts
-  // the 3D-terrain toggle directly under the zoom +/- buttons, as a native
-  // map widget instead of a floating text button in the side panel.
-  class TerrainControl {
-    onAdd() {
-      this._container = document.createElement("div");
-      this._container.className = "maplibregl-ctrl maplibregl-ctrl-group";
-      const button = document.createElement("button");
-      button.id = "terrain-toggle";
-      button.type = "button";
-      button.textContent = "\u{1F3D4}\u{FE0F}"; // 🏔️ - terrain, matches the feature directly
-      this._container.appendChild(button);
-      return this._container;
-    }
-    onRemove() {
-      this._container.remove();
-    }
-  }
-
-  map.addControl(new maplibregl.NavigationControl(), "top-right");
-  map.addControl(new TerrainControl(), "top-right");
-
-  document.querySelector(`input[name="basemap"][value="${currentBasemap}"]`).checked = true;
-  applyUiTranslations();
-
-  document.getElementById("lang-select").addEventListener("change", (e) => {
-    currentLang = e.target.value;
-    applyUiTranslations();
-    renderLegend();
-    if (gapModeOn) renderGapInterventions();
-    updateGapToggleState();
-    syncUrlState();
-  });
-
-  // setStyle() (below) replaces the whole style document, which drops any
-  // source/layer this page added on top of it - "style.load" fires after
-  // both the initial style AND every subsequent setStyle finish loading, so
-  // addDataLayers() (defined further down) re-adds them every time instead
-  // of only once on the first "load" event.
-  document.querySelectorAll('input[name="basemap"]').forEach((radio) => {
-    radio.addEventListener("change", (e) => {
-      if (e.target.checked) {
-        currentBasemap = e.target.value;
-        map.setStyle(BASE_STYLES[currentBasemap]);
-        syncUrlState();
-      }
-    });
-  });
-
-  // LTS colour palette: muted teal/soft-green for the comfortable classes,
-  // progressively more saturated orange/brick-red for the demanding ones -
-  // labels are NOT here, they come from I18N[currentLang].lts, so a
-  // language switch doesn't need to touch the colours at all.
-  const LTS_COLORS = {
-    "1": "#2A9D8F", "2": "#A8C957", "3": "#F4A261", "4": "#D1495B", "0": "#555555",
-  };
-  const LTS_FALLBACK_COLOR = "#BDBDBD";
-
-  // One face per comfort level - not paired with a second colour indicator,
-  // the swatch square already carries the colour. Not translated (emoji
-  // don't need i18n); "0"/fallback intentionally have none, "not allowed"
-  // and "unknown" aren't comfort levels in the same sense as 1-4.
-  const LTS_EMOJI = { "1": "\u{1F60C}", "2": "\u{1F642}", "3": "\u{1F610}", "4": "\u{1F623}" };
-
-  const LTS_COLOR_EXPRESSION = ["match", ["to-string", ["get", "lts"]]];
-  for (const [key, color] of Object.entries(LTS_COLORS)) {
-    LTS_COLOR_EXPRESSION.push(key, color);
-  }
-  LTS_COLOR_EXPRESSION.push(LTS_FALLBACK_COLOR);
-
-  // Legend doubles as a filter: click a class to hide/show it on the map.
-  // All classes start active (or whatever the URL's ?lts= says); the layer
-  // filter and legend re-render on every toggle so they can't disagree
-  // about what's currently shown.
-  const requestedLts = params.get("lts");
-  const activeLts = new Set(
-    requestedLts ? requestedLts.split(",").filter((key) => key in LTS_COLORS) : Object.keys(LTS_COLORS),
-  );
-
-  function renderLegend() {
-    const legend = document.getElementById("legend");
-    legend.innerHTML = "";
-    for (const [key, color] of Object.entries(LTS_COLORS)) {
-      const item = document.createElement("div");
-      item.className = "legend-item" + (activeLts.has(key) ? "" : " inactive");
-      const emoji = LTS_EMOJI[key] ? LTS_EMOJI[key] + " " : "";
-      item.innerHTML = `<span class="swatch" style="background:${color}"></span>${emoji}${t("lts")[key]}`;
-      item.addEventListener("click", () => {
-        if (activeLts.has(key)) activeLts.delete(key); else activeLts.add(key);
-        renderLegend();
-        applyLtsFilter();
-        syncUrlState();
-      });
-      legend.appendChild(item);
-    }
-  }
-
-  function applyLtsFilter() {
-    if (!map.getLayer("lts-lines")) return;
-    map.setFilter("lts-lines", ["in", ["to-string", ["get", "lts"]], ["literal", [...activeLts]]]);
-  }
-
-  renderLegend();
-
-  // OSM tag values -> a fragment that reads as a sentence once composed
-  // below ("Strada " + phrase, "Strada con " + phrase). A raw OSM value
-  // like "sett" or "opposite_track" means nothing to someone who isn't an
-  // OSM mapper - better to say nothing than show the tag verbatim, so
-  // values without a phrase here are simply omitted from the popup instead
-  // of falling back to the raw tag. Phrase dictionaries + sentence
-  // templates live in i18n.js (SURFACE_PHRASES/CYCLEWAY_PHRASES/SLOPE_PHRASES
-  // equivalent is I18N[lang].surface/cycleway/slope), one set per language.
-  function popupHtml(props) {
-    const color = LTS_COLORS[String(props.lts ?? "")] || LTS_FALLBACK_COLOR;
-    const ltsKey = String(props.lts ?? "");
-    const ltsLabel = t("lts")[ltsKey] || t("lts").fallback;
-    const ltsEmoji = LTS_EMOJI[ltsKey] ? LTS_EMOJI[ltsKey] + " " : "";
-    const surfacePhrase = t("surface")[props.surface];
-    const cyclewayPhrase = t("cycleway")[props.cycleway_type];
-    const slopePhrase = t("slope")[props.slope_class];
-    // The `rule` code (e.g. "m6") is exported on every edge - looking up the
-    // sentence in the current language instead of using `message` (baked in
-    // Italian at compute-lts time) is what makes the rationale translatable.
-    // Falls back to the baked message for any rule code missing from i18n.js.
-    const ruleSentence = (props.rule && t("rules")[props.rule]) || props.message;
-
-    const extraRows = [
-      surfacePhrase ? `<div>${t("surfaceTemplate")(surfacePhrase)}</div>` : "",
-      cyclewayPhrase ? `<div>${t("cyclewayTemplate")(cyclewayPhrase)}</div>` : "",
-    ].join("");
-
-    // Same "is_gap_edge" flag driving the priority-interventions list
-    // (see computeGapInterventions) - surfaced here too, right in the
-    // popup, not just in the aggregated list, so clicking any one street
-    // tells you on the spot whether/why it's flagged. 🔍 (not ⭐ - a star
-    // reads as "featured/good," the opposite of "flagged for evaluation").
-    const isPriority = String(props.is_gap_edge) === "true";
-    const priorityIcon = isPriority ? " \u{1F50D}" : "";
-    const priorityBlock = isPriority
-      ? `<div class="priority-note">${t("gapUrgency")[ltsKey] || ""} - ${t("centralityTemplate")(t("centrality")[props.centrality_class])}</div>`
-      : "";
-
-    return `
-      <div class="lts-popup">
-        <h3>${props.name || t("popupNoName")}${priorityIcon}</h3>
-        <div><b>${t("popupComune")}:</b> ${props.comune || "-"}</div>
-        <div><span class="lts-badge" style="background:${color}"></span>${ltsEmoji}${ltsLabel}</div>
-        ${priorityBlock}
-        ${extraRows}
-        <details>
-          <summary>${t("popupDetails")}</summary>
-          <div><b>${t("popupMaxspeed")}:</b> ${props.maxspeed ?? "-"}</div>
-          <div><b>${t("popupLanes")}:</b> ${props.lanes ?? "-"}</div>
-          <div><b>${t("popupSlope")}:</b> ${props.slope != null ? Number(props.slope).toFixed(1) + "%" : "-"}${slopePhrase ? ` (${slopePhrase})` : ""}</div>
-          <div><b>${t("popupLength")}:</b> ${props.length != null ? Number(props.length).toFixed(0) + " m" : "-"}</div>
-          <div><b>${t("popupRule")}:</b> ${ruleSentence ?? "-"}</div>
-        </details>
-      </div>
-    `;
-  }
-
-  // If the URL already pins a camera position (a shared/bookmarked link),
-  // don't let the area's own fitBounds override it once data loads.
-  let hasFitBoundsOnce = hasExplicitView;
-
-  // Thinner/lighter for the comfortable classes, progressively bolder for
-  // the demanding ones - same zoom range as before, per-class endpoints
-  // via a match expression nested inside the interpolation stops.
-  const LTS_LINE_WIDTH = [
-    "interpolate", ["linear"], ["zoom"],
-    12, ["match", ["to-string", ["get", "lts"]], "1", 1.0, "2", 1.2, "3", 1.8, "4", 2.2, 1.5],
-    18, ["match", ["to-string", ["get", "lts"]], "1", 3.5, "2", 4.0, "3", 5.5, "4", 6.5, 5.0],
-  ];
-  const GAP_EDGE_WIDTH = 4;
-
-  // Re-adds everything this page draws on top of the base style. Called
-  // after the initial style load AND after every subsequent setStyle() from
-  // the basemap switcher, since setStyle discards custom sources/layers
-  // that aren't part of the new style document.
-  function addDataLayers() {
-    if (!map.getSource("lts")) {
-      map.addSource("lts", { type: "vector", url: pmtilesUrl });
-    }
-    if (!map.getLayer("lts-lines")) {
-      map.addLayer({
-        id: "lts-lines",
-        type: "line",
-        source: "lts",
-        "source-layer": "lts",
-        paint: {
-          "line-color": LTS_COLOR_EXPRESSION,
-          "line-width": LTS_LINE_WIDTH,
-        },
-      });
-    }
-    applyLtsFilter();
-
-    // Purple dashed highlight for high-stress edges that touch a low-stress
-    // island (domain/gap_analysis.py's is_gap_edge) - the literal segments
-    // to evaluate for closing a gap. Only visible in gap mode.
-    if (!map.getLayer("gap-edges")) {
-      map.addLayer({
-        id: "gap-edges",
-        type: "line",
-        source: "lts",
-        "source-layer": "lts",
-        filter: ["==", ["to-string", ["get", "is_gap_edge"]], "true"],
-        layout: { visibility: gapModeOn ? "visible" : "none" },
-        paint: { "line-color": "#7B2CBF", "line-width": GAP_EDGE_WIDTH, "line-dasharray": [4, 3] },
-      });
-    }
-
-    // Mapterhorn open terrain tiles (Terrarium-encoded, Italy: 10m
-    // resolution) - see mapterhorn.com/data-access. Same source used by
-    // ltsbikeplan.services.dem_service for the slope calculation itself,
-    // so the 3D relief shown here is consistent with what drove the LTS
-    // classification.
-    if (!map.getSource("mapterhorn-dem")) {
-      map.addSource("mapterhorn-dem", {
-        type: "raster-dem",
-        tiles: ["https://tiles.mapterhorn.com/{z}/{x}/{y}.webp"],
-        tileSize: 512,
-        encoding: "terrarium",
-        maxzoom: 13,
-      });
-    }
-    if (terrainOn) {
-      map.setTerrain({ source: "mapterhorn-dem", exaggeration: 1.3 });
-      document.getElementById("terrain-toggle").classList.add("active");
-    }
-
-    if (gapModeOn) {
-      applyGapHighlight();
-      renderGapInterventions();
-    }
-
-    // Single-area views ("Trento", "Lavis", ...) zoom to that area's own
-    // data. The merged "italia" tileset keeps the whole-Italy view above
-    // instead - its bounds are just wherever areas happen to be computed
-    // so far, which would give an arbitrary, shrinking-as-you-zoom-out crop
-    // rather than the national context the user actually wants to see.
-    // Only done once - switching basemap shouldn't reset the user's pan/zoom,
-    // and never if the URL already restored a specific camera position.
-    if (!hasFitBoundsOnce && area !== "italia") {
-      hasFitBoundsOnce = true;
-      tiles.getHeader().then((header) => {
-        map.fitBounds(
-          [[header.minLon, header.minLat], [header.maxLon, header.maxLat]],
-          { padding: 40, duration: 0 },
-        );
-      });
-    }
-  }
-
-  map.on("style.load", addDataLayers);
-
-  // Bound once, not inside addDataLayers: maplibre resolves "lts-lines" at
-  // event time against whatever layers currently exist, so these keep
-  // working across setStyle() re-adding the layer with the same id.
-  // Below MIN_CLICK_ZOOM, streets are too close together to click reliably
-  // - "mousemove" (not "mouseenter") re-checks the zoom on every move so the
-  // cursor updates correctly even if the user scroll-zooms without moving
-  // the mouse off the street they're hovering.
-  map.on("mousemove", "lts-lines", () => {
-    map.getCanvas().style.cursor = map.getZoom() >= MIN_CLICK_ZOOM ? "pointer" : "";
-  });
-  map.on("mouseleave", "lts-lines", () => { map.getCanvas().style.cursor = ""; });
-  map.on("click", "lts-lines", (e) => {
-    if (map.getZoom() < MIN_CLICK_ZOOM) return;
-    new maplibregl.Popup({ maxWidth: "280px" })
-      .setLngLat(e.lngLat)
-      .setHTML(popupHtml(e.features[0].properties))
-      .addTo(map);
-  });
-
-  document.getElementById("terrain-toggle").addEventListener("click", () => {
-    terrainOn = !terrainOn;
-    map.setTerrain(terrainOn ? { source: "mapterhorn-dem", exaggeration: 1.3 } : null);
-    document.getElementById("terrain-toggle").classList.toggle("active", terrainOn);
-    // Terrain exaggeration is nearly invisible from a straight-down view -
-    // tilt the camera so the relief actually reads as 3D.
-    map.easeTo({ pitch: terrainOn ? 60 : 0, duration: 800 });
-    syncUrlState();
-  });
-
-  // Generic open/close wiring for header-triggered info panels (About,
-  // Privacy, and any future nav panel) - purely informational, so
-  // intentionally NOT part of the URL-persisted view state (see
-  // syncUrlState below), unlike terrain/gap/basemap.
-  function setupInfoPanel(toggleId, panelId, closeId) {
-    const toggle = document.getElementById(toggleId);
-    const panel = document.getElementById(panelId);
-    function setOpen(open) {
-      panel.classList.toggle("hidden", !open);
-      toggle.classList.toggle("active", open);
-    }
-    toggle.addEventListener("click", () => setOpen(panel.classList.contains("hidden")));
-    if (closeId) document.getElementById(closeId).addEventListener("click", () => setOpen(false));
-  }
-  setupInfoPanel("about-toggle", "about-panel", "about-close");
-  setupInfoPanel("privacy-toggle", "privacy-panel", "privacy-close");
-
-  // --- Gap analysis: prioritized intervention list ---------------------
-  //
-  // Replaces the old per-"island" colouring/list: a raw connected-component
-  // grouping doesn't tell a comune anything actionable (one Trento island
-  // alone was 1374 raw OSM edge fragments with no way to prioritize among
-  // them). Instead this aggregates the is_gap_edge features currently on
-  // screen into one row per street name, ranked worst-first. lts-lines
-  // always paints with LTS_COLOR_EXPRESSION now - there is no island colour
-  // mode any more.
-  //
-  // Built with map.queryRenderedFeatures(), NOT Turf.js: same "read back
-  // what's already drawn" pattern the click popup already uses, zero new
-  // dependencies, scoped to exactly what the user can see.
-
-  // A single OSM way is graph-split into many edges at intersection nodes
-  // and shares one `osmid` across all of them - grouping by name, not
-  // osmid, is what turns e.g. Trento's "Strada forestale Fontana dei Gai"
-  // (331 distinct edges under one osmid) into a single row with a real
-  // total length instead of hundreds of near-zero fragments.
-  //
-  // Every edge in the export also appears as an exact duplicate row (same
-  // osmid AND identical geometry) - confirmed against data/Trento: 126924
-  // exported features are exactly 63462 distinct (osmid, geometry) pairs
-  // each appearing twice. A raw query result must be deduplicated before
-  // summing length, but NOT by osmid alone - that collapses genuinely
-  // distinct fragments (see above) far more than it fixes. Keying on
-  // osmid + the feature's own coordinates fixes the duplicate-row problem
-  // without discarding real fragments.
-  function dedupeFeatures(features) {
-    const seen = new Set();
-    const unique = [];
-    for (const feature of features) {
-      const key = `${feature.properties.osmid}:${JSON.stringify(feature.geometry.coordinates)}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      unique.push(feature);
-    }
-    return unique;
-  }
-
-  // LngLatBounds.extend() takes one [lng, lat] pair at a time. Source
-  // geometry is always LineString, but tippecanoe can clip a feature into a
-  // MultiLineString within a single tile when it crosses a tile edge more
-  // than once, so both shapes are handled rather than assumed.
-  function boundsForFeatures(features) {
-    const bounds = new maplibregl.LngLatBounds();
-    for (const feature of features) {
-      const geom = feature.geometry;
-      const lines = geom.type === "MultiLineString" ? geom.coordinates : [geom.coordinates];
-      for (const line of lines) {
-        for (const coord of line) bounds.extend(coord);
-      }
-    }
-    return bounds;
-  }
-
-  // Same reasoning as MIN_CLICK_ZOOM on lts-lines: below this zoom there
-  // are too many edges on screen for a per-street aggregate to mean
-  // anything, and queryRenderedFeatures would just be slow for no benefit.
-  function belowGapZoom() {
-    return map.getZoom() < MIN_CLICK_ZOOM;
-  }
-
-  // Aggregates the on-screen is_gap_edge features into one row per street
-  // name, sorted worst-first (highest LTS, then highest betweenness
-  // centrality - see domain/network_centrality.py - then longest total gap
-  // length). Centrality is what turns "this street has high LTS" (obvious
-  // from the map colour alone) into "this street is also a mandatory
-  // passage many trips are forced through" - the actual reason it's worth
-  // prioritizing. Unnamed fragments (~40% of gap-edge length in the
-  // Trento/Lavis exports) are left out of the LIST - "un tratto senza
-  // nome" isn't actionable - but stay visible on the map via the
-  // gap-edges layer regardless.
-  function computeGapInterventions() {
-    if (!map.getLayer("gap-edges")) return [];
-    const unique = dedupeFeatures(map.queryRenderedFeatures({ layers: ["gap-edges"] }));
-
-    const byName = new Map();
-    for (const feature of unique) {
-      const name = feature.properties.name;
-      if (!name) continue;
-      const lts = Number(feature.properties.lts) || 0;
-      const length = Number(feature.properties.length) || 0;
-      const centrality = Number(feature.properties.centrality) || 0;
-      let entry = byName.get(name);
-      if (!entry) {
-        entry = { name, lts, length: 0, centrality, centralityClass: feature.properties.centrality_class, features: [] };
-        byName.set(name, entry);
-      }
-      // A street can carry more than one LTS/centrality value across its
-      // fragments; keep the worst/highest so the row reflects its
-      // least-comfortable, most-structurally-important stretch.
-      entry.lts = Math.max(entry.lts, lts);
-      entry.length += length;
-      if (centrality >= entry.centrality) {
-        entry.centrality = centrality;
-        entry.centralityClass = feature.properties.centrality_class;
-      }
-      entry.features.push(feature);
-    }
-
-    // LTS first (still the more severe signal - a physically stressful
-    // street), then centrality (how much avoiding it costs other people -
-    // the "why does this matter" the raw LTS number alone can't explain),
-    // then length as a final tiebreak.
-    return [...byName.values()].sort((a, b) => b.lts - a.lts || b.centrality - a.centrality || b.length - a.length);
-  }
-
-  function renderGapInterventions() {
-    const list = document.getElementById("gap-list");
-    if (belowGapZoom()) {
-      list.innerHTML = `<p>${t("gapZoomHint")}</p>`;
-      return;
-    }
-    const interventions = computeGapInterventions();
-    list.innerHTML = "";
-    if (!interventions.length) {
-      list.innerHTML = `<p>${t("gapEmpty")}</p>`;
-      return;
-    }
-    interventions.forEach((item) => {
-      const row = document.createElement("div");
-      row.className = "gap-item";
-      const color = LTS_COLORS[String(item.lts)] || LTS_FALLBACK_COLOR;
-      const urgency = t("gapUrgency")[String(item.lts)] || "";
-      const centralityPhrase = t("centrality")[item.centralityClass];
-      const explainLine = centralityPhrase
-        ? `<div class="gap-item-explain">${urgency ? urgency + " - " : ""}${t("centralityTemplate")(centralityPhrase)}</div>`
-        : "";
-      row.innerHTML = `
-        <div class="gap-item-main"><span class="swatch" style="background:${color}"></span>${item.name}: ${(item.length / 1000).toFixed(2)} km (LTS ${item.lts})</div>
-        ${explainLine}
-      `;
-      row.addEventListener("click", () => focusGapIntervention(item));
-      list.appendChild(row);
-    });
-  }
-
-  // Highlighted street persists across live-refreshes (moveend/idle/zoom
-  // just recompute the list; they shouldn't wipe the user's current
-  // selection), so the selection lives outside computeGapInterventions().
-  let selectedGapName = null;
-
-  function applyGapHighlight() {
-    if (!map.getLayer("gap-edges")) return;
-    map.setPaintProperty(
-      "gap-edges",
-      "line-width",
-      selectedGapName
-        ? ["case", ["==", ["get", "name"], selectedGapName], GAP_EDGE_WIDTH * 2.5, GAP_EDGE_WIDTH]
-        : GAP_EDGE_WIDTH,
-    );
-  }
-
-  function focusGapIntervention(item) {
-    selectedGapName = item.name;
-    const bounds = boundsForFeatures(item.features);
-    if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 60 });
-    applyGapHighlight();
-  }
-
-  function setGapMode(on) {
-    gapModeOn = on;
-    document.getElementById("gap-panel").classList.toggle("hidden", !on);
-    document.getElementById("gap-toggle").classList.toggle("active", on);
-    if (map.getLayer("gap-edges")) {
-      map.setLayoutProperty("gap-edges", "visibility", on ? "visible" : "none");
-    }
-    if (on) {
-      renderGapInterventions();
-    } else {
-      selectedGapName = null;
-      applyGapHighlight();
-    }
-    syncUrlState();
-  }
-
-  // Below MIN_CLICK_ZOOM the button is visually disabled (see
-  // updateGapToggleState) but this guard covers any programmatic click too.
-  document.getElementById("gap-toggle").addEventListener("click", () => {
-    if (belowGapZoom()) return;
-    setGapMode(!gapModeOn);
-  });
-
-  // Bound once on "zoom", which fires for scroll/pinch, the +/- control, AND
-  // programmatic fitBounds/flyTo/easeTo - one binding covers every way the
-  // camera can cross MIN_CLICK_ZOOM, matching the existing "bind once, not
-  // inside addDataLayers" pattern used for the lts-lines click/hover
-  // handlers above.
-  function updateGapToggleState() {
-    const disabled = belowGapZoom();
-    const toggle = document.getElementById("gap-toggle");
-    toggle.disabled = disabled;
-    toggle.title = disabled ? t("gapZoomHint") : "";
-    if (gapModeOn) renderGapInterventions();
-  }
-  map.on("zoom", updateGapToggleState);
-  updateGapToggleState(); // default view starts at zoom 5.2, well below threshold
-
-  // --- URL state -------------------------------------------------------
-
-  // Keeps the address bar mirroring everything that affects what's on
-  // screen, so a copied/bookmarked link reopens to the same view. Uses
-  // replaceState (not pushState) so panning/zooming doesn't spam browser
-  // history - only an explicit navigation (back button from another page)
-  // should leave this view.
-  function syncUrlState() {
-    const url = new URL(window.location.href);
-    const center = map.getCenter();
-    url.searchParams.set("area", area);
-    url.searchParams.set("zoom", map.getZoom().toFixed(2));
-    url.searchParams.set("lat", center.lat.toFixed(5));
-    url.searchParams.set("lon", center.lng.toFixed(5));
-    url.searchParams.set("pitch", map.getPitch().toFixed(0));
-    url.searchParams.set("bearing", map.getBearing().toFixed(0));
-    url.searchParams.set("bg", currentBasemap);
-    url.searchParams.set("lts", [...activeLts].sort().join(","));
-    url.searchParams.set("terrain", terrainOn ? "1" : "0");
-    url.searchParams.set("gap", gapModeOn ? "1" : "0");
-    url.searchParams.set("lang", currentLang);
-    history.replaceState(null, "", url);
-  }
-
-  map.on("moveend", syncUrlState);
-  // moveend fires as soon as panning stops, but queryRenderedFeatures only
-  // sees tiles already loaded - a big pan into unloaded territory needs
-  // "idle" (fires once rendering has fully settled) too, or the list would
-  // silently under-report with no further update once tiles arrive.
-  map.on("moveend", () => { if (gapModeOn) renderGapInterventions(); });
-  map.on("idle", () => { if (gapModeOn) renderGapInterventions(); });
-  syncUrlState();
-</script>
+<script src="app.js"></script>
 </body>
 </html>

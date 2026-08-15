@@ -12,63 +12,242 @@ const I18N = {
     bgCycling: "Sfondo ciclabile",
     bgDark: "Sfondo scuro",
     terrainToggle: "Terreno 3D",
+    printControl: "Stampa mappa",
+    pdfCenterLabel: "Centro",
+    pdfScaleLabel: "Scala",
+    geocoderPlaceholder: "Cerca un luogo...",
     gapToggle: "Tratti da valutare",
     aboutToggle: "Info sul progetto",
-    aboutHeading: "Si pedala?",
-    aboutSubtitle: "Quanto è tranquillo pedalare sulle strade italiane?",
-    aboutBody: `<p><strong>Si pedala?</strong> è una mappa che prova a rispondere a una domanda semplice: <strong>quanto è tranquillo percorrere una strada in bicicletta?</strong></p>
-<p>Per farlo usa l'<strong>LTS – Level of Traffic Stress</strong>, un metodo che descrive quanto una strada può risultare confortevole o impegnativa per chi pedala.</p>
-<p>L'LTS non misura direttamente il rischio di incidente: cerca piuttosto di rappresentare la sensazione di comfort, disagio o pericolo percepito in relazione al traffico e alle caratteristiche della strada.</p>
-<p>Ogni tratto viene classificato da <strong>LTS 1</strong>, il più tranquillo, a <strong>LTS 4</strong>, il più impegnativo.</p>
-<p>Il calcolo tiene conto di elementi come tipo di strada, infrastrutture ciclabili, velocità, numero di corsie, parcheggi e larghezza della carreggiata.</p>
-<h3>Da dove nasce</h3>
-<p>L'idea parte dagli studi sulle <strong>reti ciclabili a basso stress</strong>, in particolare dai lavori di Peter Furth e collaboratori, e dall'esperienza di <strong>Bike Ottawa</strong>, che ha sviluppato un modello aperto per calcolare l'LTS utilizzando i dati di OpenStreetMap.</p>
-<p>Nel 2021 <strong>Maurizio Napolitano e Matteo Fortini</strong> hanno sperimentato questo approccio in Italia con il progetto <a href="https://medium.com/tantotanto/lo-stress-dei-percorsi-ciclabili-ee7573ec8284" target="_blank" rel="noopener"><strong>Bici stressate dal traffico</strong></a>.</p>
-<p>In seguito, grazie alla <strong>tesi di Master in Data Science di Leonardo Venturoso</strong>, l'algoritmo è stato approfondito, adattato al contesto italiano e arricchito con nuove analisi. Da questo lavoro è nato <strong>LTS-BikePlan</strong>, descritto nel paper scientifico alla base della mappa.</p>
-<h3>Anche le salite contano</h3>
-<p>Il traffico non è l'unica cosa che può rendere poco tranquilla una pedalata.</p>
-<p>Una strada può essere protetta e poco trafficata, ma una salita lunga e ripida può comunque renderla molto più impegnativa.</p>
-<p>Per questo il modello utilizzato qui considera anche la <strong>pendenza</strong>: quando una salita è sufficientemente lunga e ripida, il valore LTS può aumentare.</p>
-<h3>Dove sarebbe più utile intervenire?</h3>
-<p>Non tutte le strade hanno la stessa importanza nella rete.</p>
-<p>Un tratto con LTS alto può essere particolarmente interessante quando rappresenta un collegamento importante tra zone che, per il resto, sono tranquille da percorrere.</p>
-<p>Per questo la mappa offre anche la funzione <strong>"Tratti da valutare"</strong>.</p>
-<p>Qui vengono evidenziati i tratti nei quali si combinano <strong>un LTS elevato</strong> e <strong>un ruolo importante nella connettività della rete stradale</strong>. L'analisi deriva proprio dai metodi utilizzati per individuare i collegamenti ad alto stress che interrompono reti a basso stress.</p>
-<p>Non significa necessariamente <strong>"qui bisogna costruire una ciclabile"</strong>.</p>
-<p>Significa piuttosto:</p>
-<p><strong>"Qui vale la pena guardare meglio."</strong></p>
-<p>Migliorare uno di questi punti potrebbe infatti rendere più continua e utilizzabile una parte molto più ampia della rete.</p>
-<h3>Una mappa costruita con OpenStreetMap</h3>
-<p>Le caratteristiche delle strade sono ricavate principalmente da <strong>OpenStreetMap</strong>.</p>
-<p>La classificazione usa informazioni come accessibilità alle biciclette, tipo di strada, piste e corsie ciclabili, velocità e numero di corsie.</p>
-<p>La documentazione di riferimento per descrivere l'accessibilità delle biciclette è disponibile nella <a href="https://wiki.openstreetmap.org/wiki/IT:Key:bicycle" target="_blank" rel="noopener">wiki di OpenStreetMap</a>.</p>
-<p>E c'è una conseguenza interessante: <strong>se un dato in OpenStreetMap è sbagliato o incompleto, può essere corretto</strong>.</p>
-<p>La mappa viene aggiornata periodicamente, quindi un miglioramento dei dati OSM può riflettersi nei calcoli successivi. La qualità e la completezza di OpenStreetMap sono infatti uno degli elementi che influenzano il risultato.</p>
-<p>I dati derivati da OpenStreetMap sono distribuiti con licenza <strong>ODbL</strong>, con attribuzione a <strong>© OpenStreetMap contributors</strong>.</p>
-<h3>E gli incidenti?</h3>
-<p>Una strada tranquilla da percorrere non è automaticamente una strada senza incidenti.</p>
-<p><strong>LTS e incidentalità sono due cose diverse.</strong></p>
-<p>Il lavoro LTS-BikePlan studia proprio la relazione tra questi fenomeni e mostra come sia possibile integrare l'LTS con uno <strong>storico di incidenti georeferenziati</strong>, per ottenere analisi ancora più utili nella valutazione delle criticità.</p>
-<p>Questa è anche una delle possibili evoluzioni della mappa: combinare caratteristiche della strada, connettività della rete e dati storici sugli incidenti.</p>
-<h3>Aperto, verificabile, migliorabile</h3>
-<p>Il progetto è <strong>open source</strong>.</p>
-<p>Le regole e il codice utilizzati per calcolare gli indicatori sono pubblici, così il metodo può essere verificato, discusso e migliorato.</p>
+    faqToggle: "FAQ",
+    faqHeading: "FAQ",
+    faqCloseAndScrollUp: "Chiudi e torna su",
+    aboutHeading: "Stress in bici",
+    aboutSubtitle: "Quanto stress può generare una strada quando la percorri in bici?",
+    aboutBody: `<p><strong>Stress in bici</strong> è una mappa delle strade italiane vista dalla prospettiva delle persone che si muovono in bicicletta.</p>
+<p>L'idea è semplice: le caratteristiche di una strada possono cambiare molto la nostra esperienza in bici. Traffico, velocità, corsie, parcheggi e infrastrutture ciclabili possono farci sentire più a nostro agio oppure aumentare pressione e disagio durante il percorso.</p>
+<p>In letteratura scientifica esiste un indicatore chiamato <a href="https://peterfurth.sites.northeastern.edu/level-of-traffic-stress/" target="_blank" rel="noopener"><strong>LTS - Level of Traffic Stress</strong></a>.</p>
+<p>L'LTS <a href="https://peterfurth.sites.northeastern.edu/2014/05/21/criteria-for-level-of-traffic-stress/" target="_blank" rel="noopener">classifica</a> le strade in base al livello di stress che le loro caratteristiche possono generare nelle persone che le percorrono in bicicletta.</p>
+<h3>Come funziona</h3>
+<p>Ogni tratto di strada riceve un valore di <strong>LTS da 1 a 4</strong>:</p>
+<ul>
+<li><strong>LTS 1</strong> - stress molto basso</li>
+<li><strong>LTS 2</strong> - stress basso</li>
+<li><strong>LTS 3</strong> - stress elevato</li>
+<li><strong>LTS 4</strong> - stress molto elevato</li>
+</ul>
+<p>Il calcolo considera elementi concreti come il tipo di strada, la presenza di piste o corsie ciclabili, i limiti di velocità, il numero di corsie, i parcheggi e la larghezza della carreggiata.</p>
+<p>L'LTS <strong>non è un indice di incidentalità</strong>. Prova a raccontare un'altra cosa: <strong>come le caratteristiche della strada possono influire sulla percezione di chi la percorre in bici</strong>.</p>
+<h3>Anche la pendenza conta</h3>
+<p>Nel nostro adattamento dell'LTS abbiamo aggiunto anche la <strong>pendenza</strong>.</p>
+<p>Una strada può essere ben separata dalle auto, ma una salita lunga e ripida può comunque cambiare molto l'esperienza di chi la percorre.</p>
+<p>Quando una salita è sufficientemente lunga e ripida, il valore LTS può aumentare.</p>
+<p>Nella mappa è disponibile anche una vista tridimensionale, che permette di leggere meglio questa caratteristica.</p>
+<h3>Tratti da valutare</h3>
+<p>Non tutte le strade hanno lo stesso ruolo nella rete.</p>
+<p>A volte basta un breve tratto ad alto stress per interrompere il collegamento tra zone dove, per il resto, le condizioni sono molto migliori.</p>
+<p>La funzione <strong>"Tratti da valutare"</strong> individua i tratti nei quali si combinano due informazioni:</p>
+<p><strong>LTS elevato + importanza del tratto nella connessione della rete.</strong></p>
+<p>Non significa <strong>"qui bisogna costruire una pista ciclabile"</strong>.</p>
+<p>Significa piuttosto: <strong>"questo tratto merita attenzione"</strong>.</p>
+<p>Intervenire in un punto strategico può infatti migliorare la continuità di una parte molto più grande della rete.</p>
+<h3>Il ruolo di OpenStreetMap</h3>
+<p><a href="https://www.openstreetmap.org" target="_blank" rel="noopener"><strong>OpenStreetMap</strong></a> non è soltanto una mappa di sfondo: i suoi dati sono alla base del calcolo dell'LTS.</p>
+<p>Accessibilità alle biciclette, tipo di strada, infrastrutture ciclabili, limiti di velocità e numero di corsie sono alcune delle informazioni ricavate da OSM.</p>
+<p>Per capire come OpenStreetMap descrive l'accessibilità in bicicletta puoi consultare la <a href="https://wiki.openstreetmap.org/wiki/IT:Key:bicycle" target="_blank" rel="noopener"><strong>pagina wiki dedicata alla tassonomia bicycle</strong></a>.</p>
+<p>OpenStreetMap è collaborativa: se un'informazione è mancante o sbagliata può essere corretta dalla comunità.</p>
+<p><strong>Stress in bici non si aggiorna però in tempo reale.</strong> La mappa viene ricalcolata periodicamente, quindi le modifiche fatte su OpenStreetMap potranno essere recepite negli aggiornamenti successivi.</p>
+<p>I dati derivati da OpenStreetMap sono distribuiti con licenza <a href="https://opendatacommons.org/licenses/odbl/summary/" target="_blank" rel="noopener"><strong>ODbL</strong></a>, con attribuzione a <strong>© OpenStreetMap contributors</strong>.</p>
+<h3>Da dove nasce il progetto</h3>
+<p><strong>Stress in bici</strong> non nasce da zero.</p>
+<p>Alla base ci sono gli studi sulle <strong>reti ciclabili a basso stress</strong>, tra cui i lavori di <a href="https://peterfurth.sites.northeastern.edu/" target="_blank" rel="noopener"><strong>Peter Furth</strong></a>, e l'esperienza di <a href="https://bikeottawa.ca/" target="_blank" rel="noopener"><strong>BikeOttawa</strong></a>, che ha sviluppato un <a href="https://maps.bikeottawa.ca/lts/" target="_blank" rel="noopener"><strong>modello aperto</strong></a> per classificare le strade utilizzando OpenStreetMap.</p>
+<p>Nel 2021 <a href="https://github.com/napo" target="_blank" rel="noopener"><strong>Maurizio Napolitano</strong></a> e <a href="https://github.com/mfortini" target="_blank" rel="noopener"><strong>Matteo Fortini</strong></a> hanno sperimentato questo approccio in Italia con il progetto <a href="https://medium.com/tantotanto/lo-stress-dei-percorsi-ciclabili-ee7573ec8284" target="_blank" rel="noopener"><strong>Bici stressate dal traffico</strong></a>.</p>
+<p>Il lavoro è poi proseguito con la <strong>tesi di Master in Data Science di <a href="https://leoventuroso.github.io/" target="_blank" rel="noopener">Leonardo Venturoso</a></strong>, che ha permesso di approfondire e ampliare il modello.</p>
+<p>Da questa esperienza è nato <a href="https://github.com/dclfbk/LTSBikePlan" target="_blank" rel="noopener"><strong>LTS-BikePlan</strong></a>, con l'adattamento dell'LTS al contesto italiano, la pendenza, l'analisi della connettività e lo studio della relazione con gli incidenti.</p>
+<h3>Un progetto aperto</h3>
+<p><strong>Stress in bici è un progetto aperto.</strong></p>
+<p>Il <a href="https://github.com/dclfbk/LTSBikePlan" target="_blank" rel="noopener"><strong>codice sorgente è pubblico</strong></a>, così il metodo può essere controllato, discusso, riutilizzato e migliorato.</p>
 <p>La metodologia è descritta nell'articolo scientifico:</p>
 <p><strong>Venturoso, L., Usmani, M., Nanni, R., &amp; Napolitano, M. (2026). <em>LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety</em>. Journal of Urban Technology, 1&ndash;42.</strong></p>
-<p><a href="https://doi.org/10.1080/10630732.2026.2639290" target="_blank" rel="noopener">DOI 10.1080/10630732.2026.2639290</a></p>
-<p>L'obiettivo non è dare un giudizio definitivo su ogni strada.</p>
-<p>È offrire <strong>un modo diverso di guardare la rete stradale italiana dal punto di vista di chi pedala</strong>.</p>
-<p>Per capire dove si pedala tranquilli.</p>
-<p>E, soprattutto, <strong>dove si potrebbe pedalare meglio</strong>.</p>`,
-    privacyToggle: "Privacy",
+<p><a href="https://doi.org/10.1080/10630732.2026.2639290" target="_blank" rel="noopener"><strong>DOI 10.1080/10630732.2026.2639290</strong></a></p>
+<p><strong>Stress in bici</strong> prova a guardare le strade italiane dalla prospettiva delle persone che le percorrono in bicicletta: per capire quali generano meno stress, quali ne generano di più e quali punti della rete meritano maggiore attenzione.</p>
+<p><strong>Hai dubbi su come vengono calcolati i valori, sul significato dell'LTS o sui limiti della mappa? Dai un'occhiata alle <a href="#" id="open-faq-link">FAQ</a>.</strong></p>`,
+    // FAQ content (see aboutBody above and the "third nav link" pattern
+    // setupInfoPanel already anticipates) - Italian only for now, same
+    // reasoning as aboutBody: EN/DE/FR keep their own separate About
+    // content until this gets translated. No faqItems fallback needed in
+    // those blocks - t() already falls back to I18N.it for any key a
+    // language doesn't define.
+    faqItems: [
+      {
+        q: "Che cos'è l'LTS?",
+        a: `<p><strong>LTS</strong> significa <strong>Level of Traffic Stress</strong>.</p>
+<p>È un indicatore che classifica le strade in base al livello di stress che le loro caratteristiche possono generare nelle persone che le percorrono in bicicletta.</p>
+<p>Tiene conto di elementi come il tipo di strada, la presenza di infrastrutture ciclabili, il limite di velocità, il numero di corsie, i parcheggi e la larghezza della carreggiata.</p>`,
+      },
+      {
+        q: "Cosa significano LTS 1, 2, 3 e 4?",
+        a: `<p>La scala va da 1 a 4:</p>
+<ul>
+<li><strong>LTS 1</strong> - stress molto basso</li>
+<li><strong>LTS 2</strong> - stress basso</li>
+<li><strong>LTS 3</strong> - stress elevato</li>
+<li><strong>LTS 4</strong> - stress molto elevato</li>
+</ul>
+<p>Più aumenta il valore, più le caratteristiche della strada possono rendere impegnativa l'esperienza in bicicletta.</p>`,
+      },
+      {
+        q: "LTS 4 significa che una strada è pericolosa?",
+        a: `<p>No.</p>
+<p>L'LTS <strong>non è un indice di incidentalità</strong> e non misura direttamente la probabilità di avere un incidente.</p>
+<p>Una strada con LTS 4 può essere percepita come molto impegnativa a causa del traffico, della velocità o delle sue caratteristiche, ma questo non significa necessariamente che sia la strada dove avvengono più incidenti.</p>
+<p>Allo stesso modo, un valore LTS basso non garantisce che una strada sia priva di rischi.</p>`,
+      },
+      {
+        q: "Quindi cosa misura realmente Stress in bici?",
+        a: `<p>Prova a rappresentare <strong>come le caratteristiche di una strada possono influire sulla percezione di chi la percorre in bicicletta</strong>.</p>
+<p>In altre parole, non vuole rispondere alla domanda:</p>
+<p><strong>"Questa strada è sicura?"</strong></p>
+<p>ma piuttosto:</p>
+<p><strong>"Quanto stress può generare questa strada quando la percorro in bici?"</strong></p>`,
+      },
+      {
+        q: "Perché considerate anche la pendenza?",
+        a: `<p>Perché non c'è solo il traffico.</p>
+<p>Una strada può avere buone caratteristiche infrastrutturali, ma una salita lunga e molto ripida può comunque cambiare parecchio l'esperienza di chi la percorre.</p>
+<p>Nel nostro adattamento dell'LTS, quando una salita è sufficientemente lunga e ripida il valore può aumentare.</p>
+<p>La vista 3D della mappa aiuta anche a leggere questo aspetto del territorio.</p>`,
+      },
+      {
+        q: "Da dove arrivano i dati?",
+        a: `<p>Principalmente da <strong>OpenStreetMap - OSM</strong>.</p>
+<p>Utilizziamo le informazioni presenti nel database per descrivere le caratteristiche delle strade: accessibilità alle biciclette, tipologia stradale, infrastrutture ciclabili, limiti di velocità, corsie e altri attributi utili al calcolo.</p>
+<p>Per approfondire come OpenStreetMap descrive l'accessibilità alle biciclette puoi consultare la <a href="https://wiki.openstreetmap.org/wiki/IT:Key:bicycle" target="_blank" rel="noopener">wiki OSM dedicata alla chiave <code>bicycle</code></a>.</p>`,
+      },
+      {
+        q: "Ho trovato una strada classificata male. Cosa posso fare?",
+        a: `<p>La prima cosa da controllare sono i dati presenti in OpenStreetMap.</p>
+<p>Se un'informazione è mancante o sbagliata, può essere corretta direttamente su OSM.</p>
+<p>Questo però <strong>non modifica immediatamente Stress in bici</strong>.</p>
+<p>La nostra mappa viene ricalcolata periodicamente. Una correzione fatta oggi su OpenStreetMap potrà quindi essere recepita in uno degli aggiornamenti successivi.</p>`,
+      },
+      {
+        q: "Quanto sono affidabili i risultati?",
+        a: `<p>Dipende anche dalla qualità dei dati disponibili.</p>
+<p>L'algoritmo applica le stesse regole in modo automatico a una grande quantità di strade, ma OpenStreetMap può avere dati mancanti, incompleti o non aggiornati.</p>
+<p>Per questo <strong>Stress in bici è uno strumento di lettura e analisi, non una verità assoluta sulla strada</strong>.</p>
+<p>Se un risultato sembra strano, vale la pena capire quali dati lo hanno prodotto.</p>`,
+      },
+      {
+        q: "Perché alcune informazioni mancanti vengono stimate?",
+        a: `<p>Non tutte le strade in OpenStreetMap hanno ogni attributo necessario al calcolo.</p>
+<p>Nel modello LTS-BikePlan alcuni valori mancanti vengono quindi stimati sulla base della tipologia della strada e delle regole adottate per il contesto italiano.</p>
+<p>Questo permette di calcolare l'LTS anche dove i dati non sono completi, ma è un altro motivo per cui migliorare OpenStreetMap è importante.</p>`,
+      },
+      {
+        q: 'Cosa sono i "Tratti da valutare"?',
+        a: `<p>Non sono semplicemente tutte le strade con LTS alto.</p>
+<p>Le strade formano una rete e alcuni tratti hanno un ruolo più importante di altri nel collegarla.</p>
+<p>La funzione <strong>"Tratti da valutare"</strong> mette in evidenza i punti nei quali si combinano:</p>
+<p><strong>LTS elevato + importanza del tratto nella connessione della rete.</strong></p>
+<p>Un breve tratto ad alto stress può, per esempio, interrompere il collegamento tra due zone dove le condizioni sono molto migliori.</p>`,
+      },
+      {
+        q: 'Un "tratto da valutare" significa che lì bisogna costruire una pista ciclabile?',
+        a: `<p>No.</p>
+<p>L'algoritmo non decide quale intervento realizzare.</p>
+<p>Segnala un tratto che <strong>merita attenzione</strong> per il suo livello di stress e per il ruolo che svolge nella rete.</p>
+<p>Capire se sia necessario intervenire e come farlo richiede poi una valutazione sul posto, dati aggiuntivi e competenze di pianificazione e progettazione.</p>`,
+      },
+      {
+        q: 'Perché una strada con LTS 4 potrebbe non comparire tra i "Tratti da valutare"?',
+        a: `<p>Perché avere un LTS elevato è solo una parte del problema.</p>
+<p>Una strada con LTS 4 può avere un ruolo marginale nella rete, mentre un tratto con LTS 3 può essere un passaggio fondamentale per collegare due grandi aree a basso stress.</p>
+<p>Per questo vengono considerate insieme <strong>caratteristiche della strada e struttura della rete</strong>.</p>`,
+      },
+      {
+        q: "Gli incidenti vengono usati per calcolare l'LTS?",
+        a: `<p>No.</p>
+<p>LTS e incidentalità misurano aspetti diversi.</p>
+<p>LTS-BikePlan ha però sperimentato l'integrazione con dati storici di <strong>incidenti georeferenziati</strong>, mettendo in relazione incidenti, LTS e struttura della rete.</p>
+<p>Se in futuro fossero disponibili banche dati omogenee e sufficientemente complete, questo tipo di informazione potrebbe arricchire ulteriormente Stress in bici.</p>`,
+      },
+      {
+        q: "Perché non usate semplicemente il numero di incidenti?",
+        a: `<p>Perché il numero di incidenti racconta solo una parte della storia.</p>
+<p>Un tratto può avere pochi incidenti anche perché pochissime persone scelgono di percorrerlo in bicicletta.</p>
+<p>Al contrario, una strada molto frequentata può avere più incidenti pur presentando condizioni percepite come migliori.</p>
+<p>Per confrontare correttamente questi aspetti servono dati sufficientemente completi sull'incidentalità e, idealmente, anche sui flussi ciclistici.</p>`,
+      },
+      {
+        q: "Stress in bici serve come navigatore?",
+        a: `<p>Non è questo il suo obiettivo principale.</p>
+<p>La mappa nasce soprattutto per <strong>osservare e analizzare le caratteristiche della rete stradale dal punto di vista di chi si muove in bicicletta</strong> e per individuare possibili punti critici.</p>
+<p>Il valore LTS può naturalmente essere utile anche per ragionare sui percorsi, ma Stress in bici non vuole sostituire un sistema di navigazione.</p>`,
+      },
+      {
+        q: "Posso usare i dati?",
+        a: `<p>Sì.</p>
+<p>I dati derivano principalmente da OpenStreetMap e sono distribuiti secondo le condizioni della licenza <strong>ODbL</strong>, mantenendo l'attribuzione a <strong>© OpenStreetMap contributors</strong>.</p>
+<p>Anche il codice del progetto è pubblico e può essere studiato, verificato e migliorato.</p>`,
+      },
+      {
+        q: "Dove trovo il codice?",
+        a: `<p>Il codice di <strong>LTS-BikePlan</strong> è disponibile su GitHub:</p>
+<p><a href="https://github.com/dclfbk/LTSBikePlan" target="_blank" rel="noopener">github.com/dclfbk/LTSBikePlan</a></p>`,
+      },
+      {
+        q: "Esiste una pubblicazione scientifica?",
+        a: `<p>Sì.</p>
+<p>La metodologia è descritta in:</p>
+<p><strong>Venturoso, L., Usmani, M., Nanni, R., &amp; Napolitano, M. (2026). <em>LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety</em>. Journal of Urban Technology, 1&ndash;42.</strong></p>
+<p><a href="https://doi.org/10.1080/10630732.2026.2639290" target="_blank" rel="noopener">DOI 10.1080/10630732.2026.2639290</a></p>`,
+      },
+      {
+        q: "Da dove nasce Stress in bici?",
+        a: `<p>Il progetto parte dagli studi sulle reti ciclabili a basso stress e dall'esperienza di <strong>BikeOttawa</strong>.</p>
+<p>Nel 2021 <strong>Maurizio Napolitano e Matteo Fortini</strong> hanno sperimentato questo approccio in Italia con <a href="https://medium.com/tantotanto/lo-stress-dei-percorsi-ciclabili-ee7573ec8284" target="_blank" rel="noopener"><strong>Bici stressate dal traffico</strong></a>.</p>
+<p>Il lavoro è poi proseguito con la tesi di Master in Data Science di <strong>Leonardo Venturoso</strong> e con lo sviluppo di <strong>LTS-BikePlan</strong>, da cui deriva l'approccio utilizzato in Stress in bici.</p>`,
+      },
+      {
+        q: "Posso segnalare un problema o proporre un miglioramento?",
+        a: `<p>Sì, ed è proprio uno degli obiettivi di un progetto aperto.</p>
+<p>Se il problema riguarda <strong>le caratteristiche di una strada</strong>, vale la pena controllare prima i dati presenti in OpenStreetMap.</p>
+<p>Se riguarda invece <strong>l'algoritmo, il calcolo o il software</strong>, il codice pubblico permette di verificare il funzionamento e contribuire al suo miglioramento.</p>`,
+      },
+    ],
+    privacyToggle: "Cookie",
     privacyHeading: "Privacy e cookie",
     privacyIntro: "Questo sito non usa cookie di tracciamento, né servizi di analisi o pubblicità: non viene raccolto alcun dato di navigazione. Se in futuro venissero introdotti strumenti che li richiedono, questa pagina sarà aggiornata con le informazioni necessarie e le opzioni per gestire il consenso.",
-    footerCredit: "Un progetto di Maurizio Napolitano e Leonardo Venturoso",
+    comuniNavLink: "Confronta comuni",
+    mapNavLink: "Mappa",
+    comuniTitle: "Confronta i comuni",
+    comuniSubtitle: "Indicatori LTS calcolati per ogni comune già elaborato, con dati anagrafici ISTAT.",
+    comuniPopulationNote: "Popolazione e densità abitativa non ancora disponibili.",
+    comuniFilterRegione: "Regione",
+    comuniFilterProvincia: "Provincia",
+    comuniFilterSearch: "Cerca comune...",
+    comuniFilterCapoluoghi: "Solo capoluoghi",
+    comuniAllRegioni: "Tutte le regioni",
+    comuniAllProvince: "Tutte le province",
+    comuniColComune: "Comune",
+    comuniColRegione: "Regione",
+    comuniColProvincia: "Provincia",
+    comuniColSuperficie: "Superficie (km²)",
+    comuniColTotalKm: "Rete totale (km)",
+    comuniColLowStressKm: "Km a basso stress",
+    comuniColLowStressShare: "% basso stress",
+    comuniColSeparatedKm: "Km percorsi separati",
+    comuniColPriorityKm: "Km da valutare",
+    comuniColIslands: "Isole a basso stress",
+    comuniEmpty: "Nessun comune trovato con questi filtri.",
+    comuniCapoluogoProvincia: "capoluogo di provincia",
+    comuniCapoluogoRegione: "capoluogo di regione",
+    footerCredit: `Un progetto di <a href="https://github.com/napo" target="_blank" rel="noopener">Maurizio Napolitano</a> e <a href="https://leoventuroso.github.io/" target="_blank" rel="noopener">Leonardo Venturoso</a>`,
     footerHosting: "Si ringrazia TOP-IX per l'hosting",
     gapHeading: "Tratti da valutare",
     gapHint: "Elenco dei tratti ad alto stress che interrompono la rete a basso stress, ordinati dal più critico e da quanto quella via è importante per attraversare la zona. Clicca una via per evidenziarla ed andarci. Si aggiorna in base a quello che vedi sulla mappa.",
-    gapEmpty: "Nessun intervento nella vista corrente - sposta o allontana la mappa.",
-    gapZoomHint: "Aumenta lo zoom per vedere gli interventi prioritari in quest'area.",
+    gapEmpty: "Nessun tratto da valutare nella vista corrente - sposta o allontana la mappa.",
+    gapZoomHint: "Aumenta lo zoom per vedere i tratti da valutare in quest'area.",
     gapUrgency: { "4": "Intervento prioritario", "3": "Da valutare" },
     centralityTemplate: (phrase) => `È ${phrase}.`,
     centrality: {
@@ -124,11 +303,13 @@ const I18N = {
       p5: "Ciclabilità non consentita: è un marciapiede su cui non è espressamente indicato l'uso in bicicletta.",
       p8: "Ciclabilità non consentita: è una scalinata priva di rampa per biciclette.",
       p9: "LTS impostato a 1: è una scalinata dotata di rampa per biciclette.",
+      p10: "Ciclabilità non consentita: è una strada a scorrimento veloce (motorroad) di categoria trunk, vietata alle biciclette per legge.",
       s3: "Questo tratto è una pista ciclabile separata dal traffico.",
       s1: "Questo tratto è un sentiero o percorso separato dalla circolazione motorizzata.",
       s2: "Questo tratto è un percorso pedonale separato dal traffico, non un attraversamento.",
       s7: "Questo tratto è un percorso separato perché ha una pista ciclabile fisicamente distinta dalla carreggiata.",
       s8: "Questo tratto è un percorso separato perché ha una pista ciclabile distinta dalla carreggiata, percorribile in controsenso.",
+      s9: "Ciclabilità non consentita: è un sentiero di montagna troppo impegnativo per una bicicletta da città o elettrica.",
       b1: "LTS è 1: corsia ciclabile con parcheggio, velocità massima fino a 40 km/h, strada residenziale con al massimo 2 corsie.",
       b2: "LTS portato a 3 perché ci sono 3 o più corsie ed è presente parcheggio.",
       b3: "LTS portato a 3 perché la larghezza della corsia ciclabile è inferiore a 4,1m ed è presente parcheggio.",
@@ -170,8 +351,16 @@ const I18N = {
     bgCycling: "Cycling background",
     bgDark: "Dark background",
     terrainToggle: "3D terrain",
+    printControl: "Print map",
+    pdfCenterLabel: "Center",
+    pdfScaleLabel: "Scale",
+    geocoderPlaceholder: "Search a place...",
     gapToggle: "Segments to evaluate",
     aboutToggle: "About",
+    faqToggle: "FAQ",
+    faqHeading: "FAQ",
+    faqCloseAndScrollUp: "Close and scroll to top",
+    aiTranslationNote: "Translation by AI",
     aboutHeading: "Si pedala?",
     aboutSubtitle: "How calm is it to cycle on Italian roads?",
     aboutBody: `<p><strong>Si pedala?</strong> ("Are we riding?") is a map that tries to answer a simple question: <strong>how calm is it to ride a bicycle on a given road?</strong></p>
@@ -218,15 +407,39 @@ const I18N = {
 <p>It's to offer <strong>a different way of looking at the Italian road network from a cyclist's point of view</strong>.</p>
 <p>To understand where it's calm to ride.</p>
 <p>And, above all, <strong>where riding could be better</strong>.</p>`,
-    privacyToggle: "Privacy",
+    privacyToggle: "Cookie",
     privacyHeading: "Privacy & cookies",
     privacyIntro: "This site does not use tracking cookies, analytics, or advertising services: no browsing data is collected. If tools that require them are introduced in the future, this page will be updated with the necessary information and consent options.",
-    footerCredit: "A project by Maurizio Napolitano and Leonardo Venturoso",
+    comuniNavLink: "Compare municipalities",
+    mapNavLink: "Map",
+    comuniTitle: "Compare municipalities",
+    comuniSubtitle: "LTS indicators computed for every processed municipality, with ISTAT administrative data.",
+    comuniPopulationNote: "Population and population density aren't available yet.",
+    comuniFilterRegione: "Region",
+    comuniFilterProvincia: "Province",
+    comuniFilterSearch: "Search municipality...",
+    comuniFilterCapoluoghi: "Capitals only",
+    comuniAllRegioni: "All regions",
+    comuniAllProvince: "All provinces",
+    comuniColComune: "Municipality",
+    comuniColRegione: "Region",
+    comuniColProvincia: "Province",
+    comuniColSuperficie: "Surface (km²)",
+    comuniColTotalKm: "Total network (km)",
+    comuniColLowStressKm: "Low-stress km",
+    comuniColLowStressShare: "% low-stress",
+    comuniColSeparatedKm: "Separated-path km",
+    comuniColPriorityKm: "Km to evaluate",
+    comuniColIslands: "Low-stress islands",
+    comuniEmpty: "No municipality matches these filters.",
+    comuniCapoluogoProvincia: "provincial capital",
+    comuniCapoluogoRegione: "regional capital",
+    footerCredit: `A project by <a href="https://github.com/napo" target="_blank" rel="noopener">Maurizio Napolitano</a> and <a href="https://leoventuroso.github.io/" target="_blank" rel="noopener">Leonardo Venturoso</a>`,
     footerHosting: "Thanks to TOP-IX for hosting",
     gapHeading: "Segments to evaluate",
     gapHint: "High-stress segments that break up the low-stress network, ranked by severity and by how important that street is for crossing the area. Click a street to highlight it and fly there. Updates based on what's currently visible on the map.",
-    gapEmpty: "No interventions in the current view - pan or zoom out the map.",
-    gapZoomHint: "Zoom in to see priority interventions in this area.",
+    gapEmpty: "No segments to evaluate in the current view - pan or zoom out the map.",
+    gapZoomHint: "Zoom in to see segments to evaluate in this area.",
     gapUrgency: { "4": "Priority intervention", "3": "To evaluate" },
     centralityTemplate: (phrase) => `It's ${phrase}.`,
     centrality: {
@@ -282,11 +495,13 @@ const I18N = {
       p5: "Cycling not permitted: it's a sidewalk with no explicit indication that cycling is allowed.",
       p8: "Cycling not permitted: it's a flight of stairs with no bicycle ramp.",
       p9: "LTS set to 1: it's a flight of stairs with a bicycle ramp.",
+      p10: "Cycling not permitted: it's a trunk-class expressway (motorroad), off-limits to bicycles by law.",
       s3: "This way is a cycle path physically separated from traffic.",
       s1: "This way is a path separated from motor traffic.",
       s2: "This way is a footpath separated from traffic, not a crossing.",
       s7: "This way is separated because it has a cycle track physically distinct from the roadway.",
       s8: "This way is separated because it has a cycle track distinct from the roadway, usable in the opposite direction.",
+      s9: "Cycling not permitted: it's a mountain trail too demanding for a city or e-bike.",
       b1: "LTS is 1: bike lane with parking, maxspeed up to 40 km/h, residential street with 2 lanes or fewer.",
       b2: "Increasing LTS to 3 because there are 3 or more lanes and parking present.",
       b3: "Increasing LTS to 3 because the bike lane width is less than 4.1m and parking present.",
@@ -328,8 +543,16 @@ const I18N = {
     bgCycling: "Rad-Hintergrund",
     bgDark: "Dunkler Hintergrund",
     terrainToggle: "3D-Gelände",
+    printControl: "Karte drucken",
+    pdfCenterLabel: "Zentrum",
+    pdfScaleLabel: "Maßstab",
+    geocoderPlaceholder: "Ort suchen...",
     gapToggle: "Abschnitte zur Bewertung",
     aboutToggle: "Info",
+    faqToggle: "FAQ",
+    faqHeading: "FAQ",
+    faqCloseAndScrollUp: "Schließen und nach oben",
+    aiTranslationNote: "Übersetzung durch KI",
     aboutHeading: "Si pedala?",
     aboutSubtitle: "Wie entspannt lässt es sich auf italienischen Straßen Rad fahren?",
     aboutBody: `<p><strong>Si pedala?</strong> ("Fährt man Rad?") ist eine Karte, die eine einfache Frage zu beantworten versucht: <strong>Wie entspannt ist es, eine Straße mit dem Fahrrad zu befahren?</strong></p>
@@ -376,15 +599,39 @@ const I18N = {
 <p>Es geht darum, <strong>eine andere Sichtweise auf das italienische Straßennetz aus der Perspektive von Radfahrenden</strong> anzubieten.</p>
 <p>Um zu verstehen, wo man entspannt Rad fahren kann.</p>
 <p>Und vor allem, <strong>wo man besser Rad fahren könnte</strong>.</p>`,
-    privacyToggle: "Datenschutz",
+    privacyToggle: "Cookies",
     privacyHeading: "Datenschutz und Cookies",
     privacyIntro: "Diese Website verwendet keine Tracking-Cookies, keine Analyse- und keine Werbedienste: Es werden keine Nutzungsdaten erfasst. Sollten künftig Werkzeuge eingeführt werden, die dies erfordern, wird diese Seite mit den nötigen Informationen und Einwilligungsoptionen aktualisiert.",
-    footerCredit: "Ein Projekt von Maurizio Napolitano und Leonardo Venturoso",
+    comuniNavLink: "Gemeinden vergleichen",
+    mapNavLink: "Karte",
+    comuniTitle: "Gemeinden vergleichen",
+    comuniSubtitle: "LTS-Indikatoren für jede verarbeitete Gemeinde, mit ISTAT-Verwaltungsdaten.",
+    comuniPopulationNote: "Bevölkerung und Bevölkerungsdichte sind noch nicht verfügbar.",
+    comuniFilterRegione: "Region",
+    comuniFilterProvincia: "Provinz",
+    comuniFilterSearch: "Gemeinde suchen...",
+    comuniFilterCapoluoghi: "Nur Hauptstädte",
+    comuniAllRegioni: "Alle Regionen",
+    comuniAllProvince: "Alle Provinzen",
+    comuniColComune: "Gemeinde",
+    comuniColRegione: "Region",
+    comuniColProvincia: "Provinz",
+    comuniColSuperficie: "Fläche (km²)",
+    comuniColTotalKm: "Netz gesamt (km)",
+    comuniColLowStressKm: "Km mit geringer Belastung",
+    comuniColLowStressShare: "% geringe Belastung",
+    comuniColSeparatedKm: "Km getrennte Wege",
+    comuniColPriorityKm: "Zu bewertende km",
+    comuniColIslands: "Inseln geringer Belastung",
+    comuniEmpty: "Keine Gemeinde entspricht diesen Filtern.",
+    comuniCapoluogoProvincia: "Provinzhauptstadt",
+    comuniCapoluogoRegione: "Regionalhauptstadt",
+    footerCredit: `Ein Projekt von <a href="https://github.com/napo" target="_blank" rel="noopener">Maurizio Napolitano</a> und <a href="https://leoventuroso.github.io/" target="_blank" rel="noopener">Leonardo Venturoso</a>`,
     footerHosting: "Dank an TOP-IX für das Hosting",
     gapHeading: "Abschnitte zur Bewertung",
     gapHint: "Stark belastete Abschnitte, die das Netz mit geringer Verkehrsbelastung unterbrechen, sortiert nach Dringlichkeit und danach, wie wichtig die Straße für die Durchquerung des Gebiets ist. Klicke auf eine Straße, um sie hervorzuheben und dorthin zu springen. Wird an den aktuell sichtbaren Kartenausschnitt angepasst.",
-    gapEmpty: "Keine Maßnahmen im aktuellen Kartenausschnitt - Karte verschieben oder verkleinern.",
-    gapZoomHint: "Zoome näher heran, um priorisierte Maßnahmen in diesem Gebiet zu sehen.",
+    gapEmpty: "Keine Abschnitte zur Bewertung im aktuellen Kartenausschnitt - Karte verschieben oder verkleinern.",
+    gapZoomHint: "Zoome näher heran, um Abschnitte zur Bewertung in diesem Gebiet zu sehen.",
     gapUrgency: { "4": "Vorrangige Maßnahme", "3": "Zu prüfen" },
     centralityTemplate: (phrase) => `Das ist ${phrase}.`,
     centrality: {
@@ -440,11 +687,13 @@ const I18N = {
       p5: "Radfahren nicht erlaubt: Es handelt sich um einen Gehweg ohne ausdrückliche Freigabe für Radfahrer.",
       p8: "Radfahren nicht erlaubt: Es handelt sich um eine Treppe ohne Fahrradrampe.",
       p9: "LTS auf 1 gesetzt: Es handelt sich um eine Treppe mit Fahrradrampe.",
+      p10: "Radfahren nicht erlaubt: Es handelt sich um eine Schnellstraße (motorroad) der Kategorie trunk, gesetzlich für Fahrräder gesperrt.",
       s3: "Getrennter Weg: baulich vom Verkehr getrennter Radweg.",
       s1: "Getrennter Weg: vom motorisierten Verkehr getrennter Weg.",
       s2: "Getrennter Weg: vom Verkehr getrennter Gehweg, keine Querung.",
       s7: "Getrennter Weg: baulich von der Fahrbahn getrennter Radweg.",
       s8: "Getrennter Weg: von der Fahrbahn getrennter Radweg, in Gegenrichtung befahrbar.",
+      s9: "Radfahren nicht erlaubt: Es handelt sich um einen Bergpfad, der für ein Stadt- oder E-Bike zu anspruchsvoll ist.",
       b1: "LTS ist 1: Radstreifen mit Parken, Höchstgeschwindigkeit bis 40 km/h, Wohnstraße mit höchstens 2 Fahrspuren.",
       b2: "LTS auf 3 erhöht, da 3 oder mehr Fahrspuren und Parken vorhanden sind.",
       b3: "LTS auf 3 erhöht, da die Radstreifenbreite unter 4,1 m liegt und Parken vorhanden ist.",
@@ -486,8 +735,16 @@ const I18N = {
     bgCycling: "Fond cyclable",
     bgDark: "Fond sombre",
     terrainToggle: "Relief 3D",
+    printControl: "Imprimer la carte",
+    pdfCenterLabel: "Centre",
+    pdfScaleLabel: "Échelle",
+    geocoderPlaceholder: "Rechercher un lieu...",
     gapToggle: "Tronçons à évaluer",
     aboutToggle: "À propos",
+    faqToggle: "FAQ",
+    faqHeading: "FAQ",
+    faqCloseAndScrollUp: "Fermer et remonter",
+    aiTranslationNote: "Traduction par IA",
     aboutHeading: "Si pedala?",
     aboutSubtitle: "À quel point est-il tranquille de rouler à vélo sur les routes italiennes ?",
     aboutBody: `<p><strong>Si pedala?</strong> (&laquo; On p&eacute;dale&nbsp;? &raquo;) est une carte qui tente de r&eacute;pondre &agrave; une question simple&nbsp;: <strong>&agrave; quel point est-il tranquille de parcourir une route &agrave; v&eacute;lo&nbsp;?</strong></p>
@@ -534,15 +791,39 @@ const I18N = {
 <p>Il s'agit d'offrir <strong>une autre mani&egrave;re de regarder le r&eacute;seau routier italien du point de vue de celles et ceux qui p&eacute;dalent</strong>.</p>
 <p>Pour comprendre o&ugrave; l'on peut rouler tranquillement.</p>
 <p>Et, surtout, <strong>o&ugrave; l'on pourrait mieux rouler</strong>.</p>`,
-    privacyToggle: "Confidentialité",
+    privacyToggle: "Cookies",
     privacyHeading: "Confidentialité et cookies",
     privacyIntro: "Ce site n'utilise aucun cookie de suivi, ni service d'analyse ou de publicité : aucune donnée de navigation n'est collectée. Si des outils nécessitant ces éléments étaient introduits à l'avenir, cette page serait mise à jour avec les informations nécessaires et des options de gestion du consentement.",
-    footerCredit: "Un projet de Maurizio Napolitano et Leonardo Venturoso",
+    comuniNavLink: "Comparer les communes",
+    mapNavLink: "Carte",
+    comuniTitle: "Comparer les communes",
+    comuniSubtitle: "Indicateurs LTS calculés pour chaque commune déjà traitée, avec les données administratives ISTAT.",
+    comuniPopulationNote: "Population et densité de population pas encore disponibles.",
+    comuniFilterRegione: "Région",
+    comuniFilterProvincia: "Province",
+    comuniFilterSearch: "Rechercher une commune...",
+    comuniFilterCapoluoghi: "Chefs-lieux seulement",
+    comuniAllRegioni: "Toutes les régions",
+    comuniAllProvince: "Toutes les provinces",
+    comuniColComune: "Commune",
+    comuniColRegione: "Région",
+    comuniColProvincia: "Province",
+    comuniColSuperficie: "Superficie (km²)",
+    comuniColTotalKm: "Réseau total (km)",
+    comuniColLowStressKm: "Km à faible stress",
+    comuniColLowStressShare: "% faible stress",
+    comuniColSeparatedKm: "Km voies séparées",
+    comuniColPriorityKm: "Km à évaluer",
+    comuniColIslands: "Îlots à faible stress",
+    comuniEmpty: "Aucune commune ne correspond à ces filtres.",
+    comuniCapoluogoProvincia: "chef-lieu de province",
+    comuniCapoluogoRegione: "chef-lieu de région",
+    footerCredit: `Un projet de <a href="https://github.com/napo" target="_blank" rel="noopener">Maurizio Napolitano</a> et <a href="https://leoventuroso.github.io/" target="_blank" rel="noopener">Leonardo Venturoso</a>`,
     footerHosting: "Merci à TOP-IX pour l'hébergement",
     gapHeading: "Tronçons à évaluer",
     gapHint: "Tronçons à fort stress qui interrompent le réseau à faible stress, classés par gravité et par l'importance de la rue pour traverser la zone. Cliquez sur une rue pour la mettre en évidence et vous y rendre. La liste se met à jour selon la zone actuellement visible.",
-    gapEmpty: "Aucune intervention dans la vue actuelle - déplacez ou dézoomez la carte.",
-    gapZoomHint: "Zoomez pour voir les interventions prioritaires dans cette zone.",
+    gapEmpty: "Aucun tronçon à évaluer dans la vue actuelle - déplacez ou dézoomez la carte.",
+    gapZoomHint: "Zoomez pour voir les tronçons à évaluer dans cette zone.",
     gapUrgency: { "4": "Intervention prioritaire", "3": "À évaluer" },
     centralityTemplate: (phrase) => `C'est ${phrase}.`,
     centrality: {
@@ -598,11 +879,13 @@ const I18N = {
       p5: "Vélo non autorisé : il s'agit d'un trottoir sans autorisation explicite pour les vélos.",
       p8: "Vélo non autorisé : il s'agit d'un escalier sans rampe pour vélos.",
       p9: "LTS fixé à 1 : il s'agit d'un escalier équipé d'une rampe pour vélos.",
+      p10: "Vélo non autorisé : il s'agit d'une voie rapide (motorroad) de catégorie trunk, interdite aux vélos par la loi.",
       s3: "Voie séparée : piste cyclable physiquement séparée de la circulation.",
       s1: "Voie séparée : chemin séparé de la circulation motorisée.",
       s2: "Voie séparée : trottoir séparé de la circulation, ce n'est pas une traversée.",
       s7: "Voie séparée : piste cyclable physiquement distincte de la chaussée.",
       s8: "Voie séparée : piste cyclable distincte de la chaussée, utilisable à contresens.",
+      s9: "Vélo non autorisé : il s'agit d'un sentier de montagne trop exigeant pour un vélo de ville ou électrique.",
       b1: "LTS est 1 : bande cyclable avec stationnement, vitesse max jusqu'à 40 km/h, rue résidentielle avec au plus 2 voies.",
       b2: "LTS porté à 3 car il y a 3 voies ou plus et du stationnement est présent.",
       b3: "LTS porté à 3 car la largeur de la bande cyclable est inférieure à 4,1 m et du stationnement est présent.",

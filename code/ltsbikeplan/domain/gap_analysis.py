@@ -6,6 +6,8 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
+from ltsbikeplan.domain.crs import chunked_to_crs
+
 LOW_STRESS_LTS = {1, 2}
 HIGH_STRESS_LTS = {3, 4}
 
@@ -108,7 +110,7 @@ def summarize_gap_components(all_lts, area_slug: str) -> list:
     if islands.empty:
         return []
 
-    islands_4326 = islands.to_crs(4326)
+    islands_4326 = chunked_to_crs(islands, 4326)
     summary = []
     for comp_id, comp_edges in islands.groupby("gap_component"):
         bounds = islands_4326.loc[comp_edges.index].total_bounds

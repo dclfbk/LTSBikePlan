@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "code"))
 
-from ltsbikeplan.services.area_index_service import AmbiguousAreaError, AreaNotFoundError, AreaResolver
+from ltsbikeplan.services.area_index_service import AmbiguousAreaError, AreaNotFoundError, AreaResolver, compute_comuni_superficie_km2
 
 # Minimal fixtures shaped like the real osmit-estratti topojson indices
 # (verified live against https://osmit-estratti.wmcloud.org/output/topojson/
@@ -145,6 +145,54 @@ class TestAreaResolver(unittest.TestCase):
         # Would raise AttributeError on None.lower() if not skipped.
         with self.assertRaises(AreaNotFoundError):
             self.resolver.resolve("999999-does-not-match-by-name", level="comune")
+
+
+class TestComputeComuniSuperficie(unittest.TestCase):
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        cache_dir = os.path.join(self.tmp_dir.name, "_cache", "osmit_index")
+        os.makedirs(cache_dir, exist_ok=True)
+        # A plain GeoJSON FeatureCollection, not real topojson - GDAL's
+        # file-format sniffing (what geopandas.read_file uses under the
+        # hood) reads either the same way, and a hand-written topojson arc
+        # encoding isn't worth the complexity just for a test fixture. Two
+        # ~0.01°-square comuni near Trento's real coordinates.
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"name": "Trento", "istat": "022205"},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[11.10, 46.05], [11.11, 46.05], [11.11, 46.06], [11.10, 46.06], [11.10, 46.05]]],
+                    },
+                },
+                {
+                    "type": "Feature",
+                    "properties": {"name": "Lavis", "istat": "022103"},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[11.10, 46.15], [11.12, 46.15], [11.12, 46.17], [11.10, 46.17], [11.10, 46.15]]],
+                    },
+                },
+            ],
+        }
+        with open(os.path.join(cache_dir, "limits_IT_municipalities.json"), "w") as file_handle:
+            json.dump(geojson, file_handle)
+        self.cache_dir = self.tmp_dir.name
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_returns_positive_area_keyed_by_istat_code(self):
+        result = compute_comuni_superficie_km2(self.cache_dir)
+        self.assertIn("022205", result)
+        self.assertIn("022103", result)
+        self.assertGreater(result["022205"], 0)
+        # The second comune's polygon is roughly twice as wide and tall as
+        # the first's (0.02° vs 0.01°) - should be roughly 4x the area.
+        self.assertGreater(result["022103"], result["022205"] * 3)
 
 
 if __name__ == "__main__":

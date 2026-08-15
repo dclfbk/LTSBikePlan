@@ -5,11 +5,21 @@ import geopandas as gpd
 import osmnx as ox
 from sklearn.neighbors import NearestNeighbors
 
-from ltsbikeplan.domain.crs import WORKING_CRS
+from ltsbikeplan.domain.crs import WORKING_CRS, chunked_to_crs
+
+# Tags BikePathAnalysis reads that aren't in osmnx's default
+# useful_tags_way - without these, they'd silently never reach the domain
+# rules that need them on the osmnx ingestion path (motorroad: trunk/
+# trunk_link legally barred to bicycles; sac_scale/mtb:scale: mountain
+# trails too technical for a city/e-bike despite being highway=path/footway).
+_EXTRA_USEFUL_TAGS_WAY = ["motorroad", "sac_scale", "mtb:scale"]
 
 
 class GraphLoaderService:
     def download_graph(self, city: str):
+        missing_tags = [tag for tag in _EXTRA_USEFUL_TAGS_WAY if tag not in ox.settings.useful_tags_way]
+        if missing_tags:
+            ox.settings.useful_tags_way = ox.settings.useful_tags_way + missing_tags
         graph = ox.graph_from_place(city, network_type="all")
         gdf_nodes, gdf_edges = ox.graph_to_gdfs(graph)
         return graph, gdf_nodes, gdf_edges
@@ -28,9 +38,22 @@ class GraphLoaderService:
             "unclassified",
             "motorway",
             "motorway_link",
+            "trunk",
+            "trunk_link",
             "pedestrian",
             "steps",
             "track",
+            # footway/path/service used to be missing here, silently
+            # dropping them before BikePathAnalysis ever saw them even
+            # though the rest of the pipeline clearly expects them
+            # (EXTRA_NETWORK_ATTRIBUTES fetches their tags, lts_rules.py
+            # has dedicated rules for all three - is_separated_path's
+            # s1/s2/s9 for footway/path, mixed_traffic's m2/m3/m4/m16 for
+            # service). Confirmed empirically: a live Trento run produced
+            # zero s1/s2/s9 edges before this fix.
+            "footway",
+            "path",
+            "service",
         ]
         return gdf_edges[gdf_edges["highway"].isin(major_roads)]
 
@@ -59,7 +82,7 @@ class UrbanContextClassifier:
         gdf_edges = gdf_edges.copy()
         gdf_edges["context"] = "countryside"
         target_crs = gdf_edges.estimate_utm_crs() or gdf_edges.crs
-        gdf_edges = gdf_edges.to_crs(target_crs)
+        gdf_edges = chunked_to_crs(gdf_edges, target_crs)
         gdf_buildings = gdf_buildings.to_crs(target_crs)
 
         for index, edge in gdf_edges.iterrows():

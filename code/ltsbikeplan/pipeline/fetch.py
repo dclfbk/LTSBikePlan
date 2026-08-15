@@ -4,10 +4,17 @@ import os
 from typing import Optional
 
 from ltsbikeplan.domain.area_spec import AreaSpec
-from ltsbikeplan.domain.crs import WORKING_CRS
+from ltsbikeplan.domain.crs import WORKING_CRS, chunked_to_crs
 from ltsbikeplan.services.dem_service import MapterhornDemService
 from ltsbikeplan.services.graph_services import GraphLoaderService, UrbanContextClassifier
-from ltsbikeplan.services.osm_pbf_service import PyrosmGraphLoader, compute_bbox_from_pbf, download_pbf_extract, normalize_edge_columns
+from ltsbikeplan.services.osm_pbf_service import (
+    PyrosmGraphLoader,
+    apply_route_name_fallback,
+    compute_bbox_from_pbf,
+    download_pbf_extract,
+    extract_bicycle_route_names,
+    normalize_edge_columns,
+)
 from ltsbikeplan.services.persistence_service import PersistenceService
 from ltsbikeplan.services.slope_service import SlopeService
 
@@ -41,6 +48,13 @@ def _load_network(area: AreaSpec, cache_dir: str):
     pyrosm_loader = PyrosmGraphLoader()
     gdf_nodes, gdf_edges = pyrosm_loader.load_network(pbf_path)
     gdf_edges = graph_loader.filter_major_roads(gdf_edges)
+    # osmit-estratti-only (pyrosm) - osmnx's Overpass responses above don't
+    # expose relation membership the same way, so the osmnx branch has no
+    # equivalent fallback. See extract_bicycle_route_names for why this
+    # matters: some cycle networks (Trento's "Bicipolitana") put the only
+    # human-legible name on the route relation, not the way.
+    route_names = extract_bicycle_route_names(pbf_path)
+    gdf_edges = apply_route_name_fallback(gdf_edges, route_names)
     gdf_buildings = pyrosm_loader.load_buildings(pbf_path)
     return gdf_nodes, gdf_edges, gdf_buildings, area
 
@@ -73,9 +87,9 @@ def run_fetch(area: AreaSpec, data_dir: str, images_dir: str, dem_path: Optional
     quintiles = context_classifier.divide_into_quintiles(distances)
 
     original_index = gdf_edges.index
-    gdf_edges_projected = gdf_edges.to_crs(WORKING_CRS)
+    gdf_edges_projected = chunked_to_crs(gdf_edges, WORKING_CRS)
     gdf_edges_classified = context_classifier.classify_edges_by_quintiles(gdf_edges_projected, gdf_buildings, quintiles)
-    gdf_edges = gdf_edges_classified.to_crs(gdf_edges.crs)
+    gdf_edges = chunked_to_crs(gdf_edges_classified, gdf_edges.crs)
 
     resolved_dem_path = _resolve_dem_path(area, dem_path, data_dir)
     gdf_edges = slope_service.apply(gdf_edges, resolved_dem_path)

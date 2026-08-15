@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<title>Stress in bici - Confronta comuni</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="favicon.ico" sizes="any" />
+<script src="i18n.js"></script>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column; font: 13px/1.4 system-ui, sans-serif; background: #f5f5f5; color: #222; }
+
+  #site-header {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+    gap: 6px 16px; padding: 10px 16px;
+    background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    position: relative; z-index: 10;
+  }
+  #header-brand { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  #site-title { font-size: 18px; margin: 0; white-space: nowrap; }
+  #header-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  #lang-switcher select { font: inherit; padding: 2px 4px; }
+  .nav-link {
+    font: inherit; background: none; border: 1px solid #ccc; border-radius: 4px;
+    padding: 4px 10px; cursor: pointer; color: #333; text-decoration: none; display: inline-block;
+  }
+  .nav-link:hover { background: #f0f0f0; }
+
+  #content { flex: 1 1 auto; max-width: 1100px; margin: 0 auto; padding: 20px 16px 40px; width: 100%; box-sizing: border-box; }
+  #page-title { font-size: 22px; margin: 0 0 4px; }
+  #page-subtitle { color: #555; margin: 0 0 4px; }
+  #population-note { color: #999; font-size: 12px; margin: 0 0 16px; font-style: italic; }
+
+  #filters {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    background: white; border-radius: 6px; padding: 12px 14px; margin-bottom: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  }
+  #filters label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: #555; }
+  #filters select, #filters input[type="text"] { font: inherit; padding: 5px 6px; border: 1px solid #ccc; border-radius: 4px; }
+  #filter-search { min-width: 180px; }
+  #filter-capoluoghi-label { flex-direction: row; align-items: center; gap: 6px; font-size: 13px; color: #333; }
+
+  #table-wrap { background: white; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; white-space: nowrap; }
+  th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #eee; }
+  th:first-child, td:first-child { text-align: left; }
+  th { cursor: pointer; user-select: none; color: #444; font-weight: 600; background: #fafafa; position: sticky; top: 0; }
+  th:hover { background: #f0f0f0; }
+  th.sorted::after { content: " " attr(data-arrow); }
+  tbody tr:hover { background: #f7f9fc; }
+  .comune-name { font-weight: 600; }
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: normal; color: #4c78a8;
+    background: #eaf1fa; border-radius: 3px; padding: 1px 5px; margin-left: 6px; vertical-align: middle;
+  }
+  #empty-state { padding: 30px; text-align: center; color: #777; }
+  .hidden { display: none !important; }
+
+  #site-footer {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+    gap: 4px 16px; padding: 6px 16px;
+    background: white; box-shadow: 0 -1px 4px rgba(0,0,0,0.15);
+    font-size: 12px; color: #555;
+  }
+  #footer-hosting { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  #footer-logo { height: 18px; width: auto; vertical-align: middle; }
+</style>
+</head>
+<body>
+<header id="site-header">
+  <div id="header-brand">
+    <h1 id="site-title">Stress in bici</h1>
+  </div>
+  <nav id="header-nav">
+    <a id="map-link" class="nav-link" href="index.html"></a>
+    <div id="lang-switcher">
+      <select id="lang-select">
+        <option value="it">IT</option>
+        <option value="en">EN</option>
+        <option value="de">DE</option>
+        <option value="fr">FR</option>
+      </select>
+    </div>
+  </nav>
+</header>
+
+<main id="content">
+  <h2 id="page-title"></h2>
+  <p id="page-subtitle"></p>
+  <p id="population-note"></p>
+
+  <div id="filters">
+    <label>
+      <span id="filter-regione-label"></span>
+      <select id="filter-regione"></select>
+    </label>
+    <label>
+      <span id="filter-provincia-label"></span>
+      <select id="filter-provincia"></select>
+    </label>
+    <label>
+      <span id="filter-search-label"></span>
+      <input type="text" id="filter-search" />
+    </label>
+    <label id="filter-capoluoghi-label">
+      <input type="checkbox" id="filter-capoluoghi" />
+      <span id="filter-capoluoghi-text"></span>
+    </label>
+  </div>
+
+  <div id="table-wrap">
+    <table id="comuni-table">
+      <thead>
+        <tr id="comuni-thead-row"></tr>
+      </thead>
+      <tbody id="comuni-tbody"></tbody>
+    </table>
+    <p id="empty-state" class="hidden"></p>
+  </div>
+</main>
+
+<footer id="site-footer">
+  <span id="footer-credit"></span>
+  <span id="footer-hosting">
+    <span id="footer-hosting-text"></span>
+    <a href="https://www.top-ix.org/" target="_blank" rel="noopener">
+      <img src="https://www.top-ix.org/public/uploads/2024/03/TOP-IX_MainLogo.png" alt="TOP-IX" id="footer-logo" />
+    </a>
+  </span>
+</footer>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  let currentLang = params.get("lang") in I18N ? params.get("lang") : "it";
+
+  function t(key) {
+    return I18N[currentLang][key] ?? I18N.it[key];
+  }
+
+  // Columns: `key` indexes into a comuni-stats record (dotted for the
+  // nested km_by_lts map), `numeric` drives sort behaviour and right vs
+  // left alignment (see th/td CSS), `format` turns the raw value into
+  // display text. Order here is the on-screen column order.
+  const COLUMNS = [
+    { key: "comune", labelKey: "comuniColComune", numeric: false },
+    { key: "regione", labelKey: "comuniColRegione", numeric: false },
+    { key: "provincia", labelKey: "comuniColProvincia", numeric: false },
+    { key: "superficie_km2", labelKey: "comuniColSuperficie", numeric: true, format: fmtKm2 },
+    { key: "total_km", labelKey: "comuniColTotalKm", numeric: true, format: fmtKm },
+    { key: "low_stress_km", labelKey: "comuniColLowStressKm", numeric: true, format: fmtKm },
+    { key: "low_stress_share", labelKey: "comuniColLowStressShare", numeric: true, format: fmtPercent },
+    { key: "separated_path_km", labelKey: "comuniColSeparatedKm", numeric: true, format: fmtKm },
+    { key: "priority_intervention_km", labelKey: "comuniColPriorityKm", numeric: true, format: fmtKm },
+    { key: "low_stress_island_count", labelKey: "comuniColIslands", numeric: true, format: (v) => (v ?? 0).toString() },
+  ];
+
+  function fmtKm(v) {
+    return v == null ? "-" : `${v.toFixed(1)} km`;
+  }
+  function fmtKm2(v) {
+    return v == null ? "-" : `${v.toFixed(1)} km²`;
+  }
+  function fmtPercent(v) {
+    return v == null ? "-" : `${Math.round(v * 100)}%`;
+  }
+
+  let allRows = [];
+  let sortKey = "comune";
+  let sortAsc = true;
+
+  function applyUiTranslations() {
+    document.documentElement.lang = currentLang;
+    document.getElementById("lang-select").value = currentLang;
+    document.title = `Stress in bici - ${t("comuniTitle")}`;
+    document.getElementById("map-link").textContent = t("mapNavLink");
+    document.getElementById("page-title").textContent = t("comuniTitle");
+    document.getElementById("page-subtitle").textContent = t("comuniSubtitle");
+    document.getElementById("population-note").textContent = t("comuniPopulationNote");
+    document.getElementById("filter-regione-label").textContent = t("comuniFilterRegione");
+    document.getElementById("filter-provincia-label").textContent = t("comuniFilterProvincia");
+    document.getElementById("filter-search-label").textContent = t("comuniFilterSearch");
+    document.getElementById("filter-search").placeholder = t("comuniFilterSearch");
+    document.getElementById("filter-capoluoghi-text").textContent = t("comuniFilterCapoluoghi");
+    document.getElementById("empty-state").textContent = t("comuniEmpty");
+    document.getElementById("footer-credit").textContent = t("footerCredit");
+    document.getElementById("footer-hosting-text").textContent = t("footerHosting");
+    renderTableHead();
+    renderRegioneOptions();
+    renderProvinciaOptions();
+    renderRows();
+  }
+
+  document.getElementById("lang-select").addEventListener("change", (e) => {
+    currentLang = e.target.value;
+    const url = new URL(window.location.href);
+    url.searchParams.set("lang", currentLang);
+    window.history.replaceState({}, "", url);
+    applyUiTranslations();
+  });
+
+  function renderTableHead() {
+    const row = document.getElementById("comuni-thead-row");
+    row.innerHTML = "";
+    for (const col of COLUMNS) {
+      const th = document.createElement("th");
+      th.textContent = t(col.labelKey);
+      th.dataset.key = col.key;
+      if (col.key === sortKey) {
+        th.classList.add("sorted");
+        th.setAttribute("data-arrow", sortAsc ? "▲" : "▼");
+      }
+      th.addEventListener("click", () => {
+        if (sortKey === col.key) {
+          sortAsc = !sortAsc;
+        } else {
+          sortKey = col.key;
+          sortAsc = true;
+        }
+        renderTableHead();
+        renderRows();
+      });
+      row.appendChild(th);
+    }
+  }
+
+  // Regione/provincia are a cascade: changing regione resets and
+  // re-populates the provincia dropdown to only what's actually present
+  // for that regione (not every provincia in Italy), rather than leaving
+  // stale/irrelevant options selectable.
+  function renderRegioneOptions() {
+    const select = document.getElementById("filter-regione");
+    const current = select.value;
+    const regioni = [...new Set(allRows.map((r) => r.regione).filter(Boolean))].sort();
+    select.innerHTML = `<option value="">${t("comuniAllRegioni")}</option>` + regioni.map((r) => `<option value="${r}">${r}</option>`).join("");
+    select.value = regioni.includes(current) ? current : "";
+  }
+
+  function renderProvinciaOptions() {
+    const select = document.getElementById("filter-provincia");
+    const current = select.value;
+    const regioneFilter = document.getElementById("filter-regione").value;
+    const scoped = regioneFilter ? allRows.filter((r) => r.regione === regioneFilter) : allRows;
+    const province = [...new Set(scoped.map((r) => r.provincia).filter(Boolean))].sort();
+    select.innerHTML = `<option value="">${t("comuniAllProvince")}</option>` + province.map((p) => `<option value="${p}">${p}</option>`).join("");
+    select.value = province.includes(current) ? current : "";
+  }
+
+  document.getElementById("filter-regione").addEventListener("change", () => {
+    renderProvinciaOptions();
+    renderRows();
+  });
+  document.getElementById("filter-provincia").addEventListener("change", renderRows);
+  document.getElementById("filter-search").addEventListener("input", renderRows);
+  document.getElementById("filter-capoluoghi").addEventListener("change", renderRows);
+
+  function getSortValue(row, key) {
+    const value = row[key];
+    return value == null ? (typeof value === "string" ? "" : -Infinity) : value;
+  }
+
+  function renderRows() {
+    const regioneFilter = document.getElementById("filter-regione").value;
+    const provinciaFilter = document.getElementById("filter-provincia").value;
+    const searchFilter = document.getElementById("filter-search").value.trim().toLowerCase();
+    const capoluoghiOnly = document.getElementById("filter-capoluoghi").checked;
+
+    let rows = allRows.filter((r) => {
+      if (regioneFilter && r.regione !== regioneFilter) return false;
+      if (provinciaFilter && r.provincia !== provinciaFilter) return false;
+      if (searchFilter && !r.comune.toLowerCase().includes(searchFilter)) return false;
+      if (capoluoghiOnly && !(r.capoluogo_provincia || r.capoluogo_regione)) return false;
+      return true;
+    });
+
+    rows = rows.slice().sort((a, b) => {
+      const av = getSortValue(a, sortKey);
+      const bv = getSortValue(b, sortKey);
+      let cmp;
+      if (typeof av === "string" || typeof bv === "string") {
+        cmp = String(av).localeCompare(String(bv));
+      } else {
+        cmp = av - bv;
+      }
+      return sortAsc ? cmp : -cmp;
+    });
+
+    const tbody = document.getElementById("comuni-tbody");
+    tbody.innerHTML = "";
+    document.getElementById("empty-state").classList.toggle("hidden", rows.length > 0);
+    document.getElementById("table-wrap").querySelector("table").classList.toggle("hidden", rows.length === 0);
+
+    for (const row of rows) {
+      const tr = document.createElement("tr");
+      const badges = [
+        row.capoluogo_regione ? `<span class="badge">${t("comuniCapoluogoRegione")}</span>` : "",
+        !row.capoluogo_regione && row.capoluogo_provincia ? `<span class="badge">${t("comuniCapoluogoProvincia")}</span>` : "",
+      ].join("");
+      tr.innerHTML = COLUMNS.map((col, i) => {
+        if (col.key === "comune") {
+          return `<td class="comune-name">${row.comune}${badges}</td>`;
+        }
+        const raw = row[col.key];
+        return `<td>${col.format ? col.format(raw) : (raw ?? "-")}</td>`;
+      }).join("");
+      tbody.appendChild(tr);
+    }
+  }
+
+  fetch("data/italia_comuni_stats.json")
+    .then((response) => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
+    .then((data) => {
+      allRows = data;
+      applyUiTranslations();
+    })
+    .catch((error) => {
+      document.getElementById("empty-state").textContent = `${t("comuniEmpty")} (${error.message})`;
+      document.getElementById("empty-state").classList.remove("hidden");
+      applyUiTranslations();
+    });
+</script>
+</body>
+</html>

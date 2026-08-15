@@ -24,6 +24,81 @@ class TestLtsRules(unittest.TestCase):
         self.assertEqual(len(not_allowed), 1)
         self.assertEqual(not_allowed.iloc[0]["rule"], "p3")
 
+    def test_biking_permitted_marks_trunk_motorroad_not_allowed(self):
+        edges = pd.DataFrame(
+            {
+                "bicycle": ["yes", "yes", "yes"],
+                "access": ["yes", "yes", "yes"],
+                "highway": ["trunk", "trunk_link", "trunk"],
+                "motorroad": ["yes", "yes", "no"],
+            }
+        )
+
+        allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
+        self.assertEqual(len(allowed), 1)
+        self.assertEqual(len(not_allowed), 2)
+        self.assertTrue((not_allowed["rule"] == "p10").all())
+
+    def test_biking_permitted_without_motorroad_column(self):
+        # Plenty of extracts never carry the tag at all - shouldn't KeyError,
+        # and a bare trunk with no motorroad info stays allowed (the legal
+        # restriction isn't automatic from the highway class alone).
+        edges = pd.DataFrame(
+            {
+                "bicycle": ["yes"],
+                "access": ["yes"],
+                "highway": ["trunk"],
+            }
+        )
+
+        allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
+        self.assertEqual(len(allowed), 1)
+        self.assertEqual(len(not_allowed), 0)
+
+    def test_hard_sac_scale_path_is_reclassified_as_impassable(self):
+        edges = pd.DataFrame(
+            {
+                "highway": ["path", "path", "path"],
+                "sac_scale": ["hiking", "mountain_hiking", "difficult_alpine_hiking"],
+            }
+        )
+
+        separated, not_separated = BikePathAnalysis.is_separated_path(edges)
+        self.assertTrue(not_separated.empty)
+        self.assertListEqual(list(separated["rule"]), ["s1", "s9", "s9"])
+
+    def test_hard_mtb_scale_footway_is_reclassified_as_impassable(self):
+        edges = pd.DataFrame(
+            {
+                "highway": ["footway", "footway", "footway"],
+                "mtb:scale": ["0", "1", "3"],
+            }
+        )
+
+        separated, _ = BikePathAnalysis.is_separated_path(edges)
+        self.assertListEqual(list(separated["rule"]), ["s2", "s2", "s9"])
+
+    def test_sac_scale_does_not_affect_a_dedicated_cycleway(self):
+        # sac_scale/mtb:scale describe trail difficulty - a real cycleway
+        # (s3) isn't a trail, so the tag (however implausible on one) should
+        # never downgrade it.
+        edges = pd.DataFrame(
+            {
+                "highway": ["cycleway"],
+                "sac_scale": ["difficult_alpine_hiking"],
+            }
+        )
+
+        separated, _ = BikePathAnalysis.is_separated_path(edges)
+        self.assertEqual(separated.iloc[0]["rule"], "s3")
+
+    def test_is_separated_path_without_sac_scale_or_mtb_scale_columns(self):
+        edges = pd.DataFrame({"highway": ["path"]})
+
+        separated, not_separated = BikePathAnalysis.is_separated_path(edges)
+        self.assertEqual(separated.iloc[0]["rule"], "s1")
+        self.assertTrue(not_separated.empty)
+
     def test_steps_without_ramp_are_not_bikeable(self):
         edges = pd.DataFrame(
             {
