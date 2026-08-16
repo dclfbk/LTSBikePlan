@@ -78,18 +78,27 @@ body { display: flex; flex-direction: column; }
   font: 13px/1.4 system-ui, sans-serif; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
   max-width: 220px;
 }
-/* Collapse header for #panel, content only on narrow/phone viewports (see
-   the mobile media query below) - on desktop #panel has room to just sit
-   there open, so the button stays hidden and #panel-body is always shown.
-   Same +/- indicator pattern as .faq-question. */
+/* Collapse header for #panel - a "Legenda" label/toggle shown on every
+   viewport (not just phones): clicking it hides #panel-body, freeing up
+   map space even on a large monitor in fullscreen, not just on mobile.
+   Same +/- indicator pattern as .faq-question. Two mirror-image override
+   classes rather than one: the CSS-only default differs by breakpoint
+   (open on desktop, closed on phones - see the mobile media query below,
+   same reasoning as the old collapsed-on-load bug this replaced: a
+   default driven by JS reading the width once at load time goes stale on
+   resize/orientation change, a CSS default doesn't), so ".collapsed"
+   only matters on desktop-default-open and ".expanded" only matters on
+   phone-default-closed - toggleLegendPanel() in app.js sets whichever
+   one actually flips the *current* (computed, not assumed) state. */
 #panel-toggle {
-  display: none; width: 100%;
+  display: block; width: 100%;
   font: inherit; font-weight: 600; text-align: left;
-  background: none; border: none; padding: 0 20px 2px 0; margin: 0;
+  background: none; border: none; padding: 0 20px 6px 0; margin: 0;
   cursor: pointer; color: #222; position: relative;
 }
-#panel-toggle::after { content: "+"; position: absolute; right: 2px; top: 0; color: #999; }
-#panel.expanded #panel-toggle::after { content: "\2212"; }
+#panel-toggle::after { content: "\2212"; position: absolute; right: 2px; top: 0; color: #999; }
+#panel.collapsed #panel-toggle::after { content: "+"; }
+#panel.collapsed #panel-body { display: none; }
 
 .legend-item {
   display: flex; align-items: center; gap: 6px; margin: 2px 0;
@@ -229,15 +238,13 @@ body { display: flex; flex-direction: column; }
   #site-tagline { display: none; }
   #panel { padding: 8px 10px; font-size: 12px; }
 
-  /* Legend/basemap/gap panel is collapsed by default on phones so it
-     doesn't cover most of the map - #panel-toggle is the only
-     always-visible part, tap it (see app.js) to add .expanded and show
-     #panel-body over the map. Pure CSS default (not a JS check at load)
-     so it responds live to resize/orientation changes too, not just the
-     page's initial width. */
-  #panel-toggle { display: block; }
+  /* Mirror image of the desktop default above: on phones #panel-body
+     starts closed instead of open, so ".expanded" (not ".collapsed") is
+     the override that matters here. */
   #panel-body { display: none; }
+  #panel-toggle::after { content: "+"; }
   #panel.expanded #panel-body { display: block; }
+  #panel.expanded #panel-toggle::after { content: "\2212"; }
 
   /* #geocoder-panel normally flies out to the left of its icon (into the
      map, away from the viewport edge - see the comment above). On a
