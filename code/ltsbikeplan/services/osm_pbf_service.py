@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 import requests
@@ -85,19 +84,6 @@ def download_pbf_extract(area: AreaSpec, cache_dir: str) -> str:
             for chunk in response.iter_content(chunk_size=1024 * 1024):
                 file_handle.write(chunk)
     return out_path
-
-
-def compute_bbox_from_pbf(pbf_path: str) -> Tuple[float, float, float, float]:
-    """Returns (west, south, east, north) in EPSG:4326 via `osmium fileinfo`."""
-    result = subprocess.run(
-        ["osmium", "fileinfo", "-e", "-j", pbf_path],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    info = json.loads(result.stdout)
-    west, south, east, north = info["data"]["bbox"]
-    return (west, south, east, north)
 
 
 def normalize_edge_columns(gdf_edges, required_columns: Optional[List[str]] = None):
