@@ -1,6 +1,9 @@
-# systemd unit for one run of the full-Italy rebuild
-# (scripts/build_italy_map_cron.sh). Triggered by
-# ltsbikeplan-rebuild.timer - not enabled/started directly.
+# systemd unit for one incremental batch of the full-Italy rebuild
+# (scripts/build_italy_map_comuni_cron.sh, comune granularity - supersedes
+# the old per-provincia scripts/build_italy_map_cron.sh: network centrality
+# in compute-lts scales with graph size and was impractically slow on
+# provincia-sized graphs). Triggered by ltsbikeplan-rebuild.timer - not
+# enabled/started directly.
 #
 # Install:
 #   sudo cp deploy/ltsbikeplan-rebuild.service deploy/ltsbikeplan-rebuild.timer /etc/systemd/system/
@@ -14,7 +17,7 @@
 # Logs: journalctl -u ltsbikeplan-rebuild.service
 
 [Unit]
-Description=LTSBikePlan full-Italy tile rebuild
+Description=LTSBikePlan full-Italy tile rebuild (incremental comuni batch)
 Wants=network-online.target
 After=network-online.target
 
@@ -22,10 +25,14 @@ After=network-online.target
 Type=oneshot
 User=root
 WorkingDirectory=/opt/stressinbici/LTSBikePlan
-ExecStart=/opt/stressinbici/LTSBikePlan/scripts/build_italy_map_cron.sh
+ExecStart=/opt/stressinbici/LTSBikePlan/scripts/build_italy_map_comuni_cron.sh
 # tippecanoe/pmtiles live in /usr/local/bin; the script itself activates
 # the repo's own .venv for the Python side.
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
-# A full run visits ~107 province and can take several hours - give it
-# room rather than letting systemd's default timeout kill it mid-run.
-TimeoutStartSec=6h
+# LTSBP_COMUNI_BATCH_SIZE (default 150, see the script itself) caps how
+# many comuni one run processes - each is comune-sized (fast, unlike the
+# old provincia run), but 150 of them plus the national tileset rebuild
+# can still take a while. Raise this if batches are consistently finishing
+# well under the timer's 2h interval and you want to grind through Italy
+# faster; lower it (and TimeoutStartSec) if a batch is timing out.
+TimeoutStartSec=3h

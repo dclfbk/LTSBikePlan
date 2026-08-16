@@ -5,6 +5,12 @@ import pandas as pd
 
 _CENTRALITY_LABELS = ["low", "medium", "high", "very_high"]
 
+# Trento comune, measured on this machine: 143,828 edges, k=250 -> ~117s.
+# Used below as the reference point for scaling k down on bigger graphs.
+_REFERENCE_EDGES = 144_000
+_REFERENCE_K = 250
+_MIN_K_LARGE_GRAPH = 25
+
 
 def annotate_edge_centrality(all_lts: pd.DataFrame) -> pd.DataFrame:
     """Tags every edge with its betweenness centrality in the area's full
@@ -18,10 +24,22 @@ def annotate_edge_centrality(all_lts: pd.DataFrame) -> pd.DataFrame:
     later in compute_lts.py for the GraphML export (which round-trips
     through a stringifying XML step not needed here).
 
-    Sampled (k=250, matching pipeline/sections/network_analysis.py's node
-    centrality), not exact - exact betweenness on a comune-sized graph is
-    impractically slow in pure Python (~3h extrapolated for Trento vs ~33s
-    sampled, measured).
+    Sampled (k up to 250, matching pipeline/sections/network_analysis.py's
+    node centrality), not exact - exact betweenness on a comune-sized graph
+    is impractically slow in pure Python (~3h extrapolated for Trento vs
+    ~117s sampled, measured).
+
+    k adapts to graph size two ways: the existing small-graph floor (fewer
+    nodes -> fewer samples needed - unchanged below) and, past
+    _REFERENCE_EDGES, a large-graph ceiling that shrinks k so total
+    sampling work (k * edges) stays close to what the comune-sized
+    reference graph costs. Without the second part, k stayed flat at 250
+    regardless of graph size, so a provincia-sized graph (dozens of comuni,
+    many times more edges) took tens of minutes to hours just for this step.
+    A smaller k on a huge graph means noisier centrality estimates, not
+    wrong ones - Brandes' sampling error bound depends on k in absolute
+    terms, not as a fraction of graph size, so this trades precision for
+    time on big areas rather than breaking correctness.
     """
     all_lts = all_lts.copy()
     graph = nx.Graph()
@@ -30,6 +48,8 @@ def annotate_edge_centrality(all_lts: pd.DataFrame) -> pd.DataFrame:
         graph.add_edge(u, v, length=weight)
 
     k = min(250, max(10, graph.number_of_nodes() // 10), graph.number_of_nodes())
+    if graph.number_of_edges() > _REFERENCE_EDGES:
+        k = min(k, max(_MIN_K_LARGE_GRAPH, round(_REFERENCE_K * _REFERENCE_EDGES / graph.number_of_edges())))
     raw = nx.edge_betweenness_centrality(graph, k=k, weight="length", seed=42)
     lookup = {frozenset(edge): value for edge, value in raw.items()}
 

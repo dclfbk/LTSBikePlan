@@ -1,13 +1,18 @@
-# Weekly schedule for ltsbikeplan-rebuild.service - see that file for
-# install steps. Off-peak (Sunday 02:00 server-local time) since a full
-# run keeps this box busy for hours; Persistent=true catches up on the
-# next boot if the box was off/asleep when the timer would have fired.
+# Every-2h schedule for ltsbikeplan-rebuild.service - see that file for
+# install steps. Frequent on purpose: the comuni rebuild is incremental
+# (progress tracked in data/_cache/comuni_progress.tsv), so grinding
+# through all ~7893 comuni takes many runs over several days rather than
+# one long weekly one. If a run is still active when the next tick fires,
+# systemd just skips that tick (Type=oneshot, unit already active) - safe
+# to leave as-is even if a batch occasionally overruns 2h.
+# Persistent=true catches up on the next boot if the box was off/asleep
+# when the timer would have fired.
 
 [Unit]
-Description=Weekly LTSBikePlan full-Italy tile rebuild
+Description=LTSBikePlan full-Italy tile rebuild (every 2h, incremental)
 
 [Timer]
-OnCalendar=Sun 02:00
+OnCalendar=*-*-* 0/2:00:00
 Persistent=true
 
 [Install]

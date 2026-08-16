@@ -161,6 +161,8 @@ A site-level `<header>` sits above the map (title + current area, language switc
    Rerun `build_national_tiles.sh` any time after processing more areas to fold them into the merged tileset.
 
    For an unattended full-Italy rebuild (e.g. a weekly cron job on the machine serving `web/`), `scripts/build_italy_map_cron.sh` runs `fetch`+`compute-lts`+`build_tiles.sh` for every Italian provincia (`scripts/list_province.py` gets the ~107 names straight from osmit-estratti's own index, not a hardcoded list) and finishes with `build_national_tiles.sh` - one provincia failing is logged and skipped, not fatal to the run. Since it writes directly into `web/data/`, regenerating *is* publishing when the server already serves `web/` in place - no separate transfer step. `fetch`'s own downloads (each provincia's `.osm.pbf` extract + DEM mosaic) are cached under `data/_cache/` forever by default (no expiry - a full run leaves ~107 provincia-sized files on disk permanently); set `LTSBP_CLEANUP_CACHE=1` to delete each provincia's cache right after its `compute-lts` succeeds (`scripts/cleanup_area_cache.py`), trading disk space for re-downloading everything on the next run.
+
+   Network centrality (`domain/network_centrality.py`, part of `compute-lts`) is sampled but still scales with graph size, and a provincia-sized graph makes it impractically slow. `scripts/build_italy_map_comuni_cron.sh` runs the same rebuild at COMUNE granularity instead (~7893 units, `scripts/list_comuni.py` from the same osmit-estratti index) - but a full pass at that count would take days in one run, so it's **incremental**: progress is tracked in `data/_cache/comuni_progress.tsv` (one line per successfully completed comune), and each invocation only processes the next `LTSBP_COMUNI_BATCH_SIZE` (default 150) comuni not yet done, so it's meant to be re-run often (e.g. every 1-2h) rather than weekly. A comune is marked done only after `compute-lts` succeeds, so a failure is naturally retried on a later run instead of being skipped forever. This is not yet wired into the systemd timer below, which still runs the provincia script.
 2. Serve `web/` with a static server that supports HTTP Range requests (PMTiles needs byte-range serving; Python's built-in `python -m http.server` does **not** support this - use `npx http-server web -c-1` or any CDN/object storage instead):
    ```bash
    npx http-server web -c-1
@@ -169,11 +171,11 @@ A site-level `<header>` sits above the map (title + current area, language switc
 
 ## Deployment (production, Ubuntu + nginx)
 
-For a real deployment that also keeps itself up to date (rather than the local `npx http-server` dev setup above), `deploy/` and `scripts/setup_server.sh` provision an Ubuntu box that serves `web/` via nginx and rebuilds the national tileset on a weekly timer:
+For a real deployment that also keeps itself up to date (rather than the local `npx http-server` dev setup above), `deploy/` and `scripts/setup_server.sh` provision an Ubuntu box that serves `web/` via nginx and rebuilds the national tileset incrementally, every 2 hours:
 
 1. `sudo scripts/setup_server.sh [deploy_root]` (default `/opt/stressinbici`) - installs apt build dependencies, builds `tippecanoe` and installs `pmtiles` from their upstream releases (neither is in Ubuntu's apt repos), clones the repo, and creates the `.venv` with `requirements.lock.txt` + `requirements-geo.lock.txt` + `pip install -e .`. Safe to re-run for updates (`git pull` + reinstall).
-2. `deploy/nginx-stressinbici.conf` - nginx site config for `web/`, with `.pmtiles` served ungzipped (gzip breaks the byte-range reads the PMTiles client relies on) and short, distinct cache lifetimes for tiles/data vs. HTML/JS so both a weekly data rebuild and a code deploy (`git pull`) become visible without a manual cache purge.
-3. `deploy/ltsbikeplan-rebuild.service` + `deploy/ltsbikeplan-rebuild.timer` - a systemd timer running `scripts/build_italy_map_cron.sh` weekly (off-peak; a full run visits ~107 province and can take several hours). Each file's header comments have the exact install commands.
+2. `deploy/nginx-stressinbici.conf` - nginx site config for `web/`, with `.pmtiles` served ungzipped (gzip breaks the byte-range reads the PMTiles client relies on) and short, distinct cache lifetimes for tiles/data vs. HTML/JS so both a data rebuild and a code deploy (`git pull`) become visible without a manual cache purge.
+3. `deploy/ltsbikeplan-rebuild.service` + `deploy/ltsbikeplan-rebuild.timer` - a systemd timer running `scripts/build_italy_map_comuni_cron.sh` every 2 hours. Each run only processes one incremental batch of comuni (`LTSBP_COMUNI_BATCH_SIZE`, default 150) - the full ~7893-comune pass takes many runs over several days, not one long weekly one, since network centrality in `compute-lts` scales with graph size and per-comune batches keep it fast. Each file's header comments have the exact install commands.
 
 Code updates (new features/fixes) are a separate step from data rebuilds: `git -C /opt/stressinbici/LTSBikePlan pull && sudo systemctl restart nginx` picks up `web/` changes; re-run `scripts/setup_server.sh` if `pyproject.toml`/the lockfiles changed too.
 
@@ -199,6 +201,7 @@ LTSBikePlan/
 ├── scripts/build_tiles.sh            # GeoJSON -> PMTiles build for one area
 ├── scripts/build_national_tiles.sh   # merges every processed area into one PMTiles tileset
 ├── scripts/build_italy_map_cron.sh   # unattended full-Italy rebuild (all province)
+├── scripts/build_italy_map_comuni_cron.sh  # same, at comune granularity, incremental/resumable
 ├── scripts/setup_server.sh           # one-time Ubuntu provisioning for production deploy
 ├── deploy/                           # nginx site config + systemd timer for production
 ├── web/                               # static MapLibre GL JS + PMTiles viewer

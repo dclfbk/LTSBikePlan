@@ -14,7 +14,6 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "code"))
 
-from ltsbikeplan.domain.area_spec import slugify
 from ltsbikeplan.services.area_index_service import AreaResolver
 
 
@@ -23,10 +22,8 @@ def main() -> None:
         "LTSBP_DATA_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
     )
     resolver = AreaResolver(cache_dir=data_dir)
-    for feature in resolver._load_index("provincia"):
-        name = feature.get("properties", {}).get("name")
-        if name:
-            print(f"{name}\t{slugify(name)}")
+    for area in resolver.list_areas("provincia"):
+        print(f"{area['name']}\t{area['slug']}")
 
 
 if __name__ == "__main__":
