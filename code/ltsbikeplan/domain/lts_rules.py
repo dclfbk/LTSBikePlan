@@ -16,6 +16,48 @@ _HARD_SAC_SCALE_VALUES = {
 }
 _HARD_MTB_SCALE_MIN = 2
 
+# Surface quality LTS penalty (BikePathAnalysis.surface_penalty) - none of
+# the rules above look at `surface` at all, so a ground/dirt cycleway and a
+# paved one both land on the same lts today. Two tiers: MODERATE is
+# rideable on most bikes with extra effort (compacted gravel, cobblestone),
+# SEVERE is meaningfully harder or risky especially wet (loose dirt, sand,
+# mud, snow/ice, loose pebblestone). Anything not listed - paved surfaces,
+# and a missing/unset `surface` tag (common in OSM) - gets no penalty, same
+# "don't penalize missing data" convention as slope_penalty/get_average_
+# width_based_on_highway.
+_MODERATE_SURFACE_VALUES = {
+    "compacted",
+    "fine_gravel",
+    "gravel",
+    "sett",
+    "cobblestone",
+    "unhewn_cobblestone",
+    "woodchips",
+    "unpaved",
+}
+_SEVERE_SURFACE_VALUES = {
+    "ground",
+    "dirt",
+    "earth",
+    "sand",
+    "mud",
+    "grass",
+    "pebblestone",
+    "ice",
+    "snow",
+}
+# SEVERE is a flat +1 regardless of length - losing traction on sand/mud/
+# ground is an immediate problem, not one that only matters once it's
+# accumulated over distance the way climbing effort does, but capped at
+# the same +1 a short stretch gets (real case: a beach-access path in
+# Pachino, OSM way 1160130131, chopped into a dozen ~15-28m graph edges by
+# intersection nodes - it's a car-free separated path either way, just a
+# physically harder one, not worth the full +2 slope_penalty gives a
+# genuinely steep/long climb). MODERATE keeps the same 500m long-segment
+# threshold as slope_penalty (a short rough patch of compacted gravel is
+# genuinely tolerable).
+_MODERATE_SURFACE_LONG_THRESHOLD_M = 500.0
+
 
 class BikePathAnalysis:
     @staticmethod
@@ -411,4 +453,47 @@ class BikePathAnalysis:
             return row["lts"]
 
         edges["lts"] = edges.apply(adjust_lts, axis=1)
+        return edges
+
+    @staticmethod
+    def surface_penalty(edges):
+        """Surface-quality LTS penalty - a ground/gravel path is objectively
+        more effortful than pavement, but no other rule ever looks at
+        `surface`. SEVERE is a flat +1, any length. MODERATE is length-gated
+        like slope_penalty (see _MODERATE_SURFACE_LONG_THRESHOLD_M above):
+        +1 at length>=500m, +0 below. Vectorized (unlike slope_penalty's
+        row-by-row `.apply`) - this runs on the same all_lts frame the rest
+        of compute_lts.py is trying to keep fast at province scale.
+
+        Only touches already-classified edges (lts >= 1): an excluded edge
+        (lts=0 - motorway, bicycle=no, an s9 mountain trail too hard to
+        ride at all) must stay excluded regardless of its surface, not get
+        bumped back into the rideable 1-4 scale.
+
+        Also records `surface_penalty_delta` - the EFFECTIVE change (post
+        4-cap), not the nominal tier penalty - so the web popup can say
+        "LTS raised by N for this surface" and have N match what the
+        displayed LTS actually did (see i18n.js's surfacePenaltyTemplate /
+        app.js's popupHtml). An edge already at lts=3 hit by a nominal +2
+        only really moved by 1 once capped; the message should say 1, not 2.
+        """
+        edges = edges.copy()
+        original_lts = edges["lts"]
+        length = edges["length"]
+        moderate_long = length.notna() & (length >= _MODERATE_SURFACE_LONG_THRESHOLD_M)
+        rideable = original_lts >= 1
+        is_severe = edges["surface"].isin(_SEVERE_SURFACE_VALUES)
+        is_moderate = edges["surface"].isin(_MODERATE_SURFACE_VALUES)
+
+        penalty = np.select(
+            [
+                rideable & is_severe,
+                rideable & is_moderate & moderate_long,
+            ],
+            [1, 1],
+            default=0,
+        )
+        new_lts = np.minimum(original_lts + penalty, 4)
+        edges["surface_penalty_delta"] = new_lts - original_lts
+        edges["lts"] = new_lts
         return edges

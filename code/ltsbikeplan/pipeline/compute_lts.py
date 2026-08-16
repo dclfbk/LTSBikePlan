@@ -125,6 +125,7 @@ def run_compute_lts(data_dir: str, area: AreaSpec) -> str:
     ]
     all_lts = pd.concat(lts_frames) if lts_frames else pd.DataFrame()
     all_lts = BikePathAnalysis.slope_penalty(all_lts)
+    all_lts = BikePathAnalysis.surface_penalty(all_lts)
 
     with open(asset_path("LTS_decisionrule_dict.json"), "r") as file_handle:
         data = json.load(file_handle)
@@ -185,6 +186,7 @@ def run_compute_lts(data_dir: str, area: AreaSpec) -> str:
         "comune",
         "istat_code",
         "surface",
+        "surface_penalty_delta",
         "cycleway_type",
         "gap_component",
         "is_gap_edge",

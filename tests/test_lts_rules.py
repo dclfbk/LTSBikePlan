@@ -147,6 +147,57 @@ class TestLtsRules(unittest.TestCase):
         updated = BikePathAnalysis.slope_penalty(edges)
         self.assertEqual(int(updated.iloc[0]["lts"]), 4)
 
+    def test_surface_penalty_severe_adds_one_regardless_of_length(self):
+        # Flat +1 for severe surfaces, any length - losing traction on
+        # sand/mud/ground is immediate, but capped at the same +1 a short
+        # stretch gets (still a car-free separated path, just a physically
+        # harder one - not worth slope_penalty's full +2). Real case:
+        # Pachino's beach-access path (OSM way 1160130131), chopped by
+        # intersection nodes into ~15-28m graph edges.
+        short_edges = pd.DataFrame({"surface": ["ground"], "length": [10.0], "lts": [1]})
+        long_edges = pd.DataFrame({"surface": ["ground"], "length": [700.0], "lts": [1]})
+        updated_short = BikePathAnalysis.surface_penalty(short_edges)
+        updated_long = BikePathAnalysis.surface_penalty(long_edges)
+        self.assertEqual(int(updated_short.iloc[0]["lts"]), 2)
+        self.assertEqual(int(updated_long.iloc[0]["lts"]), 2)
+
+    def test_surface_penalty_moderate_short_segment_adds_nothing(self):
+        edges = pd.DataFrame({"surface": ["gravel"], "length": [50.0], "lts": [1]})
+        updated = BikePathAnalysis.surface_penalty(edges)
+        self.assertEqual(int(updated.iloc[0]["lts"]), 1)
+
+    def test_surface_penalty_moderate_long_segment_adds_one(self):
+        edges = pd.DataFrame({"surface": ["gravel"], "length": [700.0], "lts": [1]})
+        updated = BikePathAnalysis.surface_penalty(edges)
+        self.assertEqual(int(updated.iloc[0]["lts"]), 2)
+
+    def test_surface_penalty_leaves_paved_untouched(self):
+        edges = pd.DataFrame({"surface": ["asphalt"], "length": [700.0], "lts": [1]})
+        updated = BikePathAnalysis.surface_penalty(edges)
+        self.assertEqual(int(updated.iloc[0]["lts"]), 1)
+
+    def test_surface_penalty_does_not_revive_excluded_edge(self):
+        # lts=0 ("not applicable" - e.g. an s9 mountain trail too hard to
+        # ride at all) must stay 0 regardless of surface, not get bumped
+        # back into the rideable 1-4 scale.
+        edges = pd.DataFrame({"surface": ["ground"], "length": [700.0], "lts": [0]})
+        updated = BikePathAnalysis.surface_penalty(edges)
+        self.assertEqual(int(updated.iloc[0]["lts"]), 0)
+
+    def test_surface_penalty_caps_at_four(self):
+        edges = pd.DataFrame({"surface": ["mud"], "length": [700.0], "lts": [4]})
+        updated = BikePathAnalysis.surface_penalty(edges)
+        self.assertEqual(int(updated.iloc[0]["lts"]), 4)
+        # Already at 4 - the reported delta must reflect what actually
+        # happened (0), not the nominal +1, so the popup message stays
+        # accurate.
+        self.assertEqual(int(updated.iloc[0]["surface_penalty_delta"]), 0)
+
+    def test_surface_penalty_ignores_missing_surface_tag(self):
+        edges = pd.DataFrame({"surface": [None], "length": [700.0], "lts": [1]})
+        updated = BikePathAnalysis.surface_penalty(edges)
+        self.assertEqual(int(updated.iloc[0]["lts"]), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
