@@ -10,7 +10,6 @@ from ltsbikeplan.services.graph_services import GraphLoaderService, UrbanContext
 from ltsbikeplan.services.osm_pbf_service import (
     PyrosmGraphLoader,
     apply_route_name_fallback,
-    compute_bbox_from_pbf,
     download_pbf_extract,
     extract_bicycle_route_names,
     normalize_edge_columns,
@@ -35,19 +34,30 @@ def _load_network(area: AreaSpec, cache_dir: str):
         if area.bbox is None:
             # osmnx/graph_to_gdfs keeps the EPSG:4326 default CRS, so
             # total_bounds is already (west, south, east, north) - same
-            # convention as compute_bbox_from_pbf below, needed for the
+            # convention as the osmit branch below, needed for the
             # Mapterhorn DEM auto-fetch.
             west, south, east, north = gdf_edges.total_bounds
             area = area.with_bbox((west, south, east, north))
         return gdf_nodes, gdf_edges, gdf_buildings, area
 
     pbf_path = download_pbf_extract(area, cache_dir)
-    if area.bbox is None:
-        area = area.with_bbox(compute_bbox_from_pbf(pbf_path))
 
     pyrosm_loader = PyrosmGraphLoader()
     gdf_nodes, gdf_edges = pyrosm_loader.load_network(pbf_path)
     gdf_edges = graph_loader.filter_major_roads(gdf_edges)
+    if area.bbox is None:
+        # From the filtered road network, NOT the raw .osm.pbf's own extent:
+        # osmit-estratti extracts include every relation touching the
+        # comune, e.g. Lampedusa e Linosa's extract also carries the
+        # "Porto Empedocle - Linosa - Lampedusa" ferry route relation, whose
+        # line runs to the Sicilian mainland - that stretched the file's own
+        # bbox to ~110km x 200km (should be a couple km across two small
+        # islands) and OOM-killed the Mapterhorn DEM mosaic/slope-gradient
+        # step in production. Roads, not ferry routes, are what actually
+        # need DEM coverage for slope - bound on gdf_edges instead, same as
+        # the osmnx branch above.
+        west, south, east, north = gdf_edges.total_bounds
+        area = area.with_bbox((west, south, east, north))
     # osmit-estratti-only (pyrosm) - osmnx's Overpass responses above don't
     # expose relation membership the same way, so the osmnx branch has no
     # equivalent fallback. See extract_bicycle_route_names for why this
