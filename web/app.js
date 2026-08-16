@@ -50,6 +50,7 @@ function applyUiTranslations() {
   // the About panel.
   document.getElementById("site-tagline").textContent = t("aboutSubtitle");
   document.getElementById("legend-hint").textContent = t("legendHint");
+  document.getElementById("panel-toggle").textContent = t("legendToggle");
   document.getElementById("bg-light-label").textContent = t("bgLight");
   document.getElementById("bg-summer-label").textContent = t("bgSummer");
   document.getElementById("bg-cycling-label").textContent = t("bgCycling");
@@ -148,6 +149,18 @@ let terrainOn = params.get("terrain") === "1";
 let gapModeOn = params.get("gap") === "1";
 document.getElementById("gap-panel").classList.toggle("open", gapModeOn);
 document.getElementById("gap-toggle").classList.toggle("active", gapModeOn);
+
+// #panel (legend/basemap/gap list) starts collapsed on phone-width
+// viewports - matches the @media (max-width: 480px) breakpoint in
+// styles.css - so it doesn't cover most of the map on load; on wider
+// viewports #panel-toggle is CSS-hidden and #panel-body always shows, so
+// the "collapsed" class is simply never applied there. One-time check at
+// load, not a resize listener: a live-resizing map isn't a case this
+// needs to handle (orientation changes reload the page's layout anyway).
+document.getElementById("panel").classList.toggle("collapsed", window.matchMedia("(max-width: 480px)").matches);
+document.getElementById("panel-toggle").addEventListener("click", () => {
+  document.getElementById("panel").classList.toggle("collapsed");
+});
 
 // 21 is the real ceiling for this map - the basemap styles top out there,
 // so anything past it is just an empty/blank overzoom with no new detail.
