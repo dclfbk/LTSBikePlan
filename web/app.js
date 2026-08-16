@@ -150,15 +150,19 @@ let gapModeOn = params.get("gap") === "1";
 document.getElementById("gap-panel").classList.toggle("open", gapModeOn);
 document.getElementById("gap-toggle").classList.toggle("active", gapModeOn);
 
-// #panel (legend/basemap/gap list) is collapsed by default on phone-width
-// viewports - a pure CSS default (see the @media (max-width: 480px) block
-// in styles.css), not a JS check here, so it stays correct across resize/
-// orientation changes too, not just whatever the width was when this
-// script ran. Click just toggles the "expanded" override class; on wider
-// viewports #panel-toggle is CSS-hidden and #panel-body always shows
-// regardless of this class.
+// #panel (legend/basemap/gap list) defaults to open on desktop, closed on
+// phone-width viewports - a pure CSS default (see styles.css: the base
+// rule vs. the @media (max-width: 480px) override), not a JS check here,
+// so it stays correct across resize/orientation changes too, not just
+// whatever the width was when this script ran. The click handler reads
+// #panel-body's *current* computed visibility rather than assuming which
+// default applies, and sets whichever override class (.collapsed or
+// .expanded) actually flips it - same toggle works at any width.
 document.getElementById("panel-toggle").addEventListener("click", () => {
-  document.getElementById("panel").classList.toggle("expanded");
+  const panel = document.getElementById("panel");
+  const isOpen = getComputedStyle(document.getElementById("panel-body")).display !== "none";
+  panel.classList.toggle("collapsed", isOpen);
+  panel.classList.toggle("expanded", !isOpen);
 });
 
 // 21 is the real ceiling for this map - the basemap styles top out there,
