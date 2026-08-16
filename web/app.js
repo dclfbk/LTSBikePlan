@@ -674,8 +674,15 @@ function popupHtml(props) {
   // Falls back to the baked message for any rule code missing from i18n.js.
   const ruleSentence = (props.rule && t("rules")[props.rule]) || props.message;
 
+  // ltsbikeplan.domain.lts_rules.BikePathAnalysis.surface_penalty already
+  // folds a rough surface into `lts` itself - this row just explains why
+  // the number is higher than the base rule (props.rule) alone would
+  // suggest, the same way the priority block explains is_gap_edge below.
+  const surfacePenaltyDelta = Number(props.surface_penalty_delta);
+
   const extraRows = [
     surfacePhrase ? `<div>${t("surfaceTemplate")(surfacePhrase)}</div>` : "",
+    surfacePenaltyDelta > 0 ? `<div>${t("surfacePenaltyTemplate")(surfacePenaltyDelta)}</div>` : "",
     cyclewayPhrase ? `<div>${t("cyclewayTemplate")(cyclewayPhrase)}</div>` : "",
   ].join("");
 

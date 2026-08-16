@@ -268,6 +268,7 @@ const I18N = {
     popupRule: "Motivazione LTS",
     surfaceTemplate: (phrase) => `Strada ${phrase}.`,
     cyclewayTemplate: (phrase) => `Strada con ${phrase}.`,
+    surfacePenaltyTemplate: (delta) => `Fondo sconnesso: LTS aumentato di ${delta}.`,
     lts: {
       "1": "LTS 1 - molto tranquillo", "2": "LTS 2 - tranquillo", "3": "LTS 3 - impegnativo",
       "4": "LTS 4 - molto impegnativo", "0": "Non ciclabile", fallback: "Dato insufficiente",
