@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import os
+import sys
 from io import BytesIO
 from typing import Optional, Tuple
 
@@ -74,6 +75,23 @@ class MapterhornDemService:
         response.raise_for_status()
         return Image.open(BytesIO(response.content))
 
+    def _fetch_tile_elevation(self, x: int, y: int) -> np.ndarray:
+        """A 404 from Mapterhorn means the tile genuinely isn't in their
+        dataset - confirmed in production on coastal/island areas (e.g.
+        Agrigento, whose bbox reaches Lampedusa e Linosa's open-sea tiles).
+        Treated as sea level (elevation 0) rather than aborting the whole
+        area's fetch: a single missing edge tile out of a mosaic shouldn't
+        fail hours of otherwise-successful work. Any other error (timeout,
+        5xx, ...) still raises - those are transient/real failures, not
+        "no data here"."""
+        try:
+            return decode_terrarium(self._fetch_tile_image(x, y))
+        except requests.exceptions.HTTPError as error:
+            if error.response is not None and error.response.status_code == 404:
+                print(f"DEM tile {self.zoom}/{x}/{y} missing (404) - filling as sea level (0m)", file=sys.stderr)
+                return np.zeros((self.tile_size, self.tile_size), dtype=np.float64)
+            raise
+
     def fetch_dem(self, bbox_4326: Tuple[float, float, float, float], out_path: str) -> str:
         west, south, east, north = bbox_4326
         x_nw, y_nw = _lonlat_to_tile(west, north, self.zoom)
@@ -87,7 +105,7 @@ class MapterhornDemService:
 
         for row_idx, ty in enumerate(range(y_min, y_max + 1)):
             for col_idx, tx in enumerate(range(x_min, x_max + 1)):
-                elevation = decode_terrarium(self._fetch_tile_image(tx, ty))
+                elevation = self._fetch_tile_elevation(tx, ty)
                 r0, c0 = row_idx * self.tile_size, col_idx * self.tile_size
                 mosaic[r0 : r0 + self.tile_size, c0 : c0 + self.tile_size] = elevation
 
