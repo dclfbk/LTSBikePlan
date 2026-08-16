@@ -40,6 +40,7 @@ class AreaResolver:
     def __init__(self, cache_dir: str):
         self.cache_dir = os.path.join(cache_dir, "_cache", "osmit_index")
         os.makedirs(self.cache_dir, exist_ok=True)
+        self._dup_name_cache: dict = {}
 
     def _index_path(self, level: str) -> str:
         filename, _ = _INDEX_FILES[level]
@@ -69,6 +70,42 @@ class AreaResolver:
             data = json.load(file_handle)
         return data["objects"][object_key]["geometries"]
 
+    def _duplicate_name_slugs(self, level: str) -> set:
+        """Slugs that more than one area at `level` would produce - real for
+        comuni (~7900 units, unlike province's ~107): e.g. two distinct
+        comuni are both named "Paterno". Left unresolved, both would write
+        to the same data/<slug>/ directory and overwrite each other."""
+        if level not in self._dup_name_cache:
+            from collections import Counter
+
+            counts = Counter(
+                slugify(feature["properties"]["name"])
+                for feature in self._load_index(level)
+                if feature.get("properties", {}).get("name")
+            )
+            self._dup_name_cache[level] = {slug for slug, count in counts.items() if count > 1}
+        return self._dup_name_cache[level]
+
+    def _slug_for(self, level: str, props: dict) -> str:
+        slug = slugify(props["name"])
+        if slug in self._duplicate_name_slugs(level):
+            slug = f"{slug}_{props.get('istat')}"
+        return slug
+
+    def list_areas(self, level: AreaLevel) -> list:
+        """Every named area at `level` as {name, slug, istat} dicts, slug
+        already disambiguated the same way resolve() does - so callers (e.g.
+        scripts/list_comuni.py) get the exact slug fetch/compute-lts will
+        produce for that area, without duplicating the dedup logic."""
+        result = []
+        for feature in self._load_index(level):
+            props = feature.get("properties", {})
+            name = props.get("name")
+            if not name:
+                continue
+            result.append({"name": name, "slug": self._slug_for(level, props), "istat": props.get("istat")})
+        return result
+
     def resolve(self, area: str, level: Optional[AreaLevel] = None, istat: Optional[str] = None) -> AreaSpec:
         levels = [level] if level else ["comune", "provincia", "regione"]
         matches = []
@@ -97,7 +134,7 @@ class AreaResolver:
         candidate_level, props = matches[0]
         return AreaSpec(
             name=props["name"],
-            slug=slugify(props["name"]),
+            slug=self._slug_for(candidate_level, props),
             source="osmit",
             level=candidate_level,
             istat_code=props.get("istat"),
