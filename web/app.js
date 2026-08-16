@@ -173,6 +173,20 @@ document.getElementById("panel-toggle").addEventListener("click", () => {
 // real limit.
 const MAX_MAP_ZOOM = 21;
 
+// Caps how far out the map can be zoomed/panned - roughly the Azores to
+// the Urals, well past Italy's own extent so there's slack for exploring
+// nearby countries, but tight enough to stop zooming out to a global (or
+// blank-ocean) view. Deliberately NOT passed as the Map's own `maxBounds`
+// option: that hard-clips every frame during a drag, which just feels
+// like hitting a dead stop with no feedback. Instead left un-enforced
+// during the gesture itself and corrected with an eased fitBounds once it
+// ends (see clampToMaxBounds below) - the animation IS the "you can't go
+// further" signal the user asked for.
+const MAX_BOUNDS = new maplibregl.LngLatBounds(
+  [-20.703401, 29.426147], // southwest
+  [44.423552, 53.544187], // northeast
+);
+
 const map = window.map = new maplibregl.Map({
   container: "map",
   style: BASE_STYLES[currentBasemap],
@@ -1228,4 +1242,36 @@ map.on("moveend", syncUrlState);
 // silently under-report with no further update once tiles arrive.
 map.on("moveend", () => { if (gapModeOn) renderGapInterventions(); });
 map.on("idle", () => { if (gapModeOn) renderGapInterventions(); });
+
+// Soft counterpart to MAX_BOUNDS (see the comment up at the map
+// constructor): once a gesture ends, ease back within MAX_BOUNDS if the
+// view has actually drifted outside it - a pure pan, keeping whatever
+// zoom the user was at (dragging back from wherever they scrolled off to,
+// not re-fitting the whole box and yanking the zoom level out from under
+// them). Re-checked on every moveend rather than cached, so it still
+// accounts for its own correction (which fires its own moveend) and for
+// window resizes changing the fit zoom.
+function clampToMaxBounds() {
+  // Only case a pan alone can't fix: zoomed out far enough that MAX_BOUNDS
+  // no longer fills the viewport in some direction, so there's no
+  // position where the view wouldn't show outside it - has to zoom back
+  // in too. cameraForBounds gives the exact zoom where it (just) does.
+  const fitZoom = map.cameraForBounds(MAX_BOUNDS, { padding: 0 }).zoom;
+  if (map.getZoom() < fitZoom - 0.01) {
+    map.fitBounds(MAX_BOUNDS, { padding: 0, animate: true, duration: 600 });
+    return;
+  }
+  const view = map.getBounds();
+  let dLng = 0, dLat = 0;
+  if (view.getWest() < MAX_BOUNDS.getWest()) dLng = MAX_BOUNDS.getWest() - view.getWest();
+  else if (view.getEast() > MAX_BOUNDS.getEast()) dLng = MAX_BOUNDS.getEast() - view.getEast();
+  if (view.getSouth() < MAX_BOUNDS.getSouth()) dLat = MAX_BOUNDS.getSouth() - view.getSouth();
+  else if (view.getNorth() > MAX_BOUNDS.getNorth()) dLat = MAX_BOUNDS.getNorth() - view.getNorth();
+  if (dLng !== 0 || dLat !== 0) {
+    const center = map.getCenter();
+    map.easeTo({ center: [center.lng + dLng, center.lat + dLat], duration: 600 });
+  }
+}
+map.on("moveend", clampToMaxBounds);
+
 syncUrlState();
