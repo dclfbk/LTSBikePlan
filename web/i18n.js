@@ -6,6 +6,7 @@
 // compute-lts time.
 const I18N = {
   it: {
+    legendToggle: "Legenda",
     legendHint: "Clicca per mostrare/nascondere",
     bgLight: "Sfondo chiaro",
     bgSummer: "Sfondo estivo",
@@ -345,6 +346,7 @@ const I18N = {
   },
 
   en: {
+    legendToggle: "Legend",
     legendHint: "Click to show/hide",
     bgLight: "Light background",
     bgSummer: "Summer background",
@@ -537,6 +539,7 @@ const I18N = {
   },
 
   de: {
+    legendToggle: "Legende",
     legendHint: "Klicken zum Ein-/Ausblenden",
     bgLight: "Heller Hintergrund",
     bgSummer: "Sommer-Hintergrund",
@@ -729,6 +732,7 @@ const I18N = {
   },
 
   fr: {
+    legendToggle: "Légende",
     legendHint: "Cliquer pour afficher/masquer",
     bgLight: "Fond clair",
     bgSummer: "Fond estival",
