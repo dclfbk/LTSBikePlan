@@ -1,14 +1,22 @@
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "code"))
 
 try:
     import numpy as np
+    import requests
     from PIL import Image
 
-    from ltsbikeplan.services.dem_service import _ORIGIN_SHIFT, _lonlat_to_tile, _tile_bounds_3857, decode_terrarium
+    from ltsbikeplan.services.dem_service import (
+        _ORIGIN_SHIFT,
+        MapterhornDemService,
+        _lonlat_to_tile,
+        _tile_bounds_3857,
+        decode_terrarium,
+    )
 
     GEO_DEPS_AVAILABLE = True
 except ImportError:
@@ -55,6 +63,30 @@ class TestTileMath(unittest.TestCase):
         x_north, y_north = _lonlat_to_tile(11.0, 46.5, 10)
         x_south, y_south = _lonlat_to_tile(11.0, 45.5, 10)
         self.assertLess(y_north, y_south)
+
+
+@unittest.skipUnless(GEO_DEPS_AVAILABLE, "Pillow/numpy/requests (geo extras) not installed")
+class TestFetchTileElevation(unittest.TestCase):
+    """Regression test for a real production failure: a 404 from Mapterhorn
+    on a single edge tile (e.g. Agrigento's bbox reaching Lampedusa e
+    Linosa's open-sea tiles) used to abort the whole area's fetch step."""
+
+    def _http_error(self, status_code: int) -> requests.exceptions.HTTPError:
+        response = Mock(status_code=status_code)
+        return requests.exceptions.HTTPError(response=response)
+
+    def test_404_is_filled_as_sea_level_not_raised(self):
+        service = MapterhornDemService(tile_size=4)
+        with patch.object(service, "_fetch_tile_image", side_effect=self._http_error(404)):
+            elevation = service._fetch_tile_elevation(1, 1)
+        self.assertEqual(elevation.shape, (4, 4))
+        self.assertTrue((elevation == 0).all())
+
+    def test_non_404_error_still_raises(self):
+        service = MapterhornDemService(tile_size=4)
+        with patch.object(service, "_fetch_tile_image", side_effect=self._http_error(500)):
+            with self.assertRaises(requests.exceptions.HTTPError):
+                service._fetch_tile_elevation(1, 1)
 
 
 if __name__ == "__main__":
