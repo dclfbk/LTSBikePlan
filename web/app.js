@@ -150,16 +150,15 @@ let gapModeOn = params.get("gap") === "1";
 document.getElementById("gap-panel").classList.toggle("open", gapModeOn);
 document.getElementById("gap-toggle").classList.toggle("active", gapModeOn);
 
-// #panel (legend/basemap/gap list) starts collapsed on phone-width
-// viewports - matches the @media (max-width: 480px) breakpoint in
-// styles.css - so it doesn't cover most of the map on load; on wider
-// viewports #panel-toggle is CSS-hidden and #panel-body always shows, so
-// the "collapsed" class is simply never applied there. One-time check at
-// load, not a resize listener: a live-resizing map isn't a case this
-// needs to handle (orientation changes reload the page's layout anyway).
-document.getElementById("panel").classList.toggle("collapsed", window.matchMedia("(max-width: 480px)").matches);
+// #panel (legend/basemap/gap list) is collapsed by default on phone-width
+// viewports - a pure CSS default (see the @media (max-width: 480px) block
+// in styles.css), not a JS check here, so it stays correct across resize/
+// orientation changes too, not just whatever the width was when this
+// script ran. Click just toggles the "expanded" override class; on wider
+// viewports #panel-toggle is CSS-hidden and #panel-body always shows
+// regardless of this class.
 document.getElementById("panel-toggle").addEventListener("click", () => {
-  document.getElementById("panel").classList.toggle("collapsed");
+  document.getElementById("panel").classList.toggle("expanded");
 });
 
 // 21 is the real ceiling for this map - the basemap styles top out there,
