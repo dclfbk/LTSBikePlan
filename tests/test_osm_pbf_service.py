@@ -171,5 +171,28 @@ class TestApplyRouteNameFallback(unittest.TestCase):
         self.assertTrue(pd.isna(edges["name"].iloc[0]))
 
 
+class TestPyrosmGraphLoaderRetainsDisconnectedComponents(unittest.TestCase):
+    def test_to_graph_is_called_with_retain_all(self):
+        # pyrosm's own default (retain_all=False) keeps only the largest
+        # strongly-connected component and silently drops every other
+        # "isolated island" of the road network - confirmed live on
+        # Lampedusa e Linosa, a comune made of two actual islands with no
+        # road between them: Linosa's ~200 real, correctly-tagged roads
+        # (verified present in the raw .osm.pbf with osmium) were
+        # completely absent from the exported data, the whole island
+        # silently missing from the map.
+        from ltsbikeplan.services.osm_pbf_service import PyrosmGraphLoader
+
+        with mock.patch("pyrosm.OSM") as mock_osm_cls, mock.patch("osmnx.graph_to_gdfs") as mock_graph_to_gdfs:
+            mock_osm = mock_osm_cls.return_value
+            mock_osm.get_network.return_value = (pd.DataFrame(), pd.DataFrame())
+            mock_graph_to_gdfs.return_value = (pd.DataFrame(), pd.DataFrame())
+
+            PyrosmGraphLoader().load_network("fake.osm.pbf")
+
+            mock_osm.to_graph.assert_called_once()
+            self.assertTrue(mock_osm.to_graph.call_args.kwargs.get("retain_all"))
+
+
 if __name__ == "__main__":
     unittest.main()
