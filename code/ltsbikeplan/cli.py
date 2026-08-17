@@ -156,6 +156,18 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     warnings.filterwarnings("ignore", message=r"networkx backend defined more than once: nx-loopback", category=RuntimeWarning)
+    # Fires repeatedly during fetch (once per area) - traced every column
+    # assignment in our own edges/buildings handling (UrbanContextClassifier,
+    # normalize_edge_columns, apply_route_name_fallback, SlopeService, all of
+    # BikePathAnalysis's lts_rules.py) and none of them use the chained
+    # `df["col"][mask] = value` pattern this warns about; everything already
+    # goes through `.copy()` + `.loc`/`.at`. Couldn't confirm the exact
+    # origin further - pyrosm isn't installed in this dev environment, and
+    # it (or osmnx's graph_to_gdfs) processing pyrosm's building/network
+    # GeoDataFrames internally is the most likely remaining source. Harmless
+    # either way (a behaviour change in a future pandas 3.0, not a bug
+    # today) - suppressed so it doesn't drown out real output on every area.
+    warnings.filterwarnings("ignore", message=r"ChainedAssignmentError", category=FutureWarning)
     parser = build_parser()
     args = parser.parse_args(argv)
     config = AppConfig.from_project_layout()
