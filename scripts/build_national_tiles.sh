@@ -8,7 +8,7 @@
 # Requires `tippecanoe`, `tile-join` and `pmtiles`
 # (https://github.com/protomaps/go-pmtiles) on PATH. See build_tiles.sh for
 # why this goes through an intermediate .mbtiles before converting to
-# PMTiles, and for why --minimum-zoom=8 below (web/app.js's lts-lines/
+# PMTiles, and for why --minimum-zoom=7 below (web/app.js's lts-lines/
 # gap-edges layers only render from that zoom up, and MapLibre skips
 # fetching a source's tiles entirely below the zoom of its lowest active
 # layer - matters even more here than per-area, since this tippecanoe run
@@ -169,7 +169,7 @@ run_batch() {
   tippecanoe \
     -o "$batch_mbtiles" \
     --force \
-    --minimum-zoom=8 \
+    --minimum-zoom=7 \
     --maximum-zoom=16 \
     --extend-zooms-if-still-dropping \
     --drop-densest-as-needed \

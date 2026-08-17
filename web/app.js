@@ -5,13 +5,15 @@ const MIN_CLICK_ZOOM = 14;
 
 // Below this zoom, the lts-lines/gap-edges layers are hidden entirely (see
 // MIN_STREETS_ZOOM on their `minzoom`, and #zoom-hint's show/hide further
-// below) - at a whole-Italy/regional view, every street segment rendering
-// at once is both visually illegible (a solid mass of colour, no
-// individual streets readable) and the single biggest driver of the slow
-// initial load the loading-indicator work was covering for: skipping the
-// layer entirely below this zoom means MapLibre doesn't fetch the "lts"
-// source's tiles at those zooms either, not just hides them once fetched.
-const MIN_STREETS_ZOOM = 8;
+// below) - skipping the layer entirely below this zoom means MapLibre
+// doesn't fetch the "lts" source's tiles at those zooms either, not just
+// hides them once fetched. Lowered from 8 to 7 once the tile build's own
+// MAJOR_ROADS_FILTER (scripts/build_tiles.sh/build_national_tiles.sh) only
+// keeps motorway/trunk/primary/secondary below z12 - at z7 that's a sparse,
+// legible skeleton, not the "solid mass of colour" every street segment at
+// once would have been (the original reason this started at 8, back when
+// every class rendered at every zoom).
+const MIN_STREETS_ZOOM = 7;
 
 // Area to load: web/index.html?area=<area_slug>, matching the file
 // scripts/build_tiles.sh writes to web/data/<area_slug>_lts.pmtiles.
