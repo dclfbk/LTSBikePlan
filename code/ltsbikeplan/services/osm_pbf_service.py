@@ -42,7 +42,11 @@ EXTRA_NETWORK_ATTRIBUTES = [
 # with `if "service" in gdf_edges.columns` but then reads it unconditionally
 # a few lines later (parking_aisle/driveway conditions) - confirmed by a
 # live pilot run (comune of Atrani) crashing with KeyError: 'service' once
-# an area's OSM extract legitimately has no `service` tag anywhere.
+# an area's OSM extract legitimately has no `service` tag anywhere. `bicycle`
+# is here for the same reason: BikePathAnalysis.biking_permitted's
+# footway_sidewalk condition read gdf_edges["bicycle"] unconditionally
+# whenever `footway` was present, crashing on Grammichele (a small comune
+# extract with no `bicycle` tag anywhere).
 #
 # `surface`/`cycleway*`/`width`/`est_width` aren't read by BikePathAnalysis
 # unconditionally, but ARE selected unconditionally by compute_lts.py's
@@ -50,6 +54,7 @@ EXTRA_NETWORK_ATTRIBUTES = [
 # that a single safety net instead of two.
 REQUIRED_EDGE_COLUMNS = [
     "access",
+    "bicycle",
     "highway",
     "oneway",
     "lanes",

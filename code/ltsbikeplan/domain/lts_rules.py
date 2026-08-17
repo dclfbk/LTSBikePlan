@@ -92,12 +92,14 @@ class BikePathAnalysis:
     @staticmethod
     def biking_permitted(gdf_edges):
         gdf_edges = gdf_edges.copy()
-        bicycle_no = (gdf_edges["bicycle"] == "no") if "bicycle" in gdf_edges.columns else False
+        has_bicycle_col = "bicycle" in gdf_edges.columns
+        bicycle_no = (gdf_edges["bicycle"] == "no") if has_bicycle_col else False
+        bicycle_yes = (gdf_edges["bicycle"] == "yes") if has_bicycle_col else pd.Series(False, index=gdf_edges.index)
 
         if "footway" in gdf_edges.columns:
             footway_sidewalk = (
                 (gdf_edges["footway"] == "sidewalk")
-                & ~(gdf_edges["bicycle"] == "yes")
+                & ~bicycle_yes
                 & ((gdf_edges["highway"] == "footway") | (gdf_edges["highway"] == "path"))
             )
         else:
