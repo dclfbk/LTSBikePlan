@@ -199,6 +199,27 @@ class TestLtsRules(unittest.TestCase):
         self.assertEqual(int(updated.iloc[0]["lts"]), 1)
 
 
+class TestGetLanes(unittest.TestCase):
+    def test_numeric_and_oneway_values(self):
+        edges = pd.DataFrame({"lanes": ["3", None], "oneway": [False, True]})
+        updated = BikePathAnalysis.get_lanes(edges)
+        self.assertEqual(list(updated["lanes_assumed"]), [3, 1])  # oneway forces 1 regardless of default_lanes
+
+    def test_malformed_lanes_value_falls_back_to_default_instead_of_crashing(self):
+        # A single malformed way in Polistena had lanes="\\" (a literal
+        # backslash) - crashed `np.array(x, dtype="int")` with
+        # `ValueError: invalid literal for int() with base 10: '\\'`,
+        # taking down the whole area's compute-lts run over one bad tag.
+        edges = pd.DataFrame({"lanes": ["\\"], "oneway": [False]})
+        updated = BikePathAnalysis.get_lanes(edges)
+        self.assertEqual(updated.iloc[0]["lanes_assumed"], 2)
+
+    def test_multi_value_list_takes_the_max(self):
+        edges = pd.DataFrame({"lanes": [["2", "4"]], "oneway": [False]})
+        updated = BikePathAnalysis.get_lanes(edges)
+        self.assertEqual(updated.iloc[0]["lanes_assumed"], 4)
+
+
 class TestGetMaxSpeed(unittest.TestCase):
     def test_numeric_and_missing_values(self):
         edges = pd.DataFrame({"maxspeed": ["30", None], "highway": ["residential", "residential"]})

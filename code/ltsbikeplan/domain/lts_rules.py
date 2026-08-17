@@ -213,9 +213,27 @@ class BikePathAnalysis:
     @staticmethod
     def get_lanes(gdf_edges, default_lanes=2):
         gdf_edges.loc[gdf_edges["oneway"] == True, "lanes"] = 1
-        gdf_edges["lanes_assumed"] = (
-            gdf_edges["lanes"].fillna(default_lanes).apply(lambda x: np.array(x, dtype="int")).apply(lambda x: np.max(x))
-        )
+
+        def parse_lanes(val):
+            # OSM's `lanes` tag is meant to be a plain integer (or a list
+            # of them, for the rare way carrying more than one lanes:*
+            # sub-value) - real-world tagging isn't always clean, though: a
+            # single malformed way in Polistena had lanes="\\" (a literal
+            # backslash), crashing `np.array(x, dtype="int")` with
+            # `ValueError: invalid literal for int() with base 10: '\\'`
+            # and taking down the whole area's compute-lts run over one bad
+            # tag. Anything that doesn't parse as an int now falls back to
+            # default_lanes instead.
+            values = val if isinstance(val, list) else [val]
+            parsed = []
+            for item in values:
+                try:
+                    parsed.append(int(item))
+                except (ValueError, TypeError):
+                    pass
+            return max(parsed) if parsed else default_lanes
+
+        gdf_edges["lanes_assumed"] = gdf_edges["lanes"].fillna(default_lanes).apply(parse_lanes)
         return gdf_edges
 
     @staticmethod
