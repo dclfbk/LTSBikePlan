@@ -125,6 +125,48 @@ body { display: flex; flex-direction: column; }
 
 .hidden { display: none !important; }
 
+/* Shown while tiles are still loading (see the map "dataloading"/"idle"
+   handlers in app.js) - the merged national tileset in particular can take
+   a while on a slow connection, and a blank map with no feedback reads as
+   broken rather than "still working". Sits above #panel/geocoder (5/6),
+   below #site-header (10) - a slow load is exactly when the header nav
+   still needs to stay clickable. Non-blocking (no backdrop, doesn't cover
+   the whole map) so panning/zooming while it's up isn't obstructed. */
+#loading-indicator {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  z-index: 8;
+  background: white; padding: 10px 16px; border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  font: 13px/1.4 system-ui, sans-serif;
+  display: flex; align-items: center; gap: 10px;
+  max-width: min(90vw, 380px);
+}
+#loading-indicator.hidden { display: none; }
+.spinner {
+  width: 20px; height: 20px; flex: 0 0 auto;
+  border: 3px solid #ddd; border-top-color: #4c78a8; border-radius: 50%;
+  animation: lts-spin 0.8s linear infinite;
+}
+@keyframes lts-spin { to { transform: rotate(360deg); } }
+#loading-title { font-weight: 600; color: #222; }
+
+/* Shown instead of #loading-indicator below MIN_STREETS_ZOOM (see app.js) -
+   streets aren't rendered at all at that zoom (both for legibility and to
+   skip fetching that tile data), so "loading" would be misleading; this
+   explains why the map looks empty of streets and what to do about it.
+   Same box treatment as #loading-indicator, same slot (mutually exclusive,
+   see the "zoom" handler in app.js), just no spinner - there's nothing
+   loading to wait for here, only zooming to do. */
+#zoom-hint {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  z-index: 8;
+  background: white; padding: 10px 16px; border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  font: 13px/1.4 system-ui, sans-serif; font-weight: 600; color: #222;
+  max-width: min(90vw, 380px); text-align: center;
+}
+#zoom-hint.hidden { display: none; }
+
 /* Back inside #panel, under the basemap switcher - a plain full-width
    button like the original, not the header nav-link style tried in
    between (moved there and back per feedback). */

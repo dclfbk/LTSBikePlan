@@ -8,16 +8,19 @@
 # Requires `tippecanoe`, `tile-join` and `pmtiles`
 # (https://github.com/protomaps/go-pmtiles) on PATH. See build_tiles.sh for
 # why this goes through an intermediate .mbtiles before converting to
-# PMTiles, and for why --minimum-zoom=4 below (the map's own MAX_BOUNDS
-# clamp never lets a user zoom out far enough to reach z0-3, so building
-# them is wasted time/size - matters even more here than per-area, since
-# this tippecanoe run covers all of Italy at once).
+# PMTiles, and for why --minimum-zoom=8 below (web/app.js's lts-lines/
+# gap-edges layers only render from that zoom up, and MapLibre skips
+# fetching a source's tiles entirely below the zoom of its lowest active
+# layer - matters even more here than per-area, since this tippecanoe run
+# covers all of Italy at once).
 #
 # --drop-densest-as-needed: unlike build_tiles.sh (deliberately WITHOUT it,
 # see that file for why), the merged national tileset needs it - confirmed
 # live merging ~50 Sicilian comuni (2M+ features): a single low-zoom tile
-# (5/17/12, one covering a wide swath of Sicily) exceeded tippecanoe's
-# hard 200000-features-per-tile cap, which has no size-based fallback -
+# (5/17/12, back when this built down to z4 - the risk is smaller now that
+# z4-7 aren't built at all, a z8 tile covers a much smaller area, but not
+# zero) exceeded tippecanoe's hard 200000-features-per-tile cap, which has
+# no size-based fallback -
 # tippecanoe just stopped emitting any zoom past the last one that fit
 # ("TILES ONLY COMPLETE THROUGH ZOOM 4" - the resulting pmtiles had no
 # street-level detail anywhere). At the low/regional zooms where this cap
@@ -71,11 +74,20 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="$REPO_ROOT/web/data"
 BATCH_MAX_BYTES=$(( ${LTSBP_NATIONAL_BATCH_MAX_MB:-1000} * 1000 * 1000 ))
 PARQUET_TO_GEOJSON_RATIO=30
-MBTILES="$(mktemp --suffix=.mbtiles)"
-TMP_GEOJSON_FILES=()
+
+# Everything this run creates lives under one throwaway directory, not
+# loose mktemp files sharing a generic /tmp/tmp.* prefix - a real incident:
+# a concurrent invocation's own cleanup (a plain `rm -f /tmp/tmp.*.batch*
+# .mbtiles`, not scoped to its own run) deleted this run's already-built
+# batch .mbtiles files out from under it mid-flight, crashing tile-join
+# with "no such table: tiles" partway through a live production run. A
+# per-run directory makes that class of mistake structurally impossible -
+# nothing outside this run's own $TMPDIR_RUN can collide with it, and this
+# run's own cleanup can never reach outside it either.
+TMPDIR_RUN="$(mktemp -d)"
+trap 'rm -rf "$TMPDIR_RUN"' EXIT
+MBTILES="$TMPDIR_RUN/merged.mbtiles"
 BATCH_MBTILES=()
-cleanup() { rm -f "$MBTILES" "${TMP_GEOJSON_FILES[@]}" "${BATCH_MBTILES[@]}"; }
-trap cleanup EXIT
 
 shopt -s nullglob
 EXISTING_GEOJSON=("$DATA_DIR"/*/*_all_lts.geojson)
@@ -111,8 +123,7 @@ command -v pmtiles >/dev/null || { echo "pmtiles (go-pmtiles) not found on PATH"
 mkdir -p "$OUT_DIR"
 
 # Build batches: each entry is "area_dir<TAB>estimated_bytes".
-BATCHES_FILE="$(mktemp)"
-TMP_GEOJSON_FILES+=("$BATCHES_FILE")  # piggyback on the same cleanup trap
+BATCHES_FILE="$TMPDIR_RUN/batches.tsv"
 {
   for d in "${AREA_DIRS[@]}"; do
     if [ -n "${GEOJSON_FOR_DIR[$d]:-}" ]; then
@@ -138,7 +149,7 @@ run_batch() {
     if [ -n "${GEOJSON_FOR_DIR[$area_dir]:-}" ]; then
       inputs+=("${GEOJSON_FOR_DIR[$area_dir]}")
     else
-      tmp="$(mktemp --suffix=.geojson)"
+      tmp="$TMPDIR_RUN/regen_${slug}.geojson"
       echo "  Regenerating GeoJSON for $slug from its .parquet..."
       PYTHONPATH="$REPO_ROOT/code" python3 "$REPO_ROOT/scripts/regenerate_geojson.py" "${PARQUET_FOR_DIR[$area_dir]}" "$tmp"
       batch_tmp+=("$tmp")
@@ -146,13 +157,12 @@ run_batch() {
     fi
   done
 
-  local batch_mbtiles
-  batch_mbtiles="$(mktemp --suffix=".batch${batch_num}.mbtiles")"
+  local batch_mbtiles="$TMPDIR_RUN/batch${batch_num}.mbtiles"
   echo "Batch $batch_num: tiling ${#inputs[@]} area(s)..."
   tippecanoe \
     -o "$batch_mbtiles" \
     --force \
-    --minimum-zoom=4 \
+    --minimum-zoom=8 \
     --maximum-zoom=16 \
     --extend-zooms-if-still-dropping \
     --drop-densest-as-needed \

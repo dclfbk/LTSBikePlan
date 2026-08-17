@@ -3,6 +3,16 @@
 // single named constant so the threshold is easy to retune later.
 const MIN_CLICK_ZOOM = 14;
 
+// Below this zoom, the lts-lines/gap-edges layers are hidden entirely (see
+// MIN_STREETS_ZOOM on their `minzoom`, and #zoom-hint's show/hide further
+// below) - at a whole-Italy/regional view, every street segment rendering
+// at once is both visually illegible (a solid mass of colour, no
+// individual streets readable) and the single biggest driver of the slow
+// initial load the loading-indicator work was covering for: skipping the
+// layer entirely below this zoom means MapLibre doesn't fetch the "lts"
+// source's tiles at those zooms either, not just hides them once fetched.
+const MIN_STREETS_ZOOM = 8;
+
 // Area to load: web/index.html?area=<area_slug>, matching the file
 // scripts/build_tiles.sh writes to web/data/<area_slug>_lts.pmtiles.
 // "italia" (default) is the merged tileset from build_national_tiles.sh -
@@ -55,6 +65,8 @@ function applyUiTranslations() {
   document.getElementById("bg-summer-label").textContent = t("bgSummer");
   document.getElementById("bg-cycling-label").textContent = t("bgCycling");
   document.getElementById("bg-dark-label").textContent = t("bgDark");
+  document.getElementById("loading-title").textContent = t("loadingTitle");
+  document.getElementById("zoom-hint").textContent = t("zoomHint");
   document.getElementById("terrain-toggle").title = t("terrainToggle");
   document.getElementById("print-toggle").title = t("printControl");
   document.getElementById("geocoder-input").placeholder = t("geocoderPlaceholder");
@@ -770,6 +782,7 @@ function addDataLayers() {
         type: "line",
         source: "lts",
         "source-layer": "lts",
+        minzoom: MIN_STREETS_ZOOM,
         // Miter is MapLibre's default line-join: at low zoom, where many
         // short OSM road segments render just a few px apart, every heading
         // change between them shows up as a sharp point instead of a smooth
@@ -809,6 +822,7 @@ function addDataLayers() {
       type: "line",
       source: "lts",
       "source-layer": "lts",
+      minzoom: MIN_STREETS_ZOOM,
       filter: [
         "all",
         ["==", ["to-string", ["get", "is_gap_edge"]], "true"],
@@ -893,6 +907,53 @@ function addDataLayers() {
 }
 
 map.on("style.load", addDataLayers);
+
+// Feedback while tiles are still loading (see #loading-indicator in
+// index.html/styles.css) - the merged national tileset especially can take
+// a while on a slow connection, and a blank map with no feedback reads as
+// broken rather than "still working" (reported: users unsure whether to
+// wait or reload). LOADING_SHOW_DELAY_MS debounces the show so a normal
+// fast pan/zoom (tiles resolve well under that) never flickers it.
+const LOADING_SHOW_DELAY_MS = 500;
+let loadingShowTimer = null;
+
+function showLoadingIndicator() {
+  loadingShowTimer = null;
+  document.getElementById("loading-indicator").classList.remove("hidden");
+}
+
+function hideLoadingIndicator() {
+  clearTimeout(loadingShowTimer);
+  loadingShowTimer = null;
+  document.getElementById("loading-indicator").classList.add("hidden");
+}
+
+map.on("dataloading", () => {
+  // Below MIN_STREETS_ZOOM, lts-lines/gap-edges are hidden (see their
+  // `minzoom`) and #zoom-hint is showing instead - "loading" would be
+  // both wrong (nothing street-related is being fetched at this zoom) and
+  // confusing stacked on top of the zoom-in hint.
+  if (map.getZoom() < MIN_STREETS_ZOOM) return;
+  if (loadingShowTimer == null && document.getElementById("loading-indicator").classList.contains("hidden")) {
+    loadingShowTimer = setTimeout(showLoadingIndicator, LOADING_SHOW_DELAY_MS);
+  }
+});
+map.on("idle", hideLoadingIndicator);
+
+// #zoom-hint takes the same top-center slot #loading-indicator uses -
+// mutually exclusive by construction (the dataloading handler above never
+// shows the loading indicator below MIN_STREETS_ZOOM), so no explicit
+// z-index fight between the two, just whichever one's condition currently
+// holds. "zoom" (not "zoomend") for the same reason the cursor style
+// updates on "mousemove" above rather than only once movement settles -
+// the hint should track the gesture live, not wait for it to finish.
+function updateZoomHint() {
+  const showHint = map.getZoom() < MIN_STREETS_ZOOM;
+  document.getElementById("zoom-hint").classList.toggle("hidden", !showHint);
+  if (showHint) hideLoadingIndicator();
+}
+map.on("zoom", updateZoomHint);
+updateZoomHint();
 
 // Bound once, not inside addDataLayers: maplibre resolves "lts-lines" at
 // event time against whatever layers currently exist, so these keep
