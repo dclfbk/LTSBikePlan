@@ -66,6 +66,12 @@
 # a flat 30x with headroom. Areas that still have a real .geojson (not yet
 # cleaned up) use its actual size instead, no estimate needed.
 #
+# MAJOR_ROADS_FILTER (-j): same as build_tiles.sh - at z8-11, only major
+# roads (motorway/trunk/primary/secondary) are kept, every other class only
+# from z12 up. See that file for the full reasoning/measurements; applies
+# per-batch here (each batch's own tippecanoe call), same as
+# --drop-densest-as-needed already does.
+#
 # Usage: LTSBP_NATIONAL_BATCH_MAX_MB=1000 scripts/build_national_tiles.sh [data_dir]
 set -euo pipefail
 
@@ -74,6 +80,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="$REPO_ROOT/web/data"
 BATCH_MAX_BYTES=$(( ${LTSBP_NATIONAL_BATCH_MAX_MB:-1000} * 1000 * 1000 ))
 PARQUET_TO_GEOJSON_RATIO=30
+MAJOR_ROADS_FILTER='{"lts": ["any", [">=", "$zoom", 12], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link", "secondary", "secondary_link"]]}'
 
 # Everything this run creates lives under one throwaway directory, not
 # loose mktemp files sharing a generic /tmp/tmp.* prefix - a real incident:
@@ -167,6 +174,7 @@ run_batch() {
     --extend-zooms-if-still-dropping \
     --drop-densest-as-needed \
     --maximum-tile-bytes=5000000 \
+    -j "$MAJOR_ROADS_FILTER" \
     -l lts \
     --name "LTSBikePlan Italia (batch $batch_num)" \
     --attribution "LTSBikePlan / OpenStreetMap contributors" \

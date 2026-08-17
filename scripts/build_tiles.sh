@@ -38,6 +38,24 @@
 # skips fetching a source's tiles for zooms with no active layer). Building
 # z4-7 here would just be tile bytes nothing ever reads.
 #
+# MAJOR_ROADS_FILTER (-j): at z8-11 (still below MIN_CLICK_ZOOM, so this is
+# always an overview scale, not a "look at this one street" scale), only
+# motorway/trunk/primary/secondary roads are kept - every other class
+# (residential/tertiary/unclassified/service/footway/path/cycleway/...)
+# only appears from z12 up. Every edge is its own feature at every zoom
+# it's included in (edges are minimal 2-point segments already - nothing
+# left to simplify geometrically, verified: .simplify() removed zero
+# vertices at any tested tolerance on real data), so feature *count* is
+# what z8-11 tile weight is made of - measured 42% of one national test
+# tileset's total bytes were z8-12 alone. Confirmed on Pachino: 6.46MB ->
+# 4.35MB (-33%) for its z8-11 tiles with this filter, identical z12+.
+# $zoom is a tippecanoe built-in - see "Filtering features by attributes"
+# in tippecanoe's own docs for the filter expression syntax (Mapbox GL
+# legacy filter spec, not the newer expression syntax - tippecanoe
+# rejected ["get"/"literal"]-wrapped expressions with "\"!in\" key is not
+# a string" when this was being tested).
+MAJOR_ROADS_FILTER='{"lts": ["any", [">=", "$zoom", 12], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link", "secondary", "secondary_link"]]}'
+#
 # Usage: scripts/build_tiles.sh <area_slug> [data_dir]
 set -euo pipefail
 
@@ -80,6 +98,7 @@ tippecanoe \
   --maximum-zoom=16 \
   --extend-zooms-if-still-dropping \
   --maximum-tile-bytes=5000000 \
+  -j "$MAJOR_ROADS_FILTER" \
   -l lts \
   --name "${AREA_SLUG} LTS" \
   --attribution "LTSBikePlan / OpenStreetMap contributors" \

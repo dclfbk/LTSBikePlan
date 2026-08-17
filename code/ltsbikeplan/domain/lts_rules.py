@@ -231,6 +231,22 @@ class BikePathAnalysis:
         values = [national, motorway, primary, secondary, urban, local]
         gdf_edges["maxspeed_assumed"] = np.select(conditions, values, default=gdf_edges["maxspeed"])
 
+        # OSM's implicit-speed-limit convention for Italy (see the "Default
+        # speed limits" table on the OSM wiki): maxspeed can be a zone name
+        # instead of a number, meaning "whatever the legal default is for
+        # this road type" - IT:urban=50 (already handled), but IT:rural=90
+        # and IT:motorway=130 were missing, so a "IT:rural" tag (confirmed
+        # live: 54 edges in Paceco, all highway=tertiary) fell all the way
+        # through to `return val`, leaving the literal string "IT:rural" in
+        # maxspeed_assumed - crashed the very next comparison against it
+        # (`<= 50` etc. throughout this file) with `TypeError: '<=' not
+        # supported between instances of 'str' and 'int'`. Any other
+        # unrecognized string/empty list now falls back to `local` (the
+        # same default already used above for a genuinely missing maxspeed)
+        # instead of leaking a non-numeric value into a column every rule
+        # in this file assumes is numeric.
+        known_speed_zones = {"IT:urban": urban, "IT:rural": national, "IT:motorway": motorway}
+
         def convert_to_int(val):
             if isinstance(val, list):
                 int_list = []
@@ -238,15 +254,13 @@ class BikePathAnalysis:
                     try:
                         int_list.append(int(item))
                     except ValueError:
-                        if item == "IT:urban":
-                            int_list.append(urban)
-                return max(int_list) if int_list else val
+                        if item in known_speed_zones:
+                            int_list.append(known_speed_zones[item])
+                return max(int_list) if int_list else local
             try:
                 return int(val)
             except ValueError:
-                if val == "IT:urban":
-                    return urban
-                return val
+                return known_speed_zones.get(val, local)
 
         gdf_edges["maxspeed_assumed"] = gdf_edges["maxspeed_assumed"].apply(convert_to_int)
         return gdf_edges
