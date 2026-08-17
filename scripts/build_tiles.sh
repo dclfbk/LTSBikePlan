@@ -44,13 +44,26 @@ DATA_DIR="${2:-${LTSBP_DATA_DIR:-data}}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 GEOJSON="$DATA_DIR/$AREA_SLUG/${AREA_SLUG}_all_lts.geojson"
+PARQUET="$DATA_DIR/$AREA_SLUG/${AREA_SLUG}_all_lts.parquet"
 OUT_DIR="$REPO_ROOT/web/data"
 MBTILES="$(mktemp --suffix=.mbtiles)"
-trap 'rm -f "$MBTILES"' EXIT
+GEOJSON_TMP=""
+cleanup() { rm -f "$MBTILES" "$GEOJSON_TMP"; }
+trap cleanup EXIT
 
+# The comuni cron script deletes each area's .geojson after its tiles are
+# built (disk: it's ~25-30x the size of the .parquet it's regenerated from
+# - see scripts/regenerate_geojson.py). tippecanoe needs a real GeoJSON
+# file though (no Parquet reader), so if only the .parquet survived,
+# regenerate a throwaway .geojson here and clean it up on exit.
 if [ ! -f "$GEOJSON" ]; then
-  echo "Missing $GEOJSON - run 'ltsbikeplan compute-lts --area \"$AREA_SLUG\"' first." >&2
-  exit 1
+  if [ ! -f "$PARQUET" ]; then
+    echo "Missing both $GEOJSON and $PARQUET - run 'ltsbikeplan compute-lts --area \"$AREA_SLUG\"' first." >&2
+    exit 1
+  fi
+  GEOJSON_TMP="$(mktemp --suffix=.geojson)"
+  PYTHONPATH="$REPO_ROOT/code" python3 "$REPO_ROOT/scripts/regenerate_geojson.py" "$PARQUET" "$GEOJSON_TMP"
+  GEOJSON="$GEOJSON_TMP"
 fi
 
 command -v tippecanoe >/dev/null || { echo "tippecanoe not found on PATH" >&2; exit 1; }
