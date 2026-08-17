@@ -31,10 +31,12 @@
 # Trento's densest tiles without needing the fallback; revisit upward
 # if a larger provincia/regione build still triggers it.
 #
-# --minimum-zoom=4: the map's own MAX_BOUNDS clamp (web/app.js, roughly the
-# Azores to the Urals) never lets a user zoom out far enough to hit z0-3
-# anyway, so tippecanoe generating those levels is pure wasted build time
-# and pmtiles size, not a real zoom range.
+# --minimum-zoom=8: web/app.js's lts-lines/gap-edges layers only render
+# from MIN_STREETS_ZOOM (8) up - below that, individual street segments
+# are illegible at whole-country/regional scale anyway, so the map shows a
+# "zoom in" hint instead and never even requests tiles below it (MapLibre
+# skips fetching a source's tiles for zooms with no active layer). Building
+# z4-7 here would just be tile bytes nothing ever reads.
 #
 # Usage: scripts/build_tiles.sh <area_slug> [data_dir]
 set -euo pipefail
@@ -74,7 +76,7 @@ mkdir -p "$OUT_DIR"
 tippecanoe \
   -o "$MBTILES" \
   --force \
-  --minimum-zoom=4 \
+  --minimum-zoom=8 \
   --maximum-zoom=16 \
   --extend-zooms-if-still-dropping \
   --maximum-tile-bytes=5000000 \
