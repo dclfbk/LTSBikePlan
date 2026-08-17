@@ -140,10 +140,25 @@ process_comune() {
     log "WARNING: tile build failed for $name (LTS data was computed - only its .pmtiles is missing, it'll just be absent from the national tileset until re-run)"
   fi
 
+  # The .geojson is ~25-30x the size of its .parquet twin (measured on real
+  # areas) and, once this comune's own tiles are built, nothing reads it
+  # again until the next full national rebuild - which regenerates it from
+  # the .parquet on demand anyway (scripts/regenerate_geojson.py). At
+  # ~7893 comuni, keeping every .geojson permanently doesn't fit on a
+  # disk-constrained server; set LTSBP_KEEP_GEOJSON=1 to keep it instead
+  # (e.g. while debugging a specific area).
+  if [ "${LTSBP_KEEP_GEOJSON:-0}" != "1" ]; then
+    parquet="$DATA_DIR/$slug/${slug}_all_lts.parquet"
+    geojson="$DATA_DIR/$slug/${slug}_all_lts.geojson"
+    if [ -f "$parquet" ] && [ -f "$geojson" ]; then
+      rm -f "$geojson"
+    fi
+  fi
+
   printf '%s\t%s\t%s\n' "$istat" "$slug" "$(date -u +%FT%TZ)" >> "$PROGRESS_FILE"
 }
 export -f process_comune log
-export DATA_DIR PROGRESS_FILE FAILED_FILE LTSBP_CLEANUP_CACHE
+export DATA_DIR PROGRESS_FILE FAILED_FILE LTSBP_CLEANUP_CACHE LTSBP_KEEP_GEOJSON
 
 # -d '\n' (not the default whitespace splitting) so each BATCH line is
 # passed to process_comune whole - comune names contain spaces (e.g.
