@@ -748,27 +748,42 @@ const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
 // the basemap switcher, since setStyle discards custom sources/layers
 // that aren't part of the new style document.
 function addDataLayers() {
+  // First "symbol" layer in the current base style - place/road labels are
+  // always symbol layers, regardless of which of the 4 basemaps
+  // (light/summer/cycling/dark) is active. Passed as addLayer's beforeId
+  // below so lts-lines/gap-edges render UNDER every label instead of
+  // covering them - previously added with no beforeId at all, which
+  // MapLibre puts on top of the whole style by default, burying region/
+  // provincia/comune/suburb toponyms (reported: labels invisible under the
+  // opaque LTS-colored lines). Recomputed on every call since style.load
+  // also fires after setStyle() (basemap switch), and each basemap's
+  // layer stack - and therefore its first symbol layer's id - differs.
+  const firstSymbolLayerId = map.getStyle().layers.find((l) => l.type === "symbol")?.id;
+
   if (!map.getSource("lts")) {
     map.addSource("lts", { type: "vector", url: pmtilesUrl });
   }
   if (!map.getLayer("lts-lines")) {
-    map.addLayer({
-      id: "lts-lines",
-      type: "line",
-      source: "lts",
-      "source-layer": "lts",
-      // Miter is MapLibre's default line-join: at low zoom, where many
-      // short OSM road segments render just a few px apart, every heading
-      // change between them shows up as a sharp point instead of a smooth
-      // bend - reported as streets looking "too angular" at z11+. Round
-      // joins/caps trace the same underlying geometry, just without the
-      // spikes at each vertex.
-      layout: { "line-join": "round", "line-cap": "round" },
-      paint: {
-        "line-color": LTS_COLOR_EXPRESSION,
-        "line-width": LTS_LINE_WIDTH,
+    map.addLayer(
+      {
+        id: "lts-lines",
+        type: "line",
+        source: "lts",
+        "source-layer": "lts",
+        // Miter is MapLibre's default line-join: at low zoom, where many
+        // short OSM road segments render just a few px apart, every heading
+        // change between them shows up as a sharp point instead of a smooth
+        // bend - reported as streets looking "too angular" at z11+. Round
+        // joins/caps trace the same underlying geometry, just without the
+        // spikes at each vertex.
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": LTS_COLOR_EXPRESSION,
+          "line-width": LTS_LINE_WIDTH,
+        },
       },
-    });
+      firstSymbolLayerId,
+    );
   }
   applyLtsFilter();
 
