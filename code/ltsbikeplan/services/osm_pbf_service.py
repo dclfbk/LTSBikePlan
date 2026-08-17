@@ -230,7 +230,20 @@ class PyrosmGraphLoader:
 
         osm = pyrosm.OSM(pbf_path)
         nodes, edges = osm.get_network(nodes=True, network_type=network_type, extra_attributes=EXTRA_NETWORK_ATTRIBUTES)
-        graph = osm.to_graph(nodes, edges, graph_type="networkx")
+        # retain_all=True: pyrosm's own default (False) keeps only the
+        # largest strongly-connected component and silently drops every
+        # other "isolated island" of the road network - confirmed live on
+        # Lampedusa e Linosa, a comune made of two actual islands with no
+        # road between them (only a ferry): Linosa's 202 real, correctly
+        # tagged roads (verified present in the raw .osm.pbf with osmium -
+        # residential/service/path/track/unclassified, all highway classes
+        # this project already keeps) were completely absent from the
+        # exported data - the whole island silently missing from the map,
+        # not a bounding-box or filtering issue on our side. Any other
+        # comune with a genuinely disconnected road segment (another
+        # island, or a segment separated by unmapped private roads) would
+        # lose it the same way.
+        graph = osm.to_graph(nodes, edges, graph_type="networkx", retain_all=True)
         gdf_nodes, gdf_edges = ox.graph_to_gdfs(graph)
         gdf_edges = normalize_edge_columns(gdf_edges)
         gdf_nodes = normalize_node_columns(gdf_nodes)
