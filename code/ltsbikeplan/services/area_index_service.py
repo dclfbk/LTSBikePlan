@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import time
 from typing import Optional
 
@@ -59,8 +60,19 @@ class AreaResolver:
         if not os.path.exists(path) or (time.time() - os.path.getmtime(path)) > _INDEX_CACHE_MAX_AGE_SECONDS:
             response = requests.get(f"{OSMIT_ESTRATTI_BASE}/topojson/{filename}", timeout=60)
             response.raise_for_status()
-            with open(path, "w") as file_handle:
-                file_handle.write(response.text)
+            # Shared across every comune/provincia process - with the
+            # comuni cron script now able to run several areas concurrently,
+            # multiple processes can race to refresh the same stale index
+            # at once. Write-then-rename so a concurrent reader never sees
+            # a truncated file mid-download.
+            fd, tmp_path = tempfile.mkstemp(dir=self.cache_dir, prefix=".tmp_", suffix=".json")
+            try:
+                with os.fdopen(fd, "w") as file_handle:
+                    file_handle.write(response.text)
+                os.replace(tmp_path, path)
+            except BaseException:
+                os.remove(tmp_path)
+                raise
         return path
 
     def _load_index(self, level: str) -> list:

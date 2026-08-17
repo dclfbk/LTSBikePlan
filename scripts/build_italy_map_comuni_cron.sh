@@ -32,15 +32,37 @@
 # keep it instead (trades disk space for not re-downloading on a rerun,
 # e.g. useful while iterating locally on a handful of comuni).
 #
-# Usage: LTSBP_COMUNI_BATCH_SIZE=150 scripts/build_italy_map_comuni_cron.sh [data_dir]
+# LTSBP_COMUNI_PARALLEL_JOBS (default 4) processes that many comuni of the
+# batch concurrently via `xargs -P`. Per-comune work is dominated by
+# network I/O (osmit-estratti extract download, Mapterhorn DEM tiles) with
+# only a slice of it (compute-lts's own graph/centrality work) actually
+# CPU-bound, so this isn't just an N-core speedup - measured production
+# pace was ~13min/comune serially (11h for 50 comuni), far slower than the
+# ~1.5min/comune this script's original estimate assumed, which pointed at
+# I/O wait rather than CPU as the bottleneck. Each comune writes to its own
+# data/<slug>/ dir and its own .pmtiles, so comuni themselves don't
+# collide; the two caches they DO share (DEM tile cache, osmit topojson
+# index - see services/dem_service.py and services/area_index_service.py)
+# now write via a temp-file-then-rename so concurrent workers racing on
+# the same shared tile/index can't corrupt it. Set to 1 to fall back to
+# the old strictly-sequential behaviour. Tune against your server's core
+# count and, more importantly, don't set it so high that osmit-estratti or
+# Mapterhorn starts rate-limiting/erroring you.
+#
+# Usage: LTSBP_COMUNI_BATCH_SIZE=150 LTSBP_COMUNI_PARALLEL_JOBS=4 scripts/build_italy_map_comuni_cron.sh [data_dir]
 # Suggested crontab (every 2h - budget per-batch runtime as roughly
-# BATCH_SIZE * (comune compute-lts time), much less than province):
+# (BATCH_SIZE / PARALLEL_JOBS) * (comune compute-lts time), much less than
+# province). If a batch is consistently getting killed by the systemd
+# unit's TimeoutStartSec before finishing, lower LTSBP_COMUNI_BATCH_SIZE -
+# the merged national tileset rebuild only runs once the whole batch loop
+# returns, so a batch that never finishes never updates the live map:
 #   0 */2 * * * /path/to/LTSBikePlan/scripts/build_italy_map_comuni_cron.sh >> /var/log/ltsbikeplan_comuni_cron.log 2>&1
 set -uo pipefail  # NOT -e: one comune failing must not kill the whole batch
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATA_DIR="${1:-${LTSBP_DATA_DIR:-$REPO_ROOT/data}}"
 BATCH_SIZE="${LTSBP_COMUNI_BATCH_SIZE:-150}"
+PARALLEL_JOBS="${LTSBP_COMUNI_PARALLEL_JOBS:-4}"
 PROGRESS_FILE="$DATA_DIR/_cache/comuni_progress.tsv"
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
@@ -82,22 +104,31 @@ if [ ${#REMAINING[@]} -eq 0 ]; then
 fi
 
 BATCH=("${REMAINING[@]:0:$BATCH_SIZE}")
-log "Processing batch of ${#BATCH[@]} comuni."
+log "Processing batch of ${#BATCH[@]} comuni ($PARALLEL_JOBS in parallel)."
 
-FAILED=()
-for line in "${BATCH[@]}"; do
+# One line per failed comune name - a plain array can't be shared back from
+# the parallel workers below (each xargs -P slot is a separate subshell/
+# process), so failures are collected via a file instead. $PROGRESS_FILE
+# itself doesn't need the same treatment: appends here are short
+# (<PIPE_BUF), so concurrent `>>` from multiple workers is already atomic.
+FAILED_FILE="$(mktemp)"
+trap 'rm -f "$FAILED_FILE"' EXIT
+
+process_comune() {
+  local line="$1"
+  local istat name slug
   IFS=$'\t' read -r istat name slug <<< "$line"
   log "--- $name ($slug, istat=$istat) ---"
 
   if ! PYTHONPATH=code python3 code/cli.py fetch --area "$name" --area-level comune --istat "$istat" --osmit-estratti; then
     log "FAILED (fetch): $name"
-    FAILED+=("$name")
-    continue
+    echo "$name" >> "$FAILED_FILE"
+    return
   fi
   if ! PYTHONPATH=code python3 code/cli.py compute-lts --area "$name" --area-level comune --istat "$istat" --osmit-estratti; then
     log "FAILED (compute-lts): $name"
-    FAILED+=("$name")
-    continue
+    echo "$name" >> "$FAILED_FILE"
+    return
   fi
 
   if [ "${LTSBP_CLEANUP_CACHE:-1}" = "1" ]; then
@@ -110,13 +141,21 @@ for line in "${BATCH[@]}"; do
   fi
 
   printf '%s\t%s\t%s\n' "$istat" "$slug" "$(date -u +%FT%TZ)" >> "$PROGRESS_FILE"
-done
+}
+export -f process_comune log
+export DATA_DIR PROGRESS_FILE FAILED_FILE LTSBP_CLEANUP_CACHE
+
+# -d '\n' (not the default whitespace splitting) so each BATCH line is
+# passed to process_comune whole - comune names contain spaces (e.g.
+# "Lampedusa e Linosa") that would otherwise be split into extra args.
+printf '%s\n' "${BATCH[@]}" | xargs -d '\n' -P "$PARALLEL_JOBS" -I{} bash -c 'process_comune "$@"' _ {}
 
 log "Rebuilding merged national tileset..."
 scripts/build_national_tiles.sh "$DATA_DIR"
 
-if [ ${#FAILED[@]} -gt 0 ]; then
-  log "Done with ${#FAILED[@]} failure(s) this batch: ${FAILED[*]}"
+FAILED_COUNT=$(wc -l < "$FAILED_FILE" | tr -d ' ')
+if [ "$FAILED_COUNT" -gt 0 ]; then
+  log "Done with $FAILED_COUNT failure(s) this batch: $(paste -sd, "$FAILED_FILE")"
   exit 1
 fi
 log "Done, ${#BATCH[@]} comuni processed successfully this batch ($(( ${#REMAINING[@]} - ${#BATCH[@]} )) remaining after this run)."

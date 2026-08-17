@@ -29,10 +29,24 @@ ExecStart=/opt/stressinbici/LTSBikePlan/scripts/build_italy_map_comuni_cron.sh
 # tippecanoe/pmtiles live in /usr/local/bin; the script itself activates
 # the repo's own .venv for the Python side.
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
+# LTSBP_COMUNI_PARALLEL_JOBS (default 4, see the script itself) processes
+# that many comuni concurrently - per-comune work is mostly network I/O
+# (osmit-estratti extract, Mapterhorn DEM tiles), so this isn't just an
+# N-core speedup. Tune down if it starts getting rate-limited/erroring, up
+# if the box has cores/bandwidth to spare and batches finish comfortably
+# under TimeoutStartSec.
+#Environment=LTSBP_COMUNI_PARALLEL_JOBS=4
+#
 # LTSBP_COMUNI_BATCH_SIZE (default 150, see the script itself) caps how
-# many comuni one run processes - each is comune-sized (fast, unlike the
-# old provincia run), but 150 of them plus the national tileset rebuild
-# can still take a while. Raise this if batches are consistently finishing
-# well under the timer's 2h interval and you want to grind through Italy
-# faster; lower it (and TimeoutStartSec) if a batch is timing out.
+# many comuni one run processes. IMPORTANT: the merged national tileset
+# (the thing the live map actually serves) is only rebuilt once the whole
+# batch loop returns - if a batch gets killed by TimeoutStartSec mid-loop,
+# individual comuni already done ARE saved (progress.tsv is written
+# per-comune), but that run's map-visible rebuild never happens. Measured
+# production pace was ~13min/comune serially (150 comuni would take ~33h,
+# far past this unit's 3h timeout) - size BATCH_SIZE so
+# (BATCH_SIZE / PARALLEL_JOBS) * (observed per-comune time) reliably fits
+# well inside TimeoutStartSec, then raise it once you've confirmed batches
+# are finishing with room to spare.
+#Environment=LTSBP_COMUNI_BATCH_SIZE=150
 TimeoutStartSec=3h
