@@ -53,10 +53,10 @@ def cmd_fetch(area: AreaSpec, config: AppConfig) -> None:
     run_fetch(area, str(config.data_dir), str(config.images_dir), dem_path, strategy)
 
 
-def cmd_compute_lts(area: AreaSpec, config: AppConfig) -> None:
+def cmd_compute_lts(area: AreaSpec, config: AppConfig, with_report_exports: bool = False) -> None:
     from .pipeline.compute_lts import run_compute_lts
 
-    run_compute_lts(str(config.data_dir), area)
+    run_compute_lts(str(config.data_dir), area, include_report_exports=with_report_exports)
 
 
 def cmd_maps(area: AreaSpec, config: AppConfig) -> None:
@@ -84,7 +84,11 @@ def cmd_run_full(area: AreaSpec, config: AppConfig, include_report: bool) -> Non
     from .pipeline.full import run_full_sections
 
     cmd_fetch(area, config)
-    cmd_compute_lts(area, config)
+    # run_network_analysis (part of run_full_sections below) loads the
+    # area's graphml via pipeline/sections/common.py::load_graph - unlike
+    # plain compute-lts, run-full always needs it, regardless of whether
+    # --with-report-exports was passed.
+    cmd_compute_lts(area, config, with_report_exports=True)
     cmd_maps(area, config)
     run_full_sections(str(config.data_dir), str(config.images_dir), area.slug)
     if include_report:
@@ -123,6 +127,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     compute_lts_parser = subparsers.add_parser("compute-lts", help="Compute and export LTS artifacts")
     _add_area_args(compute_lts_parser)
+    compute_lts_parser.add_argument(
+        "--with-report-exports",
+        action="store_true",
+        help="Also write the per-node/edge CSVs and .graphml used only by 'run-full's report sections - "
+        "skipped by default since they're unused otherwise and can be the majority of a comune's disk footprint",
+    )
 
     maps_parser = subparsers.add_parser("maps", help="Generate LTS HTML maps")
     _add_area_args(maps_parser)
@@ -159,7 +169,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "fetch":
         cmd_fetch(area, config)
     elif args.command == "compute-lts":
-        cmd_compute_lts(area, config)
+        cmd_compute_lts(area, config, args.with_report_exports)
     elif args.command == "maps":
         cmd_maps(area, config)
     elif args.command == "report":

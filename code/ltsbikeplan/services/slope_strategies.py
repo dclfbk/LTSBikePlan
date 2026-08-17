@@ -89,6 +89,7 @@ class SlopeCalculatorGDAL:
     def calc_slope(edges, dem_path):
         slope_path = SlopeCalculatorGDAL.calculate_slope(dem_path)
         edges_with_slope = SlopeCalculatorGDAL.extract_slope_for_roads(edges, slope_path)
+        os.remove(slope_path)
         edges_with_slope["slope_class"] = pd.cut(
             edges_with_slope["slope"],
             bins=[0, 3, 5, 8, 10, 20, np.inf],
@@ -131,6 +132,7 @@ class SlopeCalculatorRasterioSimple:
     def calc_slope(edges, dem_path):
         slope_path = SlopeCalculatorRasterioSimple.calculate_slope(dem_path)
         edges_with_slope = SlopeCalculatorGDAL.extract_slope_for_roads(edges, slope_path)
+        os.remove(slope_path)
         edges_with_slope["slope_class"] = pd.cut(
             edges_with_slope["slope"],
             bins=[0, 3, 5, 8, 10, 20, np.inf],
@@ -175,6 +177,7 @@ class SlopeCalculatorRichdem:
     def calc_slope(edges, dem_path):
         slope_path = SlopeCalculatorRichdem.calculate_slope(dem_path)
         edges_with_slope = SlopeCalculatorRichdem.extract_slope_for_roads(edges, slope_path)
+        os.remove(slope_path)
         edges_with_slope["slope_class"] = pd.cut(
             edges_with_slope["slope"],
             bins=[0, 3, 5, 8, 10, 20, np.inf],

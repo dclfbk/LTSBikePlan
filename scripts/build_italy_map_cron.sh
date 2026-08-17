@@ -15,13 +15,13 @@
 # are cached under data/_cache/ *forever* by design (services/osm_pbf_
 # service.py, pipeline/fetch.py - no expiry, reused if already present) -
 # left alone, a full run leaves ~107 provincia-sized .osm.pbf files on
-# disk permanently. Set LTSBP_CLEANUP_CACHE=1 to delete each provincia's
-# .pbf/DEM mosaic right after its compute-lts succeeds (via scripts/
-# cleanup_area_cache.py), trading a smaller data/_cache/ for re-downloading
-# everything on the next run. Off by default: the cache is what makes a
-# re-run (or a fixed-up single provincia) fast.
+# disk permanently, so each provincia's .pbf/DEM mosaic is deleted right
+# after its compute-lts succeeds by default (via scripts/
+# cleanup_area_cache.py). Set LTSBP_CLEANUP_CACHE=0 to keep the cache
+# instead, trading disk space for a faster re-run (or a fixed-up single
+# provincia) that skips re-downloading.
 #
-# Usage: LTSBP_CLEANUP_CACHE=1 scripts/build_italy_map_cron.sh [data_dir]
+# Usage: scripts/build_italy_map_cron.sh [data_dir]
 # Suggested crontab (weekly, off-peak - a full run visits ~107 province,
 # budget several hours depending on machine/network - Trento comune alone
 # took ~1.5 min for compute-lts, and province are bigger than comuni):
@@ -60,7 +60,7 @@ for line in "${PROVINCE_LINES[@]}"; do
     continue
   fi
 
-  if [ "${LTSBP_CLEANUP_CACHE:-0}" = "1" ]; then
+  if [ "${LTSBP_CLEANUP_CACHE:-1}" = "1" ]; then
     PYTHONPATH=code python3 scripts/cleanup_area_cache.py "$provincia" --area-level provincia "$DATA_DIR" \
       || log "WARNING: cache cleanup failed for $provincia (LTS data itself is unaffected)"
   fi
