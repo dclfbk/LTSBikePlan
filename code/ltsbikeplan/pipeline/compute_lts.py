@@ -78,7 +78,7 @@ def _save_and_correct_graphml(graph, filepath: str) -> None:
     os.remove(temp_path)
 
 
-def run_compute_lts(data_dir: str, area: AreaSpec) -> str:
+def run_compute_lts(data_dir: str, area: AreaSpec, include_report_exports: bool = False) -> str:
     area_slug = area.slug
     area_dir = os.path.join(data_dir, area_slug)
     os.makedirs(area_dir, exist_ok=True)
@@ -157,14 +157,8 @@ def run_compute_lts(data_dir: str, area: AreaSpec) -> str:
         coverage_threshold=PARALLEL_CYCLEWAY_COVERAGE_THRESHOLD,
     )
 
-    gdf_nodes = gdf_nodes.copy()
-    gdf_nodes["lts"], gdf_nodes["message"] = zip(*gdf_nodes.apply(BikePathAnalysis.calculate_lts_nodes, args=(all_lts,), axis=1))
-
-    nodes_csv = os.path.join(area_dir, f"{area_slug}_gdf_nodes.csv")
-    lts_csv = os.path.join(area_dir, f"{area_slug}_all_lts.csv")
     lts_parquet = os.path.join(area_dir, f"{area_slug}_all_lts.parquet")
     lts_geojson = os.path.join(area_dir, f"{area_slug}_all_lts.geojson")
-    graphml_path = os.path.join(area_dir, f"{area_slug}_lts.graphml")
     stats_json = os.path.join(area_dir, f"{area_slug}_stats.json")
 
     export_columns = [
@@ -197,8 +191,13 @@ def run_compute_lts(data_dir: str, area: AreaSpec) -> str:
         "has_parallel_cycleway",
     ]
 
-    gdf_nodes.to_csv(nodes_csv)
-    all_lts[export_columns].to_csv(lts_csv)
+    if include_report_exports:
+        nodes_csv = os.path.join(area_dir, f"{area_slug}_gdf_nodes.csv")
+        lts_csv = os.path.join(area_dir, f"{area_slug}_all_lts.csv")
+        gdf_nodes = gdf_nodes.copy()
+        gdf_nodes["lts"], gdf_nodes["message"] = zip(*gdf_nodes.apply(BikePathAnalysis.calculate_lts_nodes, args=(all_lts,), axis=1))
+        gdf_nodes.to_csv(nodes_csv)
+        all_lts[export_columns].to_csv(lts_csv)
 
     ExportService.write_geoparquet(all_lts[export_columns], lts_parquet)
     ExportService.write_geojson(all_lts[export_columns], lts_geojson)
@@ -213,20 +212,23 @@ def run_compute_lts(data_dir: str, area: AreaSpec) -> str:
     with open(stats_json, "w") as file_handle:
         json.dump(area_statistics, file_handle)
 
-    # gdf_nodes was never reprojected (SlopeService only touches edges), so
-    # its `geometry` column is still in the graph's original CRS (EPSG:4326)
-    # while `all_lts` is now in WORKING_CRS. graph_from_gdfs positions nodes
-    # from their `x`/`y` columns (not `geometry`), so both must be updated
-    # explicitly to keep nodes and edges spatially consistent in the export.
-    gdf_nodes = chunked_to_crs(gdf_nodes, WORKING_CRS)
-    gdf_nodes["x"] = gdf_nodes.geometry.x
-    gdf_nodes["y"] = gdf_nodes.geometry.y
+    if include_report_exports:
+        # gdf_nodes was never reprojected (SlopeService only touches edges),
+        # so its `geometry` column is still in the graph's original CRS
+        # (EPSG:4326) while `all_lts` is now in WORKING_CRS. graph_from_gdfs
+        # positions nodes from their `x`/`y` columns (not `geometry`), so
+        # both must be updated explicitly to keep nodes and edges spatially
+        # consistent in the export.
+        graphml_path = os.path.join(area_dir, f"{area_slug}_lts.graphml")
+        gdf_nodes = chunked_to_crs(gdf_nodes, WORKING_CRS)
+        gdf_nodes["x"] = gdf_nodes.geometry.x
+        gdf_nodes["y"] = gdf_nodes.geometry.y
 
-    graph = ox.graph_from_gdfs(
-        gdf_nodes,
-        all_lts[export_columns],
-    )
-    _save_and_correct_graphml(graph, graphml_path)
+        graph = ox.graph_from_gdfs(
+            gdf_nodes,
+            all_lts[export_columns],
+        )
+        _save_and_correct_graphml(graph, graphml_path)
 
     os.remove(pickle_path)
     return city

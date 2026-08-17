@@ -26,7 +26,13 @@
 # AreaResolver._duplicate_name_slugs), which would otherwise raise
 # AmbiguousAreaError.
 #
-# Usage: LTSBP_COMUNI_BATCH_SIZE=150 LTSBP_CLEANUP_CACHE=1 scripts/build_italy_map_comuni_cron.sh [data_dir]
+# Per-area cache (each comune's .osm.pbf extract + DEM mosaic) is deleted
+# right after its compute-lts succeeds by default - at ~7893 comuni,
+# leaving it all on disk forever isn't viable. Set LTSBP_CLEANUP_CACHE=0 to
+# keep it instead (trades disk space for not re-downloading on a rerun,
+# e.g. useful while iterating locally on a handful of comuni).
+#
+# Usage: LTSBP_COMUNI_BATCH_SIZE=150 scripts/build_italy_map_comuni_cron.sh [data_dir]
 # Suggested crontab (every 2h - budget per-batch runtime as roughly
 # BATCH_SIZE * (comune compute-lts time), much less than province):
 #   0 */2 * * * /path/to/LTSBikePlan/scripts/build_italy_map_comuni_cron.sh >> /var/log/ltsbikeplan_comuni_cron.log 2>&1
@@ -94,7 +100,7 @@ for line in "${BATCH[@]}"; do
     continue
   fi
 
-  if [ "${LTSBP_CLEANUP_CACHE:-0}" = "1" ]; then
+  if [ "${LTSBP_CLEANUP_CACHE:-1}" = "1" ]; then
     PYTHONPATH=code python3 scripts/cleanup_area_cache.py "$name" --area-level comune --istat "$istat" "$DATA_DIR" \
       || log "WARNING: cache cleanup failed for $name (LTS data itself is unaffected)"
   fi
