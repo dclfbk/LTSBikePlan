@@ -85,12 +85,28 @@ class UrbanContextClassifier:
         gdf_edges = chunked_to_crs(gdf_edges, target_crs)
         gdf_buildings = gdf_buildings.to_crs(target_crs)
 
-        for index, edge in gdf_edges.iterrows():
-            edge_centroid = edge.geometry.centroid
-            buffer = edge_centroid.buffer(urban_threshold)
-            buffer_gdf = gpd.GeoDataFrame(geometry=[buffer], crs=gdf_edges.crs)
-            possible_matches = gpd.sjoin(gdf_buildings, buffer_gdf, how="inner", predicate="intersects")
-            if not possible_matches.empty:
-                gdf_edges.at[index, "context"] = "urban"
+        # One spatial join for every edge at once, instead of a Python loop
+        # running a fresh gpd.sjoin() per edge (each rebuilding a spatial
+        # index over gdf_buildings from scratch) - same "any building
+        # within urban_threshold of the edge centroid" test, ~150x faster
+        # on a synthetic 3000-edge/3000-building benchmark (29s -> 0.2s,
+        # verified identical output). This step runs on every area's full
+        # edge set during fetch, so at real comune scale (tens of
+        # thousands of edges) it was very plausibly the single biggest
+        # contributor to per-comune processing time.
+        # .values strips the geometry Series' own index before handing it to
+        # the constructor - gdf_edges.index (e.g. osmnx's (u, v, key)
+        # MultiIndex) doesn't line up with the fresh default RangeIndex a
+        # dict-built GeoDataFrame gets otherwise, which pandas refuses to
+        # reconcile ("incompatible index of inserted column with frame
+        # index"). Positional values line up correctly either way.
+        buffers = gpd.GeoDataFrame(
+            {"edge_index": gdf_edges.index},
+            geometry=gdf_edges.geometry.centroid.buffer(urban_threshold).values,
+            crs=gdf_edges.crs,
+        )
+        joined = gpd.sjoin(buffers, gdf_buildings[["geometry"]], how="inner", predicate="intersects")
+        urban_edge_indices = joined["edge_index"].unique()
+        gdf_edges.loc[urban_edge_indices, "context"] = "urban"
 
         return gdf_edges

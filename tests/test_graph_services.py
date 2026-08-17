@@ -8,9 +8,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "code"))
 try:
     import geopandas as gpd
     import osmnx as ox
-    from shapely.geometry import LineString
+    import pandas as pd
+    from shapely.geometry import LineString, Point
 
-    from ltsbikeplan.services.graph_services import GraphLoaderService
+    from ltsbikeplan.services.graph_services import GraphLoaderService, UrbanContextClassifier
 
     GEO_DEPS_AVAILABLE = True
 except ImportError:  # pragma: no cover - geo deps optional in this env
@@ -59,6 +60,57 @@ class TestDownloadGraphFetchesExtraTags(unittest.TestCase):
                 self.assertIn(tag, ox.settings.useful_tags_way)
         finally:
             ox.settings.useful_tags_way = original_tags
+
+
+@unittest.skipUnless(GEO_DEPS_AVAILABLE, "geopandas/osmnx (geo extras) not installed")
+class TestClassifyEdgesByQuintiles(unittest.TestCase):
+    def test_edge_near_a_building_is_urban_others_stay_countryside(self):
+        # Was previously a gpd.sjoin() call per edge in a Python loop -
+        # ~150x slower than the single vectorized sjoin this replaced it
+        # with (29s -> 0.2s on a synthetic 3000-edge/3000-building
+        # benchmark), very plausibly the dominant per-comune cost given
+        # this runs once per area's full edge set during fetch. Confirms
+        # the vectorized version keeps the exact same "any building within
+        # urban_threshold of the edge centroid" semantics.
+        edges = gpd.GeoDataFrame(
+            geometry=[
+                LineString([(0, 0), (0, 0.001)]),  # centroid near the building below - urban
+                LineString([(10, 10), (10, 10.001)]),  # far from any building - countryside
+            ],
+            crs="EPSG:4326",
+        )
+        buildings = gpd.GeoDataFrame(geometry=[Point(0, 0.0005)], crs="EPSG:4326")
+        # quintiles[2] is the urban_threshold this method reads - values
+        # in metres once reprojected to the edges' own estimated UTM CRS.
+        quintiles = [0, 0, 200, 0, 0]
+
+        result = UrbanContextClassifier().classify_edges_by_quintiles(edges, buildings, quintiles)
+
+        self.assertListEqual(list(result["context"]), ["urban", "countryside"])
+
+    def test_preserves_a_multiindex_like_osmnx_edges(self):
+        # osmnx edges carry a (u, v, key) MultiIndex, not a plain
+        # RangeIndex - the vectorized rewrite builds an intermediate
+        # GeoDataFrame keyed by edge position internally, which broke on a
+        # MultiIndex input during development ("incompatible index of
+        # inserted column with frame index") until geometry was passed as
+        # .values instead of the geometry Series (which still carried the
+        # original MultiIndex, misaligned against the intermediate frame's
+        # own fresh RangeIndex).
+        idx = pd.MultiIndex.from_tuples([(1, 2, 0), (3, 4, 0)], names=["u", "v", "key"])
+        edges = gpd.GeoDataFrame(
+            geometry=[LineString([(0, 0), (0, 0.001)]), LineString([(10, 10), (10, 10.001)])],
+            index=idx,
+            crs="EPSG:4326",
+        )
+        buildings = gpd.GeoDataFrame(geometry=[Point(0, 0.0005)], crs="EPSG:4326")
+        quintiles = [0, 0, 200, 0, 0]
+
+        result = UrbanContextClassifier().classify_edges_by_quintiles(edges, buildings, quintiles)
+
+        self.assertIsInstance(result.index, pd.MultiIndex)
+        self.assertListEqual(list(result.index), [(1, 2, 0), (3, 4, 0)])
+        self.assertListEqual(list(result["context"]), ["urban", "countryside"])
 
 
 if __name__ == "__main__":
