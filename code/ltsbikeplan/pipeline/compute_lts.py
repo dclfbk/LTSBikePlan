@@ -86,6 +86,14 @@ def run_compute_lts(data_dir: str, area: AreaSpec, include_report_exports: bool 
     with open(pickle_path, "rb") as file_handle:
         gdf_nodes, gdf_edges, city = pickle.load(file_handle)
 
+    # osmnx's (u, v, key) MultiIndex comes out of graph traversal order, not
+    # sorted - every `.loc[:, ...]` assignment throughout BikePathAnalysis
+    # (lts_rules.py) below then re-triggers pandas' "indexing past lexsort
+    # depth" PerformanceWarning, once per stage, on every single area.
+    # Sorting once here (verified: has no effect on the actual LTS values,
+    # just row order) covers all of them instead of chasing each call site.
+    gdf_edges = gdf_edges.sort_index()
+
     # Captured before any pd.concat below, which drops GeoDataFrame/crs
     # metadata - this is the only reliable source of the edges' *actual*
     # CRS (whatever the DEM raster used by SlopeService was in), since the
