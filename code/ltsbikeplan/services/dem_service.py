@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import os
 import sys
+import tempfile
 from io import BytesIO
 from typing import Optional, Tuple
 
@@ -67,8 +68,20 @@ class MapterhornDemService:
                 return Image.open(cached_path)
             response = requests.get(MAPTERHORN_TILE_URL.format(z=self.zoom, x=x, y=y), timeout=60)
             response.raise_for_status()
-            with open(cached_path, "wb") as file_handle:
-                file_handle.write(response.content)
+            # This cache_dir is shared across areas (adjacent comuni reuse
+            # each other's tiles) and, since the comuni cron script can now
+            # run several comuni concurrently, two processes can race to
+            # fetch the same missing tile. Write-then-rename so a reader
+            # never sees a truncated/partial file - os.replace is atomic on
+            # POSIX, so the loser's write is simply discarded, not merged.
+            fd, tmp_path = tempfile.mkstemp(dir=self.cache_dir, prefix=".tmp_", suffix=".webp")
+            try:
+                with os.fdopen(fd, "wb") as file_handle:
+                    file_handle.write(response.content)
+                os.replace(tmp_path, cached_path)
+            except BaseException:
+                os.remove(tmp_path)
+                raise
             return Image.open(cached_path)
 
         response = requests.get(MAPTERHORN_TILE_URL.format(z=self.zoom, x=x, y=y), timeout=60)
