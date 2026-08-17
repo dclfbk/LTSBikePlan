@@ -199,5 +199,36 @@ class TestLtsRules(unittest.TestCase):
         self.assertEqual(int(updated.iloc[0]["lts"]), 1)
 
 
+class TestGetMaxSpeed(unittest.TestCase):
+    def test_numeric_and_missing_values(self):
+        edges = pd.DataFrame({"maxspeed": ["30", None], "highway": ["residential", "residential"]})
+        updated = BikePathAnalysis.get_max_speed(edges)
+        self.assertEqual(list(updated["maxspeed_assumed"]), [30, 50])  # 50 = local default for a missing tag
+
+    def test_italian_implicit_speed_zones(self):
+        # OSM's Italy-specific implicit-speed convention: maxspeed can be a
+        # zone name instead of a number. IT:rural was the one missing here -
+        # confirmed live on Paceco (54 real highway=tertiary edges tagged
+        # maxspeed=IT:rural) - it fell through to `return val`, leaving the
+        # literal string "IT:rural" in maxspeed_assumed and crashing the
+        # next `<=` comparison against it downstream in mixed_traffic()
+        # with `TypeError: '<=' not supported between instances of 'str'
+        # and 'int'`.
+        edges = pd.DataFrame(
+            {
+                "maxspeed": ["IT:urban", "IT:rural", "IT:motorway"],
+                "highway": ["residential", "tertiary", "motorway"],
+            }
+        )
+        updated = BikePathAnalysis.get_max_speed(edges)
+        self.assertEqual(list(updated["maxspeed_assumed"]), [50, 90, 130])
+        self.assertTrue(pd.api.types.is_numeric_dtype(updated["maxspeed_assumed"]))
+
+    def test_unrecognized_string_falls_back_to_local_instead_of_leaking_the_string(self):
+        edges = pd.DataFrame({"maxspeed": ["walk"], "highway": ["residential"]})
+        updated = BikePathAnalysis.get_max_speed(edges)
+        self.assertEqual(updated.iloc[0]["maxspeed_assumed"], 50)
+
+
 if __name__ == "__main__":
     unittest.main()
