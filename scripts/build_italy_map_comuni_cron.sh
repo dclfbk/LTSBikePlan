@@ -166,11 +166,17 @@ export DATA_DIR PROGRESS_FILE FAILED_FILE LTSBP_CLEANUP_CACHE LTSBP_KEEP_GEOJSON
 printf '%s\n' "${BATCH[@]}" | xargs -d '\n' -P "$PARALLEL_JOBS" -I{} bash -c 'process_comune "$@"' _ {}
 
 log "Rebuilding merged national tileset..."
-scripts/build_national_tiles.sh "$DATA_DIR"
+TILE_BUILD_FAILED=0
+if ! scripts/build_national_tiles.sh "$DATA_DIR"; then
+  log "ERROR: national tileset rebuild failed - this batch's comuni were processed but web/data/italia_lts.pmtiles was NOT updated"
+  TILE_BUILD_FAILED=1
+fi
 
 FAILED_COUNT=$(wc -l < "$FAILED_FILE" | tr -d ' ')
-if [ "$FAILED_COUNT" -gt 0 ]; then
-  log "Done with $FAILED_COUNT failure(s) this batch: $(paste -sd, "$FAILED_FILE")"
+if [ "$FAILED_COUNT" -gt 0 ] || [ "$TILE_BUILD_FAILED" -eq 1 ]; then
+  if [ "$FAILED_COUNT" -gt 0 ]; then
+    log "Done with $FAILED_COUNT failure(s) this batch: $(paste -sd, "$FAILED_FILE")"
+  fi
   exit 1
 fi
 log "Done, ${#BATCH[@]} comuni processed successfully this batch ($(( ${#REMAINING[@]} - ${#BATCH[@]} )) remaining after this run)."
