@@ -67,7 +67,12 @@ class TestLtsRules(unittest.TestCase):
         self.assertTrue(not_separated.empty)
         self.assertListEqual(list(separated["rule"]), ["s1", "s9", "s9"])
 
-    def test_hard_mtb_scale_footway_is_reclassified_as_impassable(self):
+    def test_mtb_scale_is_ignored(self):
+        # mtb:scale was checked here too at one point - dropped since even
+        # its lowest value already targets a mountain bike, not this
+        # project's city/e-bike scope, and slope_penalty is the tag meant
+        # to decide trail difficulty. A path/footway with only mtb:scale
+        # set (no sac_scale) should stay a normal separated path.
         edges = pd.DataFrame(
             {
                 "highway": ["footway", "footway", "footway"],
@@ -76,12 +81,12 @@ class TestLtsRules(unittest.TestCase):
         )
 
         separated, _ = BikePathAnalysis.is_separated_path(edges)
-        self.assertListEqual(list(separated["rule"]), ["s2", "s2", "s9"])
+        self.assertListEqual(list(separated["rule"]), ["s2", "s2", "s2"])
 
     def test_sac_scale_does_not_affect_a_dedicated_cycleway(self):
-        # sac_scale/mtb:scale describe trail difficulty - a real cycleway
-        # (s3) isn't a trail, so the tag (however implausible on one) should
-        # never downgrade it.
+        # sac_scale describes trail difficulty - a real cycleway (s3) isn't
+        # a trail, so the tag (however implausible on one) should never
+        # downgrade it.
         edges = pd.DataFrame(
             {
                 "highway": ["cycleway"],
@@ -92,7 +97,7 @@ class TestLtsRules(unittest.TestCase):
         separated, _ = BikePathAnalysis.is_separated_path(edges)
         self.assertEqual(separated.iloc[0]["rule"], "s3")
 
-    def test_is_separated_path_without_sac_scale_or_mtb_scale_columns(self):
+    def test_is_separated_path_without_sac_scale_column(self):
         edges = pd.DataFrame({"highway": ["path"]})
 
         separated, not_separated = BikePathAnalysis.is_separated_path(edges)
@@ -146,6 +151,22 @@ class TestLtsRules(unittest.TestCase):
         )
         updated = BikePathAnalysis.slope_penalty(edges)
         self.assertEqual(int(updated.iloc[0]["lts"]), 4)
+
+    def test_slope_penalty_leaves_excluded_edges_at_zero(self):
+        # An lts=0 edge (motorway, bicycle=no, an s9 mountain trail, steps
+        # without a ramp) is "not applicable", not a real comfort score to
+        # escalate - a steep, long excluded edge must stay at 0, not get
+        # bumped into the 1-4 rideable scale the way a real edge would.
+        edges = pd.DataFrame(
+            {
+                "context": ["urban"],
+                "slope_class": ["10-20: extreme"],
+                "length": [700.0],
+                "lts": [0],
+            }
+        )
+        updated = BikePathAnalysis.slope_penalty(edges)
+        self.assertEqual(int(updated.iloc[0]["lts"]), 0)
 
     def test_surface_penalty_severe_adds_one_regardless_of_length(self):
         # Flat +1 for severe surfaces, any length - losing traction on

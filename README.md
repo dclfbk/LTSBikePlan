@@ -179,6 +179,17 @@ For a real deployment that also keeps itself up to date (rather than the local `
 
 Code updates (new features/fixes) are a separate step from data rebuilds: `git -C /opt/stressinbici/LTSBikePlan pull && sudo systemctl restart nginx` picks up `web/` changes; re-run `scripts/setup_server.sh` if `pyproject.toml`/the lockfiles changed too.
 
+### CDN (Cloudflare, free plan)
+
+`.pmtiles` files can be sizeable per area (tens of MB), and every visitor's pan/zoom issues its own byte-range request straight at the origin nginx box - fronting it with Cloudflare's free CDN caches those ranges at the edge instead, with no cost and no change to `web/` or the nginx config above (both already do the right thing: gzip off and `Cache-Control` set on `.pmtiles`, which Cloudflare respects). All manual, one-time steps in Cloudflare's dashboard and at the domain registrar - nothing here for a bot/script to run:
+
+1. Add `stressinbici.it` as a site in Cloudflare (Free plan).
+2. At the domain registrar, point the domain's nameservers at the two Cloudflare assigns (shown during that same setup flow).
+3. In the DNS tab, set the `stressinbici.it` (and `www`) record(s) to **Proxied** (orange cloud) - this is what actually routes traffic through Cloudflare's CDN; "DNS only" (grey cloud) would just resolve the name without any caching benefit.
+4. Add a Cache Rule (Rules -> Cache Rules): match `URI Path ends with .pmtiles`, action "Eligible for cache", Edge TTL matching origin (`Respect origin` is enough, since nginx already sends `Cache-Control: public, max-age=3600` on these). Needed because Cloudflare doesn't cache every file extension by default.
+
+Free plan caches files up to 512MB - every per-area `.pmtiles` built by `build_tiles.sh` today is comfortably under that (tens of MB). The one open question is `web/data/italia_lts.pmtiles` (the merged national tileset `build_national_tiles.sh` produces) once most of Italy's ~7893 comuni are processed - re-check its size against that 512MB ceiling as the incremental cron above covers more of the country; if it ends up over, that one file simply won't be edge-cached (still works, just uncached, no worse than today) until it's split or served another way.
+
 ## Manual Inputs
 
 Optional (for extended sections):

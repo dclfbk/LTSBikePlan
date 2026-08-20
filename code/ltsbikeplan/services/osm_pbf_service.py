@@ -32,7 +32,6 @@ EXTRA_NETWORK_ATTRIBUTES = [
     "parking:condition",
     "motorroad",
     "sac_scale",
-    "mtb:scale",
 ]
 
 # Columns BikePathAnalysis reads unconditionally (would KeyError, not just
