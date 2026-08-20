@@ -31,33 +31,38 @@
 # Trento's densest tiles without needing the fallback; revisit upward
 # if a larger provincia/regione build still triggers it.
 #
-# --minimum-zoom=7: web/app.js's lts-lines/gap-edges layers only render
-# from MIN_STREETS_ZOOM (7) up - below that, the map shows a "zoom in"
+# --minimum-zoom=4: web/app.js's lts-lines/gap-edges layers only render
+# from MIN_STREETS_ZOOM (4) up - below that, the map shows a "zoom in"
 # hint instead and never even requests tiles below it (MapLibre skips
-# fetching a source's tiles for zooms with no active layer). Building
-# z4-6 here would just be tile bytes nothing ever reads.
+# fetching a source's tiles for zooms with no active layer).
 #
-# MAJOR_ROADS_FILTER (-j): at z7-11 (still below MIN_CLICK_ZOOM, so this is
-# always an overview scale, not a "look at this one street" scale), only
-# motorway/trunk/primary/secondary roads are kept - every other class
-# (residential/tertiary/unclassified/service/footway/path/cycleway/...)
-# only appears from z12 up. Without this, z7 would be illegible (every
-# street segment at once, a solid mass of colour) - this filter is what
-# makes starting the whole map two zooms earlier (was 4, tried 8, now 7)
-# viable at all: only the sparse major-road skeleton renders that low.
-# Every edge is its own feature at every zoom it's included in (edges are
-# minimal 2-point segments already - nothing left to simplify
-# geometrically, verified: .simplify() removed zero vertices at any tested
-# tolerance on real data), so feature *count* is what tile weight below
-# z12 is made of - measured 42% of one national test tileset's total bytes
-# were z8-12 alone, before this filter existed. Confirmed on Pachino:
-# 6.46MB -> 4.35MB (-33%) for its (then z8-11) filtered tiles, identical
-# z12+. $zoom is a tippecanoe built-in - see "Filtering features by
-# attributes" in tippecanoe's own docs for the filter expression syntax
-# (Mapbox GL legacy filter spec, not the newer expression syntax -
-# tippecanoe rejected ["get"/"literal"]-wrapped expressions with
-# "\"!in\" key is not a string" when this was being tested).
-MAJOR_ROADS_FILTER='{"lts": ["any", [">=", "$zoom", 12], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link", "secondary", "secondary_link"]]}'
+# MAJOR_ROADS_FILTER (-j): tiered by zoom, all still below MIN_CLICK_ZOOM
+# (an overview scale, never a "look at this one street" scale) except the
+# z12 full-detail tier:
+#   z4-5:  motorway/trunk only (a whole-Italy/regional view - even the
+#          primary network is too dense to read at this scale)
+#   z6-11: + primary
+#   z7-11: + secondary (unchanged from the original single-tier filter)
+#   z12+:  every class (residential/tertiary/unclassified/service/
+#          footway/path/cycleway/...)
+# Without this, z4 would be illegible (every street segment at once, a
+# solid mass of colour) - this filter is what makes starting the whole
+# map at z4 (raised to 7 at one point when it was one flat tier down to
+# z4, then re-split into tiers here) viable at all: only the sparse
+# major-road skeleton renders that low. Every edge is its own feature at
+# every zoom it's included in (edges are minimal 2-point segments already
+# - nothing left to simplify geometrically, verified: .simplify() removed
+# zero vertices at any tested tolerance on real data), so feature *count*
+# is what tile weight below z12 is made of - measured 42% of one national
+# test tileset's total bytes were z8-12 alone, before any zoom-tiering
+# existed. Confirmed on Pachino: 6.46MB -> 4.35MB (-33%) for its (then
+# z8-11) filtered tiles, identical z12+. $zoom is a tippecanoe built-in -
+# see "Filtering features by attributes" in tippecanoe's own docs for the
+# filter expression syntax (Mapbox GL legacy filter spec, not the newer
+# expression syntax - tippecanoe rejected ["get"/"literal"]-wrapped
+# expressions with "\"!in\" key is not a string" when this was being
+# tested).
+MAJOR_ROADS_FILTER='{"lts": ["any", [">=", "$zoom", 12], ["all", [">=", "$zoom", 7], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link", "secondary", "secondary_link"]], ["all", [">=", "$zoom", 6], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link"]], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link"]]}'
 #
 # Usage: scripts/build_tiles.sh <area_slug> [data_dir]
 set -euo pipefail
@@ -97,7 +102,7 @@ mkdir -p "$OUT_DIR"
 tippecanoe \
   -o "$MBTILES" \
   --force \
-  --minimum-zoom=7 \
+  --minimum-zoom=4 \
   --maximum-zoom=16 \
   --extend-zooms-if-still-dropping \
   --maximum-tile-bytes=5000000 \

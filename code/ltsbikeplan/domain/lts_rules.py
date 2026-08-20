@@ -3,10 +3,15 @@ import pandas as pd
 
 # sac_scale values beyond plain "hiking" (T1) - roots, exposure, scrambling -
 # aren't something a city or e-bike can realistically ride, even though the
-# way is legally a highway=path/footway. mtb:scale >= 2 is the same idea
-# from the mountain-bike side: per the OSM wiki, 0-1 are rideable on a
-# hybrid, 2+ needs real technical MTB handling. See
-# BikePathAnalysis.is_separated_path.
+# way is legally a highway=path/footway. See BikePathAnalysis.is_separated_path.
+#
+# mtb:scale is deliberately NOT used here (it was, briefly) - even its
+# lowest value (0, per the OSM wiki: "no particular difficulties") already
+# describes terrain aimed at a mountain bike, not the city/e-bike audience
+# this project is scoped to, so the tag can't usefully distinguish "fine
+# for our riders" from "not." The dimension that should actually decide a
+# trail's difficulty here is steepness, and that's already handled
+# separately and more granularly by BikePathAnalysis.slope_penalty.
 _HARD_SAC_SCALE_VALUES = {
     "mountain_hiking",
     "demanding_mountain_hiking",
@@ -14,7 +19,6 @@ _HARD_SAC_SCALE_VALUES = {
     "demanding_alpine_hiking",
     "difficult_alpine_hiking",
 }
-_HARD_MTB_SCALE_MIN = 2
 
 # Surface quality LTS penalty (BikePathAnalysis.surface_penalty) - none of
 # the rules above look at `surface` at all, so a ground/dirt cycleway and a
@@ -158,20 +162,17 @@ class BikePathAnalysis:
 
         # A highway=path/footway (s1/s2) isn't automatically a comfortable
         # cycling facility the way a dedicated cycleway is - it can just as
-        # well be a genuine mountain trail. Where sac_scale/mtb:scale record
-        # that, reclassify to "s9": not a stress level, a physical
-        # impossibility for a city/e-bike, the same treatment
-        # BikePathAnalysis.steps_analysis gives stairs without a ramp.
-        # Restricted to s1/s2 - a cycleway (s3) or a track/opposite_track
-        # cycleway (s7/s8) is road infrastructure, not a trail, so these
-        # tags wouldn't apply there.
+        # well be a genuine mountain trail. Where sac_scale records that,
+        # reclassify to "s9": not a stress level, a physical impossibility
+        # for a city/e-bike, the same treatment BikePathAnalysis.steps_
+        # analysis gives stairs without a ramp. Restricted to s1/s2 - a
+        # cycleway (s3) or a track/opposite_track cycleway (s7/s8) is road
+        # infrastructure, not a trail, so this tag wouldn't apply there.
+        # (mtb:scale was checked here too at one point - see
+        # _HARD_SAC_SCALE_VALUES above for why it was dropped.)
         natural_trail = gdf_edges["rule"].isin(["s1", "s2"])
         hard_sac_scale = gdf_edges["sac_scale"].isin(_HARD_SAC_SCALE_VALUES) if "sac_scale" in gdf_edges.columns else False
-        if "mtb:scale" in gdf_edges.columns:
-            hard_mtb_scale = pd.to_numeric(gdf_edges["mtb:scale"], errors="coerce") >= _HARD_MTB_SCALE_MIN
-        else:
-            hard_mtb_scale = False
-        impassable_trail = natural_trail & (hard_sac_scale | hard_mtb_scale)
+        impassable_trail = natural_trail & hard_sac_scale
         gdf_edges.loc[impassable_trail, "rule"] = "s9"
 
         separated = gdf_edges[gdf_edges["rule"] != "s0"]
@@ -464,6 +465,14 @@ class BikePathAnalysis:
     @staticmethod
     def slope_penalty(edges):
         def adjust_lts(row):
+            # Same "don't touch an excluded edge" guard as surface_penalty's
+            # `rideable = original_lts >= 1`: lts=0 here isn't a real comfort
+            # score to escalate, it's "not applicable" (motorway, bicycle=no,
+            # an s9 mountain trail too hard to ride, steps without a ramp) -
+            # if bikes can't go there at all, slope doesn't matter and the
+            # calculation is skipped entirely rather than run and capped.
+            if row["lts"] < 1:
+                return row["lts"]
             if row["context"] == "urban":
                 if row["slope_class"] in ["0-3: flat", "3-5: mild"]:
                     return row["lts"]

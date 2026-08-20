@@ -43,20 +43,20 @@ class TestFilterMajorRoads(unittest.TestCase):
 @unittest.skipUnless(GEO_DEPS_AVAILABLE, "geopandas/osmnx (geo extras) not installed")
 class TestDownloadGraphFetchesExtraTags(unittest.TestCase):
     def test_extra_tags_are_added_to_useful_tags_way(self):
-        # osmnx doesn't fetch "motorroad"/"sac_scale"/"mtb:scale" by
-        # default - without this, the rules in BikePathAnalysis that read
-        # them (trunk/motorroad legal restriction, mountain-trail
-        # difficulty) would never see the tags on the osmnx ingestion path.
+        # osmnx doesn't fetch "motorroad"/"sac_scale" by default - without
+        # this, the rules in BikePathAnalysis that read them (trunk/
+        # motorroad legal restriction, mountain-trail difficulty) would
+        # never see the tags on the osmnx ingestion path.
         original_tags = list(ox.settings.useful_tags_way)
         ox.settings.useful_tags_way = [
-            tag for tag in original_tags if tag not in {"motorroad", "sac_scale", "mtb:scale"}
+            tag for tag in original_tags if tag not in {"motorroad", "sac_scale"}
         ]
         try:
             with mock.patch("ltsbikeplan.services.graph_services.ox.graph_from_place") as mock_graph_from_place, \
                  mock.patch("ltsbikeplan.services.graph_services.ox.graph_to_gdfs") as mock_graph_to_gdfs:
                 mock_graph_to_gdfs.return_value = (gpd.GeoDataFrame(), gpd.GeoDataFrame())
                 GraphLoaderService().download_graph("Test City")
-            for tag in ("motorroad", "sac_scale", "mtb:scale"):
+            for tag in ("motorroad", "sac_scale"):
                 self.assertIn(tag, ox.settings.useful_tags_way)
         finally:
             ox.settings.useful_tags_way = original_tags

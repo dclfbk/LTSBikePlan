@@ -112,10 +112,10 @@ def run_compute_lts(data_dir: str, area: AreaSpec, include_report_exports: bool 
     # small/rural areas with no dedicated cycleways (found running the
     # Atrani pilot after this refactor made per-comune runs routine).
     # "s9" (see BikePathAnalysis.is_separated_path) is a path/footway a
-    # sac_scale/mtb:scale tag marks as a genuine mountain trail, not a
-    # comfortable dedicated facility - lts=0, same "not applicable" bucket
-    # as steps without a ramp, rather than the lts=1 every other separated
-    # path gets.
+    # sac_scale tag marks as a genuine mountain trail, not a comfortable
+    # dedicated facility - lts=0, same "not applicable" bucket as steps
+    # without a ramp, rather than the lts=1 every other separated path
+    # gets.
     separated_edges["lts"] = np.where(separated_edges["rule"] == "s9", 0, 1)
 
     to_analyze, no_lane = BikePathAnalysis.is_bike_lane(unseparated_edges)

@@ -10,9 +10,11 @@ from ltsbikeplan.domain.crs import WORKING_CRS, chunked_to_crs
 # Tags BikePathAnalysis reads that aren't in osmnx's default
 # useful_tags_way - without these, they'd silently never reach the domain
 # rules that need them on the osmnx ingestion path (motorroad: trunk/
-# trunk_link legally barred to bicycles; sac_scale/mtb:scale: mountain
-# trails too technical for a city/e-bike despite being highway=path/footway).
-_EXTRA_USEFUL_TAGS_WAY = ["motorroad", "sac_scale", "mtb:scale"]
+# trunk_link legally barred to bicycles; sac_scale: mountain trails too
+# technical for a city/e-bike despite being highway=path/footway). mtb:scale
+# was here too at one point - dropped along with the domain rule that read
+# it, see lts_rules.py's _HARD_SAC_SCALE_VALUES comment for why.
+_EXTRA_USEFUL_TAGS_WAY = ["motorroad", "sac_scale"]
 
 
 class GraphLoaderService:

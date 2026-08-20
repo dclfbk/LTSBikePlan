@@ -8,7 +8,7 @@
 # Requires `tippecanoe`, `tile-join` and `pmtiles`
 # (https://github.com/protomaps/go-pmtiles) on PATH. See build_tiles.sh for
 # why this goes through an intermediate .mbtiles before converting to
-# PMTiles, and for why --minimum-zoom=7 below (web/app.js's lts-lines/
+# PMTiles, and for why --minimum-zoom=4 below (web/app.js's lts-lines/
 # gap-edges layers only render from that zoom up, and MapLibre skips
 # fetching a source's tiles entirely below the zoom of its lowest active
 # layer - matters even more here than per-area, since this tippecanoe run
@@ -17,17 +17,19 @@
 # --drop-densest-as-needed: unlike build_tiles.sh (deliberately WITHOUT it,
 # see that file for why), the merged national tileset needs it - confirmed
 # live merging ~50 Sicilian comuni (2M+ features): a single low-zoom tile
-# (5/17/12, back when this built down to z4 - the risk is smaller now that
-# z4-7 aren't built at all, a z8 tile covers a much smaller area, but not
-# zero) exceeded tippecanoe's hard 200000-features-per-tile cap, which has
-# no size-based fallback -
+# (5/17/12, back when this built down to z4 with a single flat MAJOR_ROADS_
+# FILTER tier instead of today's zoom-tiered one) exceeded tippecanoe's
+# hard 200000-features-per-tile cap, which has no size-based fallback -
 # tippecanoe just stopped emitting any zoom past the last one that fit
 # ("TILES ONLY COMPLETE THROUGH ZOOM 4" - the resulting pmtiles had no
-# street-level detail anywhere). At the low/regional zooms where this cap
-# can even be hit, thinning out density is the correct behaviour (nobody's
-# reading individual street segments at a whole-Italy overview zoom) -
-# --extend-zooms-if-still-dropping (already present below) is specifically
-# meant to pair with a dropping option like this one.
+# street-level detail anywhere). z4-5 now only admits motorway/trunk (see
+# MAJOR_ROADS_FILTER below), which is sparse enough that this cap
+# shouldn't be hit there again, but this option stays on as a safety net -
+# at the low/regional zooms where the cap can even be hit, thinning out
+# density is the correct behaviour (nobody's reading individual street
+# segments at a whole-Italy overview zoom) - --extend-zooms-if-still-
+# dropping (already present below) is specifically meant to pair with a
+# dropping option like this one.
 #
 # BATCHED BY ESTIMATED SIZE, not by area count: the comuni cron script
 # deletes each area's .geojson right after that area's own tiles are
@@ -66,11 +68,11 @@
 # a flat 30x with headroom. Areas that still have a real .geojson (not yet
 # cleaned up) use its actual size instead, no estimate needed.
 #
-# MAJOR_ROADS_FILTER (-j): same as build_tiles.sh - at z8-11, only major
-# roads (motorway/trunk/primary/secondary) are kept, every other class only
-# from z12 up. See that file for the full reasoning/measurements; applies
-# per-batch here (each batch's own tippecanoe call), same as
-# --drop-densest-as-needed already does.
+# MAJOR_ROADS_FILTER (-j): same as build_tiles.sh - tiered by zoom
+# (motorway/trunk only at z4-5, +primary from z6, +secondary from z7,
+# every class from z12 up). See that file for the full reasoning/
+# measurements; applies per-batch here (each batch's own tippecanoe call),
+# same as --drop-densest-as-needed already does.
 #
 # Usage: LTSBP_NATIONAL_BATCH_MAX_MB=1000 scripts/build_national_tiles.sh [data_dir]
 set -euo pipefail
@@ -80,7 +82,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="$REPO_ROOT/web/data"
 BATCH_MAX_BYTES=$(( ${LTSBP_NATIONAL_BATCH_MAX_MB:-1000} * 1000 * 1000 ))
 PARQUET_TO_GEOJSON_RATIO=30
-MAJOR_ROADS_FILTER='{"lts": ["any", [">=", "$zoom", 12], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link", "secondary", "secondary_link"]]}'
+MAJOR_ROADS_FILTER='{"lts": ["any", [">=", "$zoom", 12], ["all", [">=", "$zoom", 7], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link", "secondary", "secondary_link"]], ["all", [">=", "$zoom", 6], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link"]], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link"]]}'
 
 # Everything this run creates lives under one throwaway directory, not
 # loose mktemp files sharing a generic /tmp/tmp.* prefix - a real incident:
@@ -169,7 +171,7 @@ run_batch() {
   tippecanoe \
     -o "$batch_mbtiles" \
     --force \
-    --minimum-zoom=7 \
+    --minimum-zoom=4 \
     --maximum-zoom=16 \
     --extend-zooms-if-still-dropping \
     --drop-densest-as-needed \

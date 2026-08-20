@@ -7,13 +7,15 @@ const MIN_CLICK_ZOOM = 14;
 // MIN_STREETS_ZOOM on their `minzoom`, and #zoom-hint's show/hide further
 // below) - skipping the layer entirely below this zoom means MapLibre
 // doesn't fetch the "lts" source's tiles at those zooms either, not just
-// hides them once fetched. Lowered from 8 to 7 once the tile build's own
-// MAJOR_ROADS_FILTER (scripts/build_tiles.sh/build_national_tiles.sh) only
-// keeps motorway/trunk/primary/secondary below z12 - at z7 that's a sparse,
-// legible skeleton, not the "solid mass of colour" every street segment at
-// once would have been (the original reason this started at 8, back when
-// every class rendered at every zoom).
-const MIN_STREETS_ZOOM = 7;
+// hides them once fetched. Lowered to 4 (from 7) now that the tile build's
+// own MAJOR_ROADS_FILTER (scripts/build_tiles.sh/build_national_tiles.sh)
+// tiers by zoom instead of a single z<12 cutoff: motorway/trunk only at
+// z4-5, +primary from z6, +secondary from z7 (unchanged), everything from
+// z12 - so z4 is still a sparse, legible skeleton rather than the "solid
+// mass of colour" every street segment at once would have been (the
+// original reason this started at 8, back when every class rendered at
+// every zoom).
+const MIN_STREETS_ZOOM = 4;
 
 // Area to load: web/index.html?area=<area_slug>, matching the file
 // scripts/build_tiles.sh writes to web/data/<area_slug>_lts.pmtiles.
@@ -628,11 +630,23 @@ function ltsIndicatorHtml(key, color) {
   return ltsFaceIcon(key, color) || `<span class="swatch" style="background:${color}"></span>`;
 }
 
-const LTS_COLOR_EXPRESSION = ["match", ["to-string", ["get", "lts"]]];
-for (const [key, color] of Object.entries(LTS_COLORS)) {
-  LTS_COLOR_EXPRESSION.push(key, color);
+// LTS_COLORS' own "0" (#555555, near-black) all but disappears against the
+// "dark" basemap - swapped for white here, but only for the on-map line
+// layer: the legend/popup/PDF swatches (which read LTS_COLORS directly,
+// always against #panel's white background - see styles.css) stay the
+// documented grey regardless of basemap. Rebuilt fresh on every call
+// rather than cached once, since addDataLayers() (which calls this) reruns
+// on every basemap switch and currentBasemap may have changed since the
+// last build.
+function buildLtsLineColorExpression() {
+  const zeroColor = currentBasemap === "dark" ? "#FFFFFF" : LTS_COLORS["0"];
+  const expression = ["match", ["to-string", ["get", "lts"]]];
+  for (const [key, color] of Object.entries(LTS_COLORS)) {
+    expression.push(key, key === "0" ? zeroColor : color);
+  }
+  expression.push(LTS_FALLBACK_COLOR);
+  return expression;
 }
-LTS_COLOR_EXPRESSION.push(LTS_FALLBACK_COLOR);
 
 // Legend doubles as a filter: click a class to hide/show it on the map.
 // All classes start active (or whatever the URL's ?lts= says); the layer
@@ -729,6 +743,7 @@ function popupHtml(props) {
         <div><b>${t("popupSlope")}:</b> ${props.slope != null ? Number(props.slope).toFixed(1) + "%" : "-"}${slopePhrase ? ` (${slopePhrase})` : ""}</div>
         <div><b>${t("popupLength")}:</b> ${props.length != null ? Number(props.length).toFixed(0) + " m" : "-"}</div>
         <div><b>${t("popupRule")}:</b> ${ruleSentence ?? "-"}</div>
+        <div><b>OSM:</b> ${props.osmid != null ? `<a href="https://www.openstreetmap.org/way/${props.osmid}" target="_blank" rel="noopener noreferrer">${t("popupOsmLink")}</a>` : "-"}</div>
       </details>
     </div>
   `;
@@ -793,7 +808,7 @@ function addDataLayers() {
         // spikes at each vertex.
         layout: { "line-join": "round", "line-cap": "round" },
         paint: {
-          "line-color": LTS_COLOR_EXPRESSION,
+          "line-color": buildLtsLineColorExpression(),
           "line-width": LTS_LINE_WIDTH,
         },
       },
