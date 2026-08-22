@@ -69,6 +69,16 @@ REQUIRED_EDGE_COLUMNS = [
     "cycleway:both",
     "width",
     "est_width",
+    # compute_lts.py's export_columns selects "name" unconditionally (web
+    # viewer popup). Neither ingestion path guarantees it otherwise: pyrosm
+    # only materializes the column if at least one way in the extract
+    # carries a `name` tag, and apply_route_name_fallback (the other source
+    # of `name`, from route relations) exits early when the extract has no
+    # `route=bicycle` relations at all - both conditions hold for small
+    # rural comuni like Ranzo, whose extract has neither named ways nor
+    # bicycle route relations, crashing the parquet/geojson export with
+    # KeyError: 'name'.
+    "name",
 ]
 
 

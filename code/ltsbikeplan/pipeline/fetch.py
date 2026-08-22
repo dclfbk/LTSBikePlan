@@ -85,7 +85,14 @@ def _resolve_dem_path(area: AreaSpec, dem_path: Optional[str], cache_dir: str) -
     return dem_service.fetch_dem(area.bbox, out_path)
 
 
-def run_fetch(area: AreaSpec, data_dir: str, images_dir: str, dem_path: Optional[str], slope_strategy: str = "v3") -> None:
+def run_fetch(
+    area: AreaSpec,
+    data_dir: str,
+    images_dir: str,
+    dem_path: Optional[str],
+    slope_strategy: str = "v3",
+    generate_slope_map: bool = False,
+) -> None:
     context_classifier = UrbanContextClassifier()
     persistence = PersistenceService()
     slope_service = SlopeService(strategy=slope_strategy)
@@ -93,13 +100,24 @@ def run_fetch(area: AreaSpec, data_dir: str, images_dir: str, dem_path: Optional
     area_folder_path = persistence.ensure_city_folder(images_dir, area.slug)
     gdf_nodes, gdf_edges, gdf_buildings, area = _load_network(area, data_dir)
 
-    distances = context_classifier.calculate_building_distances(gdf_buildings)
-    quintiles = context_classifier.divide_into_quintiles(distances)
+    # Small rural comuni can have zero (or just one) building tagged in OSM -
+    # pyrosm's get_buildings() returns None rather than an empty GeoDataFrame
+    # in that case (osm_pbf_service.py's load_buildings passes it through
+    # unchanged), and NearestNeighbors needs at least 2 points for its
+    # n_neighbors=2 query below. There's no building data to derive an urban
+    # threshold from either way, so treat the whole area as countryside.
+    if gdf_buildings is None or len(gdf_buildings) < 2:
+        gdf_edges = gdf_edges.copy()
+        gdf_edges["context"] = "countryside"
+    else:
+        distances = context_classifier.calculate_building_distances(gdf_buildings)
+        quintiles = context_classifier.divide_into_quintiles(distances)
+
+        gdf_edges_projected = chunked_to_crs(gdf_edges, WORKING_CRS)
+        gdf_edges_classified = context_classifier.classify_edges_by_quintiles(gdf_edges_projected, gdf_buildings, quintiles)
+        gdf_edges = chunked_to_crs(gdf_edges_classified, gdf_edges.crs)
 
     original_index = gdf_edges.index
-    gdf_edges_projected = chunked_to_crs(gdf_edges, WORKING_CRS)
-    gdf_edges_classified = context_classifier.classify_edges_by_quintiles(gdf_edges_projected, gdf_buildings, quintiles)
-    gdf_edges = chunked_to_crs(gdf_edges_classified, gdf_edges.crs)
 
     resolved_dem_path = _resolve_dem_path(area, dem_path, data_dir)
     gdf_edges = slope_service.apply(gdf_edges, resolved_dem_path)
@@ -109,4 +127,5 @@ def run_fetch(area: AreaSpec, data_dir: str, images_dir: str, dem_path: Optional
     os.makedirs(area_dir, exist_ok=True)
     pickle_path = os.path.join(area_dir, "gdf_data.pkl")
     persistence.save_pickle(gdf_nodes, gdf_edges, area.name, pickle_path)
-    persistence.save_slope_map(gdf_edges, os.path.join(area_folder_path, "slope_map.html"))
+    if generate_slope_map:
+        persistence.save_slope_map(gdf_edges, os.path.join(area_folder_path, "slope_map.html"))

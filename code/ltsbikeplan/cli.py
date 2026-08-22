@@ -45,12 +45,12 @@ def resolve_area(args: argparse.Namespace, config: AppConfig) -> AreaSpec:
     return resolver.resolve(args.area, level=args.area_level, istat=args.istat)
 
 
-def cmd_fetch(area: AreaSpec, config: AppConfig) -> None:
+def cmd_fetch(area: AreaSpec, config: AppConfig, with_slope_map: bool = False) -> None:
     from .pipeline.fetch import run_fetch
 
     dem_path = os.environ.get("LTSBP_DEM_PATH")
     strategy = os.environ.get("LTSBP_SLOPE_STRATEGY", "v3")
-    run_fetch(area, str(config.data_dir), str(config.images_dir), dem_path, strategy)
+    run_fetch(area, str(config.data_dir), str(config.images_dir), dem_path, strategy, generate_slope_map=with_slope_map)
 
 
 def cmd_compute_lts(area: AreaSpec, config: AppConfig, with_report_exports: bool = False) -> None:
@@ -72,18 +72,18 @@ def cmd_report(area: AreaSpec, config: AppConfig) -> None:
     run_report(area.slug, str(config.data_dir), str(config.images_dir))
 
 
-def cmd_run_all(area: AreaSpec, config: AppConfig, include_report: bool) -> None:
-    cmd_fetch(area, config)
+def cmd_run_all(area: AreaSpec, config: AppConfig, include_report: bool, with_slope_map: bool = False) -> None:
+    cmd_fetch(area, config, with_slope_map)
     cmd_compute_lts(area, config)
     cmd_maps(area, config)
     if include_report:
         cmd_report(area, config)
 
 
-def cmd_run_full(area: AreaSpec, config: AppConfig, include_report: bool) -> None:
+def cmd_run_full(area: AreaSpec, config: AppConfig, include_report: bool, with_slope_map: bool = False) -> None:
     from .pipeline.full import run_full_sections
 
-    cmd_fetch(area, config)
+    cmd_fetch(area, config, with_slope_map)
     # run_network_analysis (part of run_full_sections below) loads the
     # area's graphml via pipeline/sections/common.py::load_graph - unlike
     # plain compute-lts, run-full always needs it, regardless of whether
@@ -124,6 +124,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     fetch_parser = subparsers.add_parser("fetch", help="Download and pre-process area data")
     _add_area_args(fetch_parser)
+    fetch_parser.add_argument(
+        "--with-slope-map",
+        action="store_true",
+        help="Also render the per-edge slope_map.html (folium) - off by default since it iterates every edge "
+        "and can use tens of GB of RAM on large comuni (e.g. Roma); skipped entirely unless requested",
+    )
 
     compute_lts_parser = subparsers.add_parser("compute-lts", help="Compute and export LTS artifacts")
     _add_area_args(compute_lts_parser)
@@ -143,10 +149,12 @@ def build_parser() -> argparse.ArgumentParser:
     run_all_parser = subparsers.add_parser("run", help="Run fetch + compute-lts + maps (+report)")
     _add_area_args(run_all_parser)
     run_all_parser.add_argument("--with-report", action="store_true", help="Generate report at the end")
+    run_all_parser.add_argument("--with-slope-map", action="store_true", help="Also render the per-edge slope_map.html (folium) during fetch - off by default, see 'fetch' help")
 
     run_full_parser = subparsers.add_parser("run-full", help="Run full pipeline including ESDA/cluster/network sections")
     _add_area_args(run_full_parser)
     run_full_parser.add_argument("--with-report", action="store_true", help="Generate report at the end")
+    run_full_parser.add_argument("--with-slope-map", action="store_true", help="Also render the per-edge slope_map.html (folium) during fetch - off by default, see 'fetch' help")
 
     doctor_parser = subparsers.add_parser("doctor", help="Show required manual inputs and status")
     doctor_parser.add_argument("--city", required=False, default="Trento, Italy", help="City/place name")
@@ -179,7 +187,7 @@ def main(argv: list[str] | None = None) -> int:
     area = resolve_area(args, config)
 
     if args.command == "fetch":
-        cmd_fetch(area, config)
+        cmd_fetch(area, config, args.with_slope_map)
     elif args.command == "compute-lts":
         cmd_compute_lts(area, config, args.with_report_exports)
     elif args.command == "maps":
@@ -187,9 +195,9 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "report":
         cmd_report(area, config)
     elif args.command == "run":
-        cmd_run_all(area, config, args.with_report)
+        cmd_run_all(area, config, args.with_report, args.with_slope_map)
     elif args.command == "run-full":
-        cmd_run_full(area, config, args.with_report)
+        cmd_run_full(area, config, args.with_report, args.with_slope_map)
     else:
         parser.error(f"Unsupported command: {args.command}")
     return 0
