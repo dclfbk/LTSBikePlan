@@ -45,9 +45,17 @@ class PersistenceService:
         mean_longitude = mean_point.x
         map_osm = folium.Map(location=[mean_latitude, mean_longitude], zoom_start=11)
 
-        for _, row in gdf_edges_wgs.iterrows():
-            color = colors.get(str(row["slope_class"]), "#000000")
-            folium.GeoJson(row["geometry"], style_function=lambda _, color=color: {"color": color}).add_to(map_osm)
+        # One folium.GeoJson layer per slope class (at most a handful),
+        # not one per edge - the per-edge version instantiated a separate
+        # Folium object (and rendered a separate <script> block) for every
+        # row, which for a full-comune edge count (Roma: 200k+ edges) grew
+        # to tens of GB of Python/HTML overhead and OOM-killed the process
+        # before it ever reached map_osm.save(). Grouping by class keeps
+        # the same per-edge color, just serialized as one GeoJSON
+        # FeatureCollection per class instead of N individual features.
+        for slope_class_value, subset in gdf_edges_wgs.groupby(gdf_edges_wgs["slope_class"].astype(str)):
+            color = colors.get(slope_class_value, "#000000")
+            folium.GeoJson(subset[["geometry"]].to_json(), style_function=lambda _, color=color: {"color": color}).add_to(map_osm)
 
         legend_html = """
 <div style="position: fixed; top: 10px; right: 10px; z-index: 1000; background-color: white; padding: 5px; border: 1px solid grey; font-size: 12px;">
