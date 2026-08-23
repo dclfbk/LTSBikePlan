@@ -15,6 +15,7 @@ def annotate_gap_components(
     all_lts: pd.DataFrame,
     area_slug: str,
     min_island_length_km: Optional[float] = None,
+    min_branch_length_km: Optional[float] = None,
 ) -> pd.DataFrame:
     """Tags every edge with the low-stress "island" (connected component) it
     belongs to, and flags high-stress edges that touch one - the literal
@@ -39,6 +40,18 @@ def annotate_gap_components(
     15km urban low-stress network for a planner's attention. Defaults to
     None (off) so callers that only ever provide an `lts` column (no
     `length`, e.g. this module's own unit tests) keep working unchanged.
+
+    `min_branch_length_km`, if set, downgrades `is_gap_edge` back to False
+    for edges whose own `served_branch_km` (domain/network_centrality.py's
+    annotate_dead_end_branches - the total street length on the smaller
+    side of a bridge edge) is below this threshold: a residential
+    cul-de-sac's own connector edge is high-stress and touches a low-stress
+    island just like a real through-route would, but it isn't a priority
+    intervention if all it serves is a handful of houses at a dead end.
+    Requires `served_branch_km` to already be a column on `all_lts` (call
+    annotate_dead_end_branches first) - silently skipped (no downgrade) if
+    the column is missing, same "off by default" convention as
+    min_island_length_km.
     """
     all_lts = all_lts.copy()
     low_stress_mask = all_lts["lts"].isin(LOW_STRESS_LTS)
@@ -90,6 +103,15 @@ def annotate_gap_components(
         # An edge touching ANY sufficiently large island keeps is_gap_edge -
         # still worth flagging even if its other end touches a tiny one.
         downgrade = all_lts["is_gap_edge"] & all_lts["gap_connects"].apply(_touches_only_small_islands)
+        all_lts.loc[downgrade, "is_gap_edge"] = False
+        all_lts.loc[downgrade, "gap_connects"] = np.nan
+
+    if min_branch_length_km is not None and "served_branch_km" in all_lts.columns:
+        # served_branch_km is NaN for a non-bridge edge (has an alternate
+        # route - not "this edge serves nothing", the opposite: it isn't a
+        # bottleneck for anything, so it's never downgraded by this check).
+        branch_too_small = all_lts["served_branch_km"] < min_branch_length_km
+        downgrade = all_lts["is_gap_edge"] & branch_too_small
         all_lts.loc[downgrade, "is_gap_edge"] = False
         all_lts.loc[downgrade, "gap_connects"] = np.nan
 

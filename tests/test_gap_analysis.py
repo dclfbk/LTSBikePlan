@@ -100,5 +100,53 @@ class TestMinIslandLengthThreshold(unittest.TestCase):
         self.assertTrue(annotated.loc[(12, 200, 0), "is_gap_edge"])
 
 
+@unittest.skipUnless(GEO_DEPS_AVAILABLE, "geopandas/networkx (geo extras) not installed")
+class TestMinBranchLengthThreshold(unittest.TestCase):
+    def setUp(self):
+        # A low-stress island (1-2-3) touched by two high-stress connectors:
+        # one (3-100) is a real through-route (served_branch_km above
+        # threshold), the other (3-200) is a residential cul-de-sac's own
+        # connector edge - real street network topology, but its
+        # served_branch_km (set directly here rather than via
+        # annotate_dead_end_branches, which this module doesn't call) is
+        # deliberately below threshold.
+        edges = [
+            (1, 2, 0, 1, 300.0),
+            (2, 3, 0, 2, 300.0),
+            (3, 100, 0, 4, 50.0),
+            (3, 200, 0, 4, 50.0),
+        ]
+        index = pd.MultiIndex.from_tuples([(u, v, k) for u, v, k, *_ in edges], names=["u", "v", "key"])
+        self.all_lts = pd.DataFrame(
+            {
+                "lts": [lts for _, _, _, lts, _ in edges],
+                "length": [length for *_, length in edges],
+                "served_branch_km": [None, None, 5.0, 0.1],
+            },
+            index=index,
+        )
+
+    def test_edge_with_large_served_branch_stays_flagged(self):
+        annotated = annotate_gap_components(self.all_lts, "TestArea", min_branch_length_km=0.5)
+        self.assertTrue(annotated.loc[(3, 100, 0), "is_gap_edge"])
+
+    def test_edge_with_small_served_branch_is_downgraded(self):
+        annotated = annotate_gap_components(self.all_lts, "TestArea", min_branch_length_km=0.5)
+        row = annotated.loc[(3, 200, 0)]
+        self.assertFalse(row["is_gap_edge"])
+        self.assertTrue(pd.isna(row["gap_connects"]))
+
+    def test_default_none_keeps_both_flagged(self):
+        annotated = annotate_gap_components(self.all_lts, "TestArea")
+        self.assertTrue(annotated.loc[(3, 100, 0), "is_gap_edge"])
+        self.assertTrue(annotated.loc[(3, 200, 0), "is_gap_edge"])
+
+    def test_missing_served_branch_column_is_skipped_silently(self):
+        all_lts = self.all_lts.drop(columns=["served_branch_km"])
+        annotated = annotate_gap_components(all_lts, "TestArea", min_branch_length_km=0.5)
+        self.assertTrue(annotated.loc[(3, 100, 0), "is_gap_edge"])
+        self.assertTrue(annotated.loc[(3, 200, 0), "is_gap_edge"])
+
+
 if __name__ == "__main__":
     unittest.main()

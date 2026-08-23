@@ -68,4 +68,6 @@ def compute_area_statistics(all_lts: pd.DataFrame, area_slug: str) -> dict:
         "low_stress_island_km": island_km,
         "excluded_motorroad_km": km_where(rule == "p10"),
         "excluded_mountain_trail_km": km_where(rule == "s9"),
+        "excluded_restricted_access_km": km_where(rule == "p11"),
+        "excluded_service_road_km": km_where(rule == "p12"),
     }

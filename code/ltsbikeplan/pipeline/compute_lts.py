@@ -17,7 +17,7 @@ from ltsbikeplan.domain.area_statistics import compute_area_statistics
 from ltsbikeplan.domain.crs import WORKING_CRS, chunked_to_crs
 from ltsbikeplan.domain.gap_analysis import annotate_gap_components
 from ltsbikeplan.domain.lts_rules import BikePathAnalysis
-from ltsbikeplan.domain.network_centrality import annotate_edge_centrality
+from ltsbikeplan.domain.network_centrality import annotate_dead_end_branches, annotate_edge_centrality
 from ltsbikeplan.domain.parallel_cycleway import annotate_parallel_cycleway
 from ltsbikeplan.services.export_service import ExportService
 
@@ -26,6 +26,16 @@ from ltsbikeplan.services.export_service import ExportService
 # residential loop in an isolated hamlet competes equally with a 15km urban
 # low-stress network. See domain/gap_analysis.py::annotate_gap_components.
 MIN_GAP_ISLAND_LENGTH_KM = 1.0
+
+# Minimum "served branch" length (domain/network_centrality.py::
+# annotate_dead_end_branches - total street length on the smaller side of a
+# bridge edge) for a high-stress edge to count as a priority intervention
+# candidate - without this, a residential cul-de-sac's own connector edge
+# competed equally with a real through-route just because both are
+# high-stress and touch a low-stress area. 0.5km ~ a short dead-end loop of
+# a dozen houses; half MIN_GAP_ISLAND_LENGTH_KM since a served branch is
+# usually a single street, not a whole low-stress network.
+MIN_GAP_BRANCH_LENGTH_KM = 0.5
 
 # A gap edge running within this distance of a separated cycle path for at
 # least PARALLEL_CYCLEWAY_COVERAGE_THRESHOLD of its length already has a
@@ -146,7 +156,16 @@ def run_compute_lts(data_dir: str, area: AreaSpec, include_report_exports: bool 
     all_lts["comune"] = area.name
     all_lts["istat_code"] = area.istat_code or ""
     all_lts["cycleway_type"] = all_lts.apply(derive_cycleway_type, axis=1)
-    all_lts = annotate_gap_components(all_lts, area_slug, min_island_length_km=MIN_GAP_ISLAND_LENGTH_KM)
+    # Must run before annotate_gap_components below - it reads the
+    # served_branch_km column this writes to downgrade dead-end priority
+    # candidates (min_branch_length_km).
+    all_lts = annotate_dead_end_branches(all_lts)
+    all_lts = annotate_gap_components(
+        all_lts,
+        area_slug,
+        min_island_length_km=MIN_GAP_ISLAND_LENGTH_KM,
+        min_branch_length_km=MIN_GAP_BRANCH_LENGTH_KM,
+    )
     all_lts = annotate_edge_centrality(all_lts)
 
     # Reproject to the single internal working CRS instead of relabeling the
