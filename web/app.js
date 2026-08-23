@@ -1227,31 +1227,48 @@ function hideLoadingIndicator() {
   document.getElementById("loading-indicator").classList.add("hidden");
 }
 
+// Tracks whether the map is between a "dataloading" and its matching
+// "idle" - i.e. genuinely fetching/parsing tiles right now, not just
+// sitting at a zoom where clicking isn't available yet. Without this,
+// #zoom-hint's "zoom in further to click a road" text sat on top of the
+// map for however long italia_lts.pmtiles/comuni_index.json/a per-comune
+// pmtiles took to load (real, sometimes several seconds - see
+// build_national_tiles.sh's own size notes), reading as "nothing is
+// happening, maybe broken" instead of "please wait" - reported live on
+// stressinbici.it (zoomed into Verona, area=italia: blank map, only the
+// zoom hint, for however long the comune swap's fetch took).
+let dataIsLoading = false;
+
 map.on("dataloading", () => {
-  // Below MIN_CLICK_ZOOM, #zoom-hint is always showing something (either
-  // "zoom in to see streets" below MIN_STREETS_ZOOM, or "zoom in further
-  // to click them" between that and MIN_CLICK_ZOOM - see updateZoomHint) -
-  // "loading" would be confusing stacked on top of either.
-  if (map.getZoom() < MIN_CLICK_ZOOM) return;
+  if (map.getZoom() < MIN_STREETS_ZOOM) return;
+  dataIsLoading = true;
+  updateZoomHint();
   if (loadingShowTimer == null && document.getElementById("loading-indicator").classList.contains("hidden")) {
     loadingShowTimer = setTimeout(showLoadingIndicator, LOADING_SHOW_DELAY_MS);
   }
 });
-map.on("idle", hideLoadingIndicator);
+map.on("idle", () => {
+  dataIsLoading = false;
+  hideLoadingIndicator();
+  updateZoomHint();
+});
 
-// #zoom-hint takes the same top-center slot #loading-indicator uses -
-// mutually exclusive by construction (the dataloading handler above never
-// shows the loading indicator below MIN_CLICK_ZOOM), so no explicit
-// z-index fight between the two, just whichever one's condition currently
-// holds. Two tiers below MIN_CLICK_ZOOM: below MIN_STREETS_ZOOM streets
-// aren't rendered at all yet (nothing to click regardless); between that
-// and MIN_CLICK_ZOOM they ARE visible but too close together to click
-// reliably (see the click handler's own MIN_CLICK_ZOOM guard) - a
-// different hint for each, so "zoom in more" doesn't linger unexplained
-// once streets are already on screen. "zoom" (not "zoomend") for the same
-// reason the cursor style updates on "mousemove" above rather than only
-// once movement settles - the hint should track the gesture live, not
-// wait for it to finish.
+// #zoom-hint takes the same top-center slot #loading-indicator uses, and
+// the two are mutually exclusive by construction: whichever of this
+// function's branches is live either shows the hint and hides the
+// indicator, or (the dataIsLoading branch) hides the hint and leaves the
+// indicator to the dataloading/idle handlers above - never both at once.
+// Two hint tiers below MIN_CLICK_ZOOM: below MIN_STREETS_ZOOM streets
+// aren't rendered at all yet (nothing to click regardless, and nothing
+// loads either - see the early return above); between that and
+// MIN_CLICK_ZOOM they ARE visible but too close together to click
+// reliably (see the click handler's own MIN_CLICK_ZOOM guard) - UNLESS
+// something is still actively loading for the current view, in which case
+// the loading indicator takes the slot instead of a hint that would read
+// as "nothing's happening" over a map that's still filling in. "zoom"
+// (not "zoomend") for the same reason the cursor style updates on
+// "mousemove" above rather than only once movement settles - the hint
+// should track the gesture live, not wait for it to finish.
 function updateZoomHint() {
   const zoom = map.getZoom();
   const hintEl = document.getElementById("zoom-hint");
@@ -1259,12 +1276,13 @@ function updateZoomHint() {
     hintEl.textContent = t("zoomHint");
     hintEl.classList.remove("hidden");
     hideLoadingIndicator();
-  } else if (zoom < MIN_CLICK_ZOOM) {
+  } else if (zoom >= MIN_CLICK_ZOOM) {
+    hintEl.classList.add("hidden");
+  } else if (dataIsLoading) {
+    hintEl.classList.add("hidden");
+  } else {
     hintEl.textContent = t("zoomClickHint");
     hintEl.classList.remove("hidden");
-    hideLoadingIndicator();
-  } else {
-    hintEl.classList.add("hidden");
   }
 }
 map.on("zoom", updateZoomHint);
