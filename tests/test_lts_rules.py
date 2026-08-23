@@ -39,6 +39,65 @@ class TestLtsRules(unittest.TestCase):
         self.assertEqual(len(not_allowed), 2)
         self.assertTrue((not_allowed["rule"] == "p10").all())
 
+    def test_biking_permitted_marks_restricted_access_not_allowed(self):
+        edges = pd.DataFrame(
+            {
+                "bicycle": [None, None, None, None],
+                "access": ["yes", "private", "destination", "customers"],
+                "highway": ["residential", "residential", "residential", "residential"],
+            }
+        )
+
+        allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
+        self.assertEqual(len(allowed), 1)
+        self.assertEqual(len(not_allowed), 3)
+        self.assertTrue((not_allowed["rule"] == "p11").all())
+
+    def test_biking_permitted_bicycle_override_wins_over_restricted_access(self):
+        # access=private + an explicit bicycle=* tag is the standard OSM
+        # convention for "closed to the general public, but cyclists
+        # specifically may pass" - should stay allowed.
+        edges = pd.DataFrame(
+            {
+                "bicycle": ["yes", "designated", "permissive", "official"],
+                "access": ["private", "private", "destination", "no"],
+                "highway": ["residential", "residential", "residential", "residential"],
+            }
+        )
+
+        allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
+        self.assertEqual(len(allowed), 4)
+        self.assertEqual(len(not_allowed), 0)
+
+    def test_biking_permitted_marks_service_road_not_allowed(self):
+        edges = pd.DataFrame(
+            {
+                "bicycle": [None, None],
+                "access": ["yes", "yes"],
+                "highway": ["residential", "service"],
+                "service": [None, "driveway"],
+            }
+        )
+
+        allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
+        self.assertEqual(len(allowed), 1)
+        self.assertEqual(len(not_allowed), 1)
+        self.assertEqual(not_allowed.iloc[0]["rule"], "p12")
+
+    def test_biking_permitted_bicycle_override_wins_over_service_exclusion(self):
+        edges = pd.DataFrame(
+            {
+                "bicycle": ["designated"],
+                "access": ["yes"],
+                "highway": ["service"],
+                "service": ["alley"],
+            }
+        )
+
+        allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
+        self.assertEqual(len(allowed), 1)
+        self.assertEqual(len(not_allowed), 0)
+
     def test_biking_permitted_without_motorroad_column(self):
         # Plenty of extracts never carry the tag at all - shouldn't KeyError,
         # and a bare trunk with no motorroad info stays allowed (the legal

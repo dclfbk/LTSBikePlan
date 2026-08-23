@@ -14,6 +14,18 @@
 # layer - matters even more here than per-area, since this tippecanoe run
 # covers all of Italy at once).
 #
+# --maximum-zoom=11 (NOT 16, unlike build_tiles.sh's per-comune output):
+# capped here because a whole-Italy tileset at full z16 street-level detail
+# measured 23.6GB (7893 comuni, Aug 2026) - far past Cloudflare's free-plan
+# 512MB per-file edge-cache ceiling, so it was never being CDN-cached at
+# all. z11 is a national/regional overview only (major+secondary roads,
+# see MAJOR_ROADS_FILTER's zoom tiers below - the z12 "everything" tier
+# never triggers now, since no tile past z11 is generated). web/app.js
+# swaps to the relevant per-comune _lts.pmtiles (already built to z16) once
+# the user zooms past COMUNE_SWAP_MIN_ZOOM there, so full street-level
+# detail is still available everywhere - just served from many small
+# per-comune files instead of duplicating it inside this merged one.
+#
 # --drop-densest-as-needed: unlike build_tiles.sh (deliberately WITHOUT it,
 # see that file for why), the merged national tileset needs it - confirmed
 # live merging ~50 Sicilian comuni (2M+ features): a single low-zoom tile
@@ -172,7 +184,7 @@ run_batch() {
     -o "$batch_mbtiles" \
     --force \
     --minimum-zoom=4 \
-    --maximum-zoom=16 \
+    --maximum-zoom=11 \
     --extend-zooms-if-still-dropping \
     --drop-densest-as-needed \
     --maximum-tile-bytes=5000000 \

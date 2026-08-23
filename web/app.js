@@ -39,6 +39,52 @@ const pmtilesUrl = `pmtiles://${new URL(`data/${area}_lts.pmtiles`, window.locat
 const tiles = new pmtiles.PMTiles(pmtilesUrl.replace("pmtiles://", ""));
 protocol.add(tiles);
 
+// italia_lts.pmtiles (built by build_national_tiles.sh) is capped at
+// maxzoom 11 - a whole-Italy tileset at full street-level detail measured
+// 23.6GB, far past Cloudflare's free-plan 512MB per-file edge-cache
+// ceiling. Past z11, this swaps in the relevant per-comune _lts.pmtiles
+// (already built to z16 by build_tiles.sh) for whatever comuni are on
+// screen, keyed by viewport-bbox overlap against web/data/comuni_index.json
+// (see scripts/build_comuni_index.py) - so full detail is still available
+// everywhere, just served from many small per-comune files instead of one
+// giant merged one. Only meaningful for the merged "italia" view - a
+// single-area page (?area=Trento) already IS the per-comune tileset, at
+// full range, with nothing to swap to.
+const COMUNE_SWAP_MIN_ZOOM = 12;
+let comuniIndex = null;
+let visibleComuneSlugs = new Set();
+
+function comuneSourceId(slug) { return `lts-${slug}`; }
+function comuneLinesLayerId(slug) { return `lts-lines-${slug}`; }
+function comuneGapLayerId(slug) { return `gap-edges-${slug}`; }
+
+// Every place that used to hard-code "lts-lines"/"gap-edges" now needs
+// whichever of these is also currently active for the comuni in view -
+// these two are the single source of truth for that, so filter/visibility/
+// query-feature call sites stay in sync automatically as sources come and
+// go on pan/zoom (see updateComuneOverlays below).
+function ltsLineLayerIds() {
+  if (!map.getLayer("lts-lines")) return [];
+  return ["lts-lines", ...[...visibleComuneSlugs].map(comuneLinesLayerId)];
+}
+function gapEdgeLayerIds() {
+  if (!map.getLayer("gap-edges")) return [];
+  return ["gap-edges", ...[...visibleComuneSlugs].map(comuneGapLayerId)];
+}
+
+if (area === "italia") {
+  fetch(new URL("data/comuni_index.json", window.location.href))
+    .then((response) => response.json())
+    .then((data) => {
+      comuniIndex = data;
+      updateComuneOverlays();
+    })
+    // Missing/unreachable index just means no z12+ swap - the national
+    // overview (z4-11) still works fine on its own, so this fails silent
+    // rather than blocking the rest of the map.
+    .catch(() => {});
+}
+
 const BASE_STYLES = {
   light: "https://styles.maptoolkit.org/light.json",
   summer: "https://styles.maptoolkit.org/summer.json",
@@ -292,9 +338,10 @@ function formatCoord(value, positiveSuffix, negativeSuffix) {
 // whichever comune happens to have the most edges in a roughly even mix.
 function currentAreaLabel() {
   if (area !== "italia") return area.replace(/_/g, " ");
-  if (!map.getLayer("lts-lines")) return "Italia";
+  const layers = ltsLineLayerIds();
+  if (!layers.length) return "Italia";
 
-  const features = map.queryRenderedFeatures({ layers: ["lts-lines"] });
+  const features = map.queryRenderedFeatures({ layers });
   if (!features.length) return "Italia";
 
   const counts = {};
@@ -675,8 +722,8 @@ function renderLegend() {
 }
 
 function applyLtsFilter() {
-  if (!map.getLayer("lts-lines")) return;
-  map.setFilter("lts-lines", ["in", ["to-string", ["get", "lts"]], ["literal", [...activeLts]]]);
+  const filter = ["in", ["to-string", ["get", "lts"]], ["literal", [...activeLts]]];
+  for (const id of ltsLineLayerIds()) map.setFilter(id, filter);
 }
 
 renderLegend();
@@ -762,6 +809,14 @@ const LTS_LINE_WIDTH = [
   18, ["match", ["to-string", ["get", "lts"]], "1", 3.5, "2", 4.0, "3", 5.5, "4", 6.5, 5.0],
 ];
 const GAP_EDGE_WIDTH = 4;
+// Shared by the base "gap-edges" layer and every per-comune gap-edges-<slug>
+// layer added by addComuneLayers below - one filter definition, not one
+// copy per source.
+const GAP_EDGE_FILTER = [
+  "all",
+  ["==", ["to-string", ["get", "is_gap_edge"]], "true"],
+  ["!=", ["to-string", ["get", "has_parallel_cycleway"]], "true"],
+];
 
 // Selection outline for a street focused from the priority list - yellow
 // rather than the same purple already used for every "Tratti da
@@ -800,6 +855,15 @@ function addDataLayers() {
         source: "lts",
         "source-layer": "lts",
         minzoom: MIN_STREETS_ZOOM,
+        // Only for the merged "italia" tileset (capped at maxzoom 11, see
+        // build_national_tiles.sh) - past COMUNE_SWAP_MIN_ZOOM, per-comune
+        // sources take over (updateComuneOverlays) with the real z12-16
+        // detail those comuni were built with; without this cap MapLibre
+        // would keep this layer alive too by overzooming its last real (z11)
+        // tile, rendering the same streets twice. A single-area page
+        // (?area=Trento) has no comune source to hand off to, so it keeps
+        // its own full range.
+        ...(area === "italia" ? { maxzoom: COMUNE_SWAP_MIN_ZOOM } : {}),
         // Miter is MapLibre's default line-join: at low zoom, where many
         // short OSM road segments render just a few px apart, every heading
         // change between them shows up as a sharp point instead of a smooth
@@ -840,11 +904,9 @@ function addDataLayers() {
       source: "lts",
       "source-layer": "lts",
       minzoom: MIN_STREETS_ZOOM,
-      filter: [
-        "all",
-        ["==", ["to-string", ["get", "is_gap_edge"]], "true"],
-        ["!=", ["to-string", ["get", "has_parallel_cycleway"]], "true"],
-      ],
+      // Same maxzoom cap as lts-lines above, same reason.
+      ...(area === "italia" ? { maxzoom: COMUNE_SWAP_MIN_ZOOM } : {}),
+      filter: GAP_EDGE_FILTER,
       layout: { visibility: gapModeOn ? "visible" : "none" },
       paint: {
         "line-color": "#7B2CBF",
@@ -921,9 +983,113 @@ function addDataLayers() {
       );
     });
   }
+
+  // setStyle() (basemap switch) wipes every custom source/layer, including
+  // any per-comune ones added by updateComuneOverlays below - re-add
+  // whichever comuni were visible before the switch so zooming into a
+  // comune's street-level detail then changing basemap doesn't silently
+  // drop back to the coarser national overview.
+  for (const slug of visibleComuneSlugs) addComuneLayers(slug);
 }
 
 map.on("style.load", addDataLayers);
+
+// Adds one comune's own _lts.pmtiles as a source, with the same lts-lines/
+// gap-edges layer pair addDataLayers sets up for the national tileset -
+// idempotent, so both addDataLayers (after a basemap switch) and
+// updateComuneOverlays (on pan/zoom) can call it freely.
+function addComuneLayers(slug) {
+  const sourceId = comuneSourceId(slug);
+  if (map.getSource(sourceId)) return;
+
+  const url = `pmtiles://${new URL(`data/${slug}_lts.pmtiles`, window.location.href)}`;
+  const comuneTiles = new pmtiles.PMTiles(url.replace("pmtiles://", ""));
+  protocol.add(comuneTiles);
+  map.addSource(sourceId, { type: "vector", url });
+
+  const firstSymbolLayerId = map.getStyle().layers.find((l) => l.type === "symbol")?.id;
+  map.addLayer(
+    {
+      id: comuneLinesLayerId(slug),
+      type: "line",
+      source: sourceId,
+      "source-layer": "lts",
+      minzoom: COMUNE_SWAP_MIN_ZOOM,
+      layout: { "line-join": "round", "line-cap": "round" },
+      paint: {
+        "line-color": buildLtsLineColorExpression(),
+        "line-width": LTS_LINE_WIDTH,
+      },
+    },
+    firstSymbolLayerId,
+  );
+  map.addLayer({
+    id: comuneGapLayerId(slug),
+    type: "line",
+    source: sourceId,
+    "source-layer": "lts",
+    minzoom: COMUNE_SWAP_MIN_ZOOM,
+    filter: GAP_EDGE_FILTER,
+    layout: { visibility: gapModeOn ? "visible" : "none" },
+    paint: {
+      "line-color": "#7B2CBF",
+      "line-width": GAP_EDGE_WIDTH * 0.6,
+      "line-opacity": 0,
+    },
+  });
+  // New layer starts with no LTS-class filter applied - match whatever the
+  // legend's toggles currently say (same filter every other lts-lines
+  // layer already has).
+  map.setFilter(comuneLinesLayerId(slug), ["in", ["to-string", ["get", "lts"]], ["literal", [...activeLts]]]);
+}
+
+function removeComuneLayers(slug) {
+  if (map.getLayer(comuneLinesLayerId(slug))) map.removeLayer(comuneLinesLayerId(slug));
+  if (map.getLayer(comuneGapLayerId(slug))) map.removeLayer(comuneGapLayerId(slug));
+  if (map.getSource(comuneSourceId(slug))) map.removeSource(comuneSourceId(slug));
+}
+
+// Below COMUNE_SWAP_MIN_ZOOM, drops every per-comune source (nothing to
+// show at that zoom the national tileset doesn't already cover, and
+// carrying them across a long pan back out would just waste memory). At
+// or above it, adds/removes sources to match whichever comuni's bbox
+// (web/data/comuni_index.json) overlaps the current viewport - a plain
+// bbox check, not the real polygon: cheap, and precise enough for Italy's
+// mostly-compact comuni (see build_comuni_index.py). No-op until
+// comuniIndex has finished loading, or outside the "italia" view.
+function updateComuneOverlays() {
+  if (area !== "italia" || !comuniIndex) return;
+
+  if (map.getZoom() < COMUNE_SWAP_MIN_ZOOM) {
+    if (visibleComuneSlugs.size === 0) return;
+    for (const slug of visibleComuneSlugs) removeComuneLayers(slug);
+    visibleComuneSlugs = new Set();
+    return;
+  }
+
+  const bounds = map.getBounds();
+  const west = bounds.getWest();
+  const south = bounds.getSouth();
+  const east = bounds.getEast();
+  const north = bounds.getNorth();
+
+  const wanted = new Set();
+  for (const entry of comuniIndex) {
+    const [minLon, minLat, maxLon, maxLat] = entry.bbox;
+    if (maxLon >= west && minLon <= east && maxLat >= south && minLat <= north) wanted.add(entry.slug);
+  }
+
+  for (const slug of visibleComuneSlugs) if (!wanted.has(slug)) removeComuneLayers(slug);
+  for (const slug of wanted) if (!visibleComuneSlugs.has(slug)) addComuneLayers(slug);
+  visibleComuneSlugs = wanted;
+
+  // Newly added layers above already got today's LTS-class filter
+  // individually - this also re-syncs gap-mode visibility for them
+  // (addComuneLayers already sets it at creation time too, this just
+  // covers the layers that already existed before this call).
+  applyLtsFilter();
+}
+map.on("moveend", updateComuneOverlays);
 
 // Feedback while tiles are still loading (see #loading-indicator in
 // index.html/styles.css) - the merged national tileset especially can take
@@ -972,22 +1138,29 @@ function updateZoomHint() {
 map.on("zoom", updateZoomHint);
 updateZoomHint();
 
-// Bound once, not inside addDataLayers: maplibre resolves "lts-lines" at
-// event time against whatever layers currently exist, so these keep
-// working across setStyle() re-adding the layer with the same id.
-// Below MIN_CLICK_ZOOM, streets are too close together to click reliably
-// - "mousemove" (not "mouseenter") re-checks the zoom on every move so the
-// cursor updates correctly even if the user scroll-zooms without moving
-// the mouse off the street they're hovering.
-map.on("mousemove", "lts-lines", () => {
-  map.getCanvas().style.cursor = map.getZoom() >= MIN_CLICK_ZOOM ? "pointer" : "";
+// Bound once on the whole map, not layer-scoped: with the italia view now
+// able to have any number of per-comune lts-lines-<slug> layers active at
+// once (see updateComuneOverlays), a fixed layer-id binding (map.on(type,
+// "lts-lines", ...)) can't grow to cover layers added after the fact.
+// Hit-testing via ltsLineLayerIds() at the event point instead always
+// checks whichever set is live right now, base "lts-lines" included -
+// same effective behaviour as the old per-layer binding, just not tied to
+// one fixed id. Below MIN_CLICK_ZOOM, streets are too close together to
+// click reliably - "mousemove" (not "mouseenter") re-checks the zoom on
+// every move so the cursor updates correctly even if the user scroll-zooms
+// without moving the mouse off the street they're hovering.
+map.on("mousemove", (e) => {
+  const hovering = map.getZoom() >= MIN_CLICK_ZOOM
+    && map.queryRenderedFeatures(e.point, { layers: ltsLineLayerIds() }).length > 0;
+  map.getCanvas().style.cursor = hovering ? "pointer" : "";
 });
-map.on("mouseleave", "lts-lines", () => { map.getCanvas().style.cursor = ""; });
-map.on("click", "lts-lines", (e) => {
+map.on("click", (e) => {
   if (map.getZoom() < MIN_CLICK_ZOOM) return;
+  const features = map.queryRenderedFeatures(e.point, { layers: ltsLineLayerIds() });
+  if (!features.length) return;
   new maplibregl.Popup({ maxWidth: "280px" })
     .setLngLat(e.lngLat)
-    .setHTML(popupHtml(e.features[0].properties))
+    .setHTML(popupHtml(features[0].properties))
     .addTo(map);
 });
 
@@ -1107,8 +1280,9 @@ function belowGapZoom() {
 // nome" isn't actionable - but stay visible on the map via the
 // gap-edges layer regardless.
 function computeGapInterventions() {
-  if (!map.getLayer("gap-edges")) return [];
-  const unique = dedupeFeatures(map.queryRenderedFeatures({ layers: ["gap-edges"] }));
+  const layers = gapEdgeLayerIds();
+  if (!layers.length) return [];
+  const unique = dedupeFeatures(map.queryRenderedFeatures({ layers }));
 
   const byName = new Map();
   for (const feature of unique) {
@@ -1272,8 +1446,8 @@ function setGapMode(on) {
   gapModeOn = on;
   document.getElementById("gap-panel").classList.toggle("open", on);
   document.getElementById("gap-toggle").classList.toggle("active", on);
-  if (map.getLayer("gap-edges")) {
-    map.setLayoutProperty("gap-edges", "visibility", on ? "visible" : "none");
+  for (const id of gapEdgeLayerIds()) {
+    map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
   }
   if (map.getLayer("gap-edge-selected-buffer")) {
     map.setLayoutProperty("gap-edge-selected-buffer", "visibility", on ? "visible" : "none");

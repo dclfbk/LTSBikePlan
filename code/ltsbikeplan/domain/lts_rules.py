@@ -93,12 +93,39 @@ class BikePathAnalysis:
 
         return steps_edges, other_edges
 
+    # access values meaning "not open to the general public, only with the
+    # owner's permission" - computing an LTS for these makes no sense: a
+    # street nobody but a permit-holder/customer/resident can legally enter
+    # isn't part of the public cycling network. "no" is handled by its own
+    # p6 condition below (unchanged rule code, kept distinct from p11 since
+    # it's the one value LTS_decisionrule_dict.json already documents from
+    # the reproduced paper). "destination" is included here (not just "no
+    # through traffic") per explicit product decision: entry still requires
+    # the street to actually BE your destination, not general cycling
+    # access. All excluded UNLESS a more specific bicycle=* tag explicitly
+    # overrides the general access restriction (see bicycle_permitted_
+    # override below) - standard OSM tag-hierarchy convention, e.g.
+    # access=private + bicycle=yes means cyclists specifically are let
+    # through even though the general public isn't.
+    _RESTRICTED_ACCESS_VALUES = {"private", "permit", "customers", "delivery", "agricultural", "forestry", "destination", "military"}
+
     @staticmethod
     def biking_permitted(gdf_edges):
         gdf_edges = gdf_edges.copy()
         has_bicycle_col = "bicycle" in gdf_edges.columns
         bicycle_no = (gdf_edges["bicycle"] == "no") if has_bicycle_col else False
         bicycle_yes = (gdf_edges["bicycle"] == "yes") if has_bicycle_col else pd.Series(False, index=gdf_edges.index)
+        # Broader than bicycle_yes above (which only means "not a sidewalk
+        # exclusion" for footway_sidewalk below) - any of these values is an
+        # explicit, cycling-specific permission that should win over a
+        # general access=private/destination/... restriction or a plain
+        # highway=service exclusion (see restricted_access/service_excluded
+        # below).
+        bicycle_permitted_override = (
+            gdf_edges["bicycle"].isin(["yes", "designated", "permissive", "official"])
+            if has_bicycle_col
+            else pd.Series(False, index=gdf_edges.index)
+        )
 
         if "footway" in gdf_edges.columns:
             footway_sidewalk = (
@@ -117,17 +144,35 @@ class BikePathAnalysis:
         motorroad_yes = (gdf_edges["motorroad"] == "yes") if "motorroad" in gdf_edges.columns else False
         trunk_motorroad = motorroad_yes & gdf_edges["highway"].isin(["trunk", "trunk_link"])
 
+        # "no" kept as its own condition/rule code (p6, unchanged) rather
+        # than folded into restricted_access below - see the class-level
+        # comment on _RESTRICTED_ACCESS_VALUES.
+        access_no = (gdf_edges["access"] == "no") & ~bicycle_permitted_override
+        restricted_access = (
+            gdf_edges["access"].isin(BikePathAnalysis._RESTRICTED_ACCESS_VALUES) & ~bicycle_permitted_override
+        )
+        # highway=service covers driveway/parking_aisle/alley/generic
+        # service alike - a service road exists to serve the
+        # building(s)/business it runs to, not through cycling traffic, so
+        # it's excluded the same way a private/no-access street is unless a
+        # bicycle=* tag explicitly says otherwise.
+        service_excluded = (gdf_edges["highway"] == "service") & ~bicycle_permitted_override
+
         conditions = [
             bicycle_no,
-            (gdf_edges["access"] == "no"),
+            access_no,
             (gdf_edges["highway"] == "motorway"),
             (gdf_edges["highway"] == "motorway_link"),
             (gdf_edges["highway"] == "proposed"),
             footway_sidewalk,
             trunk_motorroad,
+            restricted_access,
+            service_excluded,
         ]
 
-        gdf_edges.loc[:, "rule"] = np.select(conditions, ["p2", "p6", "p3", "p4", "p7", "p5", "p10"], default="p0")
+        gdf_edges.loc[:, "rule"] = np.select(
+            conditions, ["p2", "p6", "p3", "p4", "p7", "p5", "p10", "p11", "p12"], default="p0"
+        )
 
         gdf_allowed = gdf_edges[gdf_edges["rule"] == "p0"]
         gdf_not_allowed = gdf_edges[gdf_edges["rule"] != "p0"]
