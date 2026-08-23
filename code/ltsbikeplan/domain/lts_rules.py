@@ -151,21 +151,22 @@ class BikePathAnalysis:
         restricted_access = (
             gdf_edges["access"].isin(BikePathAnalysis._RESTRICTED_ACCESS_VALUES) & ~bicycle_permitted_override
         )
-        # Only service=driveway (single-property access) and
-        # emergency_access (restricted to emergency vehicles) are excluded
-        # here - NOT every highway=service. A service road with no
-        # sub-tag, or service=alley/parking_aisle, is often shared/
-        # quasi-public infrastructure a cyclist can actually use - in
-        # practice frequently the literal entry point onto a real cycleway
-        # (a short service-tagged connector, sometimes a chain of them,
-        # before reaching the ciclabile itself). Blanket-excluding all of
+        # Only service=driveway (single-property access), emergency_access
+        # (restricted to emergency vehicles), and parking_aisle (the
+        # internal lanes of a parking lot - almost never a through-route,
+        # usually a dead-end branch that only reaches parking spaces) are
+        # excluded here - NOT every highway=service. A service road with no
+        # sub-tag, or service=alley, is often shared/quasi-public
+        # infrastructure a cyclist can actually use - in practice
+        # frequently the literal entry point onto a real cycleway (a short
+        # service-tagged connector, sometimes a chain of them, before
+        # reaching the ciclabile itself). Blanket-excluding all of
         # highway=service broke exactly those connections. mixed_traffic
-        # below already scores alley/parking_aisle/generic service
-        # (m2/m3/m16) same as before; genuinely private access is still
-        # caught separately by access=private/... above regardless of
-        # highway type.
+        # below already scores alley/generic service (m2/m16) same as
+        # before; genuinely private access is still caught separately by
+        # access=private/... above regardless of highway type.
         service_value = gdf_edges["service"] if "service" in gdf_edges.columns else pd.Series(None, index=gdf_edges.index)
-        service_excluded = service_value.isin(["driveway", "emergency_access"]) & ~bicycle_permitted_override
+        service_excluded = service_value.isin(["driveway", "emergency_access", "parking_aisle"]) & ~bicycle_permitted_override
 
         conditions = [
             bicycle_no,
@@ -293,15 +294,39 @@ class BikePathAnalysis:
 
     @staticmethod
     def get_max_speed(gdf_edges, national=90, local=50, motorway=130, primary=90, secondary=90, urban=50):
+        # Italian "Zona 30" (and other countries' equivalent traffic-calmed
+        # zones) are frequently tagged ONLY with zone:maxspeed=IT:30 - no
+        # plain maxspeed at all, since the limit comes from the zone, not
+        # signage on this specific way. Without this, such a way fell
+        # through to the generic `local` (50) default below, understating
+        # how calm it actually is - a real accuracy gap, not just a missing
+        # nicety, since every mixed_traffic/bike-lane rule in this file is a
+        # <=40/<=50/... speed-threshold check. Takes priority over the
+        # highway-type defaults right below (motorway/primary/secondary/
+        # urban) since an explicit zone designation is more specific/
+        # authoritative than a guess from road class - but never overrides
+        # a real `maxspeed` value already on the way itself.
+        def parse_zone_maxspeed(val):
+            item = val[0] if isinstance(val, list) and val else val
+            if not isinstance(item, str):
+                return np.nan
+            try:
+                return int(item.split(":")[-1])
+            except ValueError:
+                return np.nan
+
+        zone_speed = gdf_edges["zone:maxspeed"].apply(parse_zone_maxspeed)
+
         conditions = [
             (gdf_edges["maxspeed"] == "national"),
+            (gdf_edges["maxspeed"].isna()) & zone_speed.notna(),
             (gdf_edges["maxspeed"].isna()) & (gdf_edges["highway"] == "motorway"),
             (gdf_edges["maxspeed"].isna()) & (gdf_edges["highway"] == "primary"),
             (gdf_edges["maxspeed"].isna()) & (gdf_edges["highway"] == "secondary"),
             (gdf_edges["maxspeed"].isna()) & (gdf_edges["highway"] == "urban"),
             (gdf_edges["maxspeed"].isna()),
         ]
-        values = [national, motorway, primary, secondary, urban, local]
+        values = [national, zone_speed, motorway, primary, secondary, urban, local]
         gdf_edges["maxspeed_assumed"] = np.select(conditions, values, default=gdf_edges["maxspeed"])
 
         # OSM's implicit-speed-limit convention for Italy (see the "Default
@@ -518,6 +543,32 @@ class BikePathAnalysis:
 
     @staticmethod
     def slope_penalty(edges):
+        # MIN_RELIABLE_SLOPE_LENGTH_M: below this, the DEM-derived `slope`
+        # value isn't trustworthy enough to penalize on, regardless of how
+        # steep it claims to be. The Mapterhorn DEM is ~10m/cell, and an
+        # edge's slope is the MEAN of whichever raster cells its geometry
+        # crosses - a short edge crosses too few cells for that mean to
+        # mean anything. Measured directly against a real batch of short
+        # (<40m) edges wrongly bumped to LTS4 in Trento: median length
+        # 17.8m crossing a median of only 3.5 cells (a quarter crossed 1-2
+        # cells, one as few as a single 2.3m/1-cell edge), with a per-edge
+        # cell-to-cell std of up to ~6 degrees - i.e. the "slope" swings by
+        # several degrees between adjacent 10m cells within the SAME short
+        # edge, which is measurement noise, not a real grade. Standard
+        # error of that mean shrinks as sigma/sqrt(n_cells); solving for
+        # n_cells against the observed sigma (~1-3 degrees) to keep the
+        # residual error under ~1 degree (half a slope_class band's width)
+        # needs roughly 4-36 cells, i.e. ~40-360m depending on how
+        # conservative you want to be - 500m clears even the conservative
+        # end with margin, so it's kept as the one length threshold here
+        # (previously only gated "5-8: medium"; now also gates "8-10: hard"
+        # and worse, which had no length floor at all before - exactly
+        # what let a noisy 8m-long reading through).
+        MIN_RELIABLE_SLOPE_LENGTH_M = 500
+
+        def length_is_reliable(row):
+            return not np.isnan(row["length"]) and row["length"] >= MIN_RELIABLE_SLOPE_LENGTH_M
+
         def adjust_lts(row):
             # Same "don't touch an excluded edge" guard as surface_penalty's
             # `rideable = original_lts >= 1`: lts=0 here isn't a real comfort
@@ -531,22 +582,22 @@ class BikePathAnalysis:
                 if row["slope_class"] in ["0-3: flat", "3-5: mild"]:
                     return row["lts"]
                 if row["slope_class"] == "5-8: medium":
-                    if not np.isnan(row["length"]) and row["length"] >= 500:
+                    if length_is_reliable(row):
                         return min(row["lts"] + 1, 4)
-                    if not np.isnan(row["length"]):
-                        return row["lts"]
+                    return row["lts"]
                 if row["slope_class"] == "8-10: hard":
-                    if not np.isnan(row["length"]) and row["length"] >= 500:
+                    if length_is_reliable(row):
                         return min(row["lts"] + 2, 4)
-                    if not np.isnan(row["length"]):
-                        return min(row["lts"] + 1, 4)
+                    return row["lts"]
                 if row["slope_class"] in ["10-20: extreme", ">20: impossible"]:
-                    return min(row["lts"] + 2, 4)
+                    if length_is_reliable(row):
+                        return min(row["lts"] + 2, 4)
+                    return row["lts"]
                 return row["lts"]
             if row["slope_class"] in ["8-10: hard", "10-20: extreme", ">20: impossible"]:
-                if not np.isnan(row["length"]) and row["length"] >= 500:
+                if length_is_reliable(row):
                     return min(row["lts"] + 2, 4)
-                return min(row["lts"] + 1, 4)
+                return row["lts"]
             return row["lts"]
 
         edges["lts"] = edges.apply(adjust_lts, axis=1)

@@ -69,33 +69,51 @@ class TestLtsRules(unittest.TestCase):
         self.assertEqual(len(allowed), 4)
         self.assertEqual(len(not_allowed), 0)
 
-    def test_biking_permitted_marks_service_road_not_allowed(self):
+    def test_biking_permitted_marks_driveway_emergency_and_parking_aisle_not_allowed(self):
         edges = pd.DataFrame(
             {
-                "bicycle": [None, None],
-                "access": ["yes", "yes"],
-                "highway": ["residential", "service"],
-                "service": [None, "driveway"],
+                "bicycle": [None, None, None, None],
+                "access": ["yes", "yes", "yes", "yes"],
+                "highway": ["residential", "service", "service", "service"],
+                "service": [None, "driveway", "emergency_access", "parking_aisle"],
             }
         )
 
         allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
         self.assertEqual(len(allowed), 1)
-        self.assertEqual(len(not_allowed), 1)
-        self.assertEqual(not_allowed.iloc[0]["rule"], "p12")
+        self.assertEqual(len(not_allowed), 3)
+        self.assertTrue((not_allowed["rule"] == "p12").all())
 
-    def test_biking_permitted_bicycle_override_wins_over_service_exclusion(self):
+    def test_biking_permitted_bicycle_override_wins_over_driveway_exclusion(self):
         edges = pd.DataFrame(
             {
                 "bicycle": ["designated"],
                 "access": ["yes"],
                 "highway": ["service"],
-                "service": ["alley"],
+                "service": ["driveway"],
             }
         )
 
         allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
         self.assertEqual(len(allowed), 1)
+        self.assertEqual(len(not_allowed), 0)
+
+    def test_biking_permitted_keeps_alley_and_bare_service(self):
+        # Unlike driveway/emergency_access/parking_aisle, these are shared/
+        # quasi-public service roads - often the literal entry point onto a
+        # real cycleway - so they're NOT excluded here; they still flow
+        # into mixed_traffic's own service-road scoring (m2/m16).
+        edges = pd.DataFrame(
+            {
+                "bicycle": [None, None],
+                "access": ["yes", "yes"],
+                "highway": ["service", "service"],
+                "service": ["alley", None],
+            }
+        )
+
+        allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
+        self.assertEqual(len(allowed), 2)
         self.assertEqual(len(not_allowed), 0)
 
     def test_biking_permitted_without_motorroad_column(self):
@@ -211,6 +229,49 @@ class TestLtsRules(unittest.TestCase):
         updated = BikePathAnalysis.slope_penalty(edges)
         self.assertEqual(int(updated.iloc[0]["lts"]), 4)
 
+    def test_slope_penalty_ignores_short_hard_urban_edge(self):
+        # Real bug, confirmed live on Trento: a short edge (here 18m, well
+        # under MIN_RELIABLE_SLOPE_LENGTH_M) landing in "8-10: hard" used to
+        # get bumped regardless of length - only "5-8: medium" had a length
+        # floor. A DEM-derived slope over just 1-2 raster cells (~10m each)
+        # is noise, not a real climb, so no penalty should apply at all.
+        edges = pd.DataFrame(
+            {
+                "context": ["urban"],
+                "slope_class": ["8-10: hard"],
+                "length": [18.0],
+                "lts": [3],
+            }
+        )
+        updated = BikePathAnalysis.slope_penalty(edges)
+        self.assertEqual(int(updated.iloc[0]["lts"]), 3)
+
+    def test_slope_penalty_ignores_short_extreme_rural_edge(self):
+        # Same fix, non-urban branch and the steepest class - previously
+        # had NO length floor at all (always +1 minimum, even at 2m).
+        edges = pd.DataFrame(
+            {
+                "context": ["rural"],
+                "slope_class": [">20: impossible"],
+                "length": [8.0],
+                "lts": [3],
+            }
+        )
+        updated = BikePathAnalysis.slope_penalty(edges)
+        self.assertEqual(int(updated.iloc[0]["lts"]), 3)
+
+    def test_slope_penalty_still_applies_to_long_extreme_rural_edge(self):
+        edges = pd.DataFrame(
+            {
+                "context": ["rural"],
+                "slope_class": [">20: impossible"],
+                "length": [600.0],
+                "lts": [2],
+            }
+        )
+        updated = BikePathAnalysis.slope_penalty(edges)
+        self.assertEqual(int(updated.iloc[0]["lts"]), 4)
+
     def test_slope_penalty_leaves_excluded_edges_at_zero(self):
         # An lts=0 edge (motorway, bicycle=no, an s9 mountain trail, steps
         # without a ramp) is "not applicable", not a real comfort score to
@@ -302,7 +363,9 @@ class TestGetLanes(unittest.TestCase):
 
 class TestGetMaxSpeed(unittest.TestCase):
     def test_numeric_and_missing_values(self):
-        edges = pd.DataFrame({"maxspeed": ["30", None], "highway": ["residential", "residential"]})
+        edges = pd.DataFrame(
+            {"maxspeed": ["30", None], "highway": ["residential", "residential"], "zone:maxspeed": [None, None]}
+        )
         updated = BikePathAnalysis.get_max_speed(edges)
         self.assertEqual(list(updated["maxspeed_assumed"]), [30, 50])  # 50 = local default for a missing tag
 
@@ -319,14 +382,37 @@ class TestGetMaxSpeed(unittest.TestCase):
             {
                 "maxspeed": ["IT:urban", "IT:rural", "IT:motorway"],
                 "highway": ["residential", "tertiary", "motorway"],
+                "zone:maxspeed": [None, None, None],
             }
         )
         updated = BikePathAnalysis.get_max_speed(edges)
         self.assertEqual(list(updated["maxspeed_assumed"]), [50, 90, 130])
         self.assertTrue(pd.api.types.is_numeric_dtype(updated["maxspeed_assumed"]))
 
+    def test_zone_maxspeed_fills_in_when_maxspeed_is_missing(self):
+        # Italian "Zona 30" convention: no plain maxspeed tag at all, just
+        # zone:maxspeed=IT:30 - the whole point of this fallback.
+        edges = pd.DataFrame(
+            {
+                "maxspeed": [None, None, "50"],
+                "highway": ["residential", "residential", "residential"],
+                "zone:maxspeed": ["IT:30", "DE:30", "IT:30"],
+            }
+        )
+        updated = BikePathAnalysis.get_max_speed(edges)
+        # Row 3 keeps its real maxspeed=50 - zone:maxspeed never overrides
+        # an explicit value already on the way itself.
+        self.assertEqual(list(updated["maxspeed_assumed"]), [30, 30, 50])
+
+    def test_zone_maxspeed_unparseable_falls_back_to_local(self):
+        edges = pd.DataFrame(
+            {"maxspeed": [None], "highway": ["residential"], "zone:maxspeed": ["none"]}
+        )
+        updated = BikePathAnalysis.get_max_speed(edges)
+        self.assertEqual(updated.iloc[0]["maxspeed_assumed"], 50)
+
     def test_unrecognized_string_falls_back_to_local_instead_of_leaking_the_string(self):
-        edges = pd.DataFrame({"maxspeed": ["walk"], "highway": ["residential"]})
+        edges = pd.DataFrame({"maxspeed": ["walk"], "highway": ["residential"], "zone:maxspeed": [None]})
         updated = BikePathAnalysis.get_max_speed(edges)
         self.assertEqual(updated.iloc[0]["maxspeed_assumed"], 50)
 

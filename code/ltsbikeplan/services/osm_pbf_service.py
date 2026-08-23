@@ -32,6 +32,7 @@ EXTRA_NETWORK_ATTRIBUTES = [
     "parking:condition",
     "motorroad",
     "sac_scale",
+    "zone:maxspeed",
 ]
 
 # Columns BikePathAnalysis reads unconditionally (would KeyError, not just
@@ -69,6 +70,11 @@ REQUIRED_EDGE_COLUMNS = [
     "cycleway:both",
     "width",
     "est_width",
+    # Italian "Zona 30" traffic-calmed zones - see graph_services.py's
+    # _EXTRA_USEFUL_TAGS_WAY comment. Read unconditionally by
+    # get_max_speed (domain/lts_rules.py) as a fallback when `maxspeed`
+    # itself is missing.
+    "zone:maxspeed",
     # compute_lts.py's export_columns selects "name" unconditionally (web
     # viewer popup). Neither ingestion path guarantees it otherwise: pyrosm
     # only materializes the column if at least one way in the extract
