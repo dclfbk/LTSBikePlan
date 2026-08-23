@@ -94,6 +94,23 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="$REPO_ROOT/web/data"
 BATCH_MAX_BYTES=$(( ${LTSBP_NATIONAL_BATCH_MAX_MB:-1000} * 1000 * 1000 ))
 PARQUET_TO_GEOJSON_RATIO=30
+# -y lts -y highway -y rule (see run_batch's tippecanoe call below): keeps
+# ONLY these 3 properties in italia_lts.pmtiles, dropping name/comune/
+# length/centrality/is_gap_edge/message/... - everything web/app.js's
+# rendering doesn't read (colour+width need "lts", the facility dash
+# pattern needs "highway"/"rule"). Safe specifically because nothing
+# interactive ever runs against this tileset: web/app.js's MIN_CLICK_ZOOM
+# (13) is kept >= COMUNE_SWAP_MIN_ZOOM (12, where this tileset's own
+# lts-lines/gap-edges layers already stop rendering), so a click, the gap
+# list, and the PDF area-label lookup always hit a per-comune source
+# instead, which still carries the full property set from build_tiles.sh.
+# Cuts real weight: per-feature property bytes don't shrink with zoom the
+# way geometry/tile-count does (measured live: capping maxzoom alone, via
+# `pmtiles extract --maxzoom=`, went 24GB->1.1GB at z11, ->813MB at z10,
+# ->560MB at z9 - each step only ~1.4x, not the ~4x a zoom step "should"
+# save if properties weren't the dominant cost). If web/app.js ever reads
+# a new property off the "italia" source directly (not per-comune), it has
+# to be added to this list too, or it'll silently be missing there only.
 MAJOR_ROADS_FILTER='{"lts": ["any", [">=", "$zoom", 12], ["all", [">=", "$zoom", 7], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link", "secondary", "secondary_link"]], ["all", [">=", "$zoom", 6], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link"]], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link"]]}'
 
 # Everything this run creates lives under one throwaway directory, not
@@ -189,6 +206,7 @@ run_batch() {
     --drop-densest-as-needed \
     --maximum-tile-bytes=5000000 \
     -j "$MAJOR_ROADS_FILTER" \
+    -y lts -y highway -y rule \
     -l lts \
     --name "LTSBikePlan Italia (batch $batch_num)" \
     --attribution "LTSBikePlan / OpenStreetMap contributors" \

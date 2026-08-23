@@ -1,7 +1,19 @@
 // Below this zoom, individual streets are too close together on screen to
 // click reliably, and the point of a click is to inspect ONE street - a
 // single named constant so the threshold is easy to retune later.
-const MIN_CLICK_ZOOM = 14;
+//
+// Also drives belowGapZoom() (the "Tratti da valutare" list). Kept >=
+// COMUNE_SWAP_MIN_ZOOM (12, defined further down) deliberately: as long as
+// that holds, neither ever activates while the merged "italia" tileset's
+// own lts-lines/gap-edges are the active layer (they stop rendering AT
+// z12 - see COMUNE_SWAP_MIN_ZOOM) - only a per-comune source, which always
+// carries the full property set, ever answers a click or feeds the gap
+// list. That's what let build_national_tiles.sh strip italia_lts.pmtiles
+// down to just the 3 properties actual rendering needs (lts/highway/
+// rule) - name/length/centrality/is_gap_edge/etc. would otherwise still
+// be needed there too. 13 (not 12 exactly) leaves one zoom level of
+// margin rather than depending on the boundary being exact.
+const MIN_CLICK_ZOOM = 13;
 
 // Below this zoom, the lts-lines/gap-edges layers are hidden entirely (see
 // MIN_STREETS_ZOOM on their `minzoom`, and #zoom-hint's show/hide further
@@ -328,32 +340,37 @@ function formatCoord(value, positiveSuffix, negativeSuffix) {
 // Labels the PDF with an actual place name rather than the literal
 // ?area= URL param, which is "italia" (the merged national tileset, see
 // pipeline_output_inventory-style comments elsewhere) even while the user
-// is looking at one specific comune within it. Reads the "comune" property
-// every edge already carries (compute_lts.py sets it from AreaSpec.name)
-// off whatever's currently rendered on screen - the same
-// queryRenderedFeatures() approach computeGapInterventions() uses. A
-// single comune dominating most of what's visible gets named; a
-// wider/mixed view (several comuni, or genuinely zoomed out to a
-// national/regional scale) falls back to "Italia" rather than naming
-// whichever comune happens to have the most edges in a roughly even mix.
+// is looking at one specific comune within it. Looks up the map's current
+// centre against comuni_index.json's bboxes (the same lookup
+// updateComuneOverlays uses to decide which per-comune pmtiles to load) -
+// NOT a queryRenderedFeatures() read of a "comune" tile property the way
+// this used to work: italia_lts.pmtiles no longer carries that property at
+// all (build_national_tiles.sh strips everything except lts/highway/rule,
+// safe to do only because nothing interactive - clicks, the gap list, and
+// now this - ever runs against it; see MIN_CLICK_ZOOM's comment). Gated on
+// COMUNE_SWAP_MIN_ZOOM so a genuinely zoomed-out national/regional view
+// still falls back to "Italia" instead of naming whichever comune the
+// centre point happens to sit in; picks the smallest-bbox match when more
+// than one comune's bbox contains the centre (a rough but cheap proxy for
+// "most specific", same trade-off comuni_index.json's bbox-only lookup
+// already accepts elsewhere).
 function currentAreaLabel() {
   if (area !== "italia") return area.replace(/_/g, " ");
-  const layers = ltsLineLayerIds();
-  if (!layers.length) return "Italia";
+  if (!comuniIndex || map.getZoom() < COMUNE_SWAP_MIN_ZOOM) return "Italia";
 
-  const features = map.queryRenderedFeatures({ layers });
-  if (!features.length) return "Italia";
-
-  const counts = {};
-  for (const feature of features) {
-    const comune = feature.properties.comune;
-    if (comune) counts[comune] = (counts[comune] || 0) + 1;
+  const center = map.getCenter();
+  let best = null;
+  let bestBboxArea = Infinity;
+  for (const entry of comuniIndex) {
+    const [minLon, minLat, maxLon, maxLat] = entry.bbox;
+    if (center.lng < minLon || center.lng > maxLon || center.lat < minLat || center.lat > maxLat) continue;
+    const bboxArea = (maxLon - minLon) * (maxLat - minLat);
+    if (bboxArea < bestBboxArea) {
+      bestBboxArea = bboxArea;
+      best = entry;
+    }
   }
-  const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  if (!ranked.length) return "Italia";
-
-  const [topComune, topCount] = ranked[0];
-  return topCount / features.length > 0.6 ? topComune : "Italia";
+  return best ? best.slug.replace(/_/g, " ") : "Italia";
 }
 
 function exportMapToPdf() {

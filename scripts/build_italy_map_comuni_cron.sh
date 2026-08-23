@@ -49,6 +49,12 @@
 # count and, more importantly, don't set it so high that osmit-estratti or
 # Mapterhorn starts rate-limiting/erroring you.
 #
+# LTSBP_SKIP_NATIONAL_REBUILD=1 skips the italia_lts.pmtiles + comuni_index.json
+# rebuild at the end of each batch (see below) - set it while bulk-reprocessing
+# comuni already marked done in comuni_progress.tsv (e.g. re-running everyone
+# after an LTS rule change), so every batch isn't paying for a full national
+# rebuild it doesn't need yet; run both by hand once the whole pass is done.
+#
 # Usage: LTSBP_COMUNI_BATCH_SIZE=150 LTSBP_COMUNI_PARALLEL_JOBS=4 scripts/build_italy_map_comuni_cron.sh [data_dir]
 # Suggested crontab (every 2h - budget per-batch runtime as roughly
 # (BATCH_SIZE / PARALLEL_JOBS) * (comune compute-lts time), much less than
@@ -165,11 +171,36 @@ export DATA_DIR PROGRESS_FILE FAILED_FILE LTSBP_CLEANUP_CACHE LTSBP_KEEP_GEOJSON
 # "Lampedusa e Linosa") that would otherwise be split into extra args.
 printf '%s\n' "${BATCH[@]}" | xargs -d '\n' -P "$PARALLEL_JOBS" -I{} bash -c 'process_comune "$@"' _ {}
 
-log "Rebuilding merged national tileset..."
 TILE_BUILD_FAILED=0
-if ! scripts/build_national_tiles.sh "$DATA_DIR"; then
-  log "ERROR: national tileset rebuild failed - this batch's comuni were processed but web/data/italia_lts.pmtiles was NOT updated"
-  TILE_BUILD_FAILED=1
+if [ "${LTSBP_SKIP_NATIONAL_REBUILD:-0}" = "1" ]; then
+  # Set while bulk-reprocessing comuni already marked done (e.g. re-running
+  # everyone after an LTS rule change) - rebuilding italia_lts.pmtiles +
+  # comuni_index.json after EVERY batch is wasted work at that point (both
+  # regenerate from every processed area's data, not just this batch's), and
+  # both now cost real time (the national rebuild regenerates GeoJSON from
+  # parquet per area - see build_national_tiles.sh). Run them once by hand
+  # (`scripts/build_national_tiles.sh && python3 scripts/build_comuni_index.py`)
+  # after the whole reprocessing pass finishes instead.
+  log "LTSBP_SKIP_NATIONAL_REBUILD=1 - skipping italia_lts.pmtiles/comuni_index.json rebuild this batch (remember to run both by hand once the whole pass is done)"
+else
+  log "Rebuilding merged national tileset..."
+  if ! scripts/build_national_tiles.sh "$DATA_DIR"; then
+    log "ERROR: national tileset rebuild failed - this batch's comuni were processed but web/data/italia_lts.pmtiles was NOT updated"
+    TILE_BUILD_FAILED=1
+  fi
+
+  # web/app.js swaps in a comune's own pmtiles past COMUNE_SWAP_MIN_ZOOM in
+  # the "italia" view (see build_national_tiles.sh's own comment on this) by
+  # looking it up in web/data/comuni_index.json - without rebuilding that
+  # index here too, a comune this batch just finished stays invisible past
+  # that zoom until someone happens to regenerate it by hand. Not treated as
+  # fatal to the run (same as a national tileset failure above) - the batch's
+  # actual comuni work already succeeded either way.
+  log "Rebuilding comuni index (istat/slug/bbox for the z12+ per-comune swap)..."
+  if ! python3 scripts/build_comuni_index.py "$DATA_DIR"; then
+    log "ERROR: comuni index rebuild failed - comuni processed this batch won't appear past z12 in the italia view until it's regenerated"
+    TILE_BUILD_FAILED=1
+  fi
 fi
 
 FAILED_COUNT=$(wc -l < "$FAILED_FILE" | tr -d ' ')
