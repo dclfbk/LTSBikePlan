@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pdftoppm -png -r 150 scale-test.pdf scale-test)",
+      "Bash(lsb_release -a)",
+      "Bash(chmod +x /home/napo/Documents/development/LTSBikePlan/scripts/setup_server.sh)",
+      "Bash(bash -n scripts/setup_server.sh)",
+      "Bash(command -v shellcheck)",
+      "Bash(shellcheck scripts/setup_server.sh)",
+      "Bash(python3 -c ' *)",
+      "Bash(lsb_release -d)",
+      "Bash(apt-cache policy *)",
+      "Bash(apt list *)",
+      "Bash(/home/napo/.local/bin/python3.12 -m venv --without-pip /tmp/py312-test-venv)",
+      "Bash(curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py)",
+      "Bash(/tmp/py312-test-venv/bin/python get-pip.py --quiet)",
+      "Bash(/tmp/py312-test-venv/bin/python /tmp/get-pip.py --quiet)",
+      "Bash(/tmp/py312-test-venv/bin/python -m pip --version)",
+      "Bash(bash -n scripts/build_italy_map_cron.sh)",
+      "Bash(bash -n scripts/cleanup_area_cache.py)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('scripts/cleanup_area_cache.py'\\).read\\(\\)\\)\")",
+      "Bash(cp -r /home/napo/Documents/development/LTSBikePlan/data/_cache/osm_pbf /tmp/claude-1000/-home-napo-Documents-development-LTSBikePlan/bce6ea2a-704a-4048-b06e-ceeb90adf983/scratchpad/cache-test/_cache/)",
+      "Bash(cp -r /home/napo/Documents/development/LTSBikePlan/data/_cache/dem /tmp/claude-1000/-home-napo-Documents-development-LTSBikePlan/bce6ea2a-704a-4048-b06e-ceeb90adf983/scratchpad/cache-test/_cache/)",
+      "Bash(cp -r /home/napo/Documents/development/LTSBikePlan/data/_cache/osmit_index /tmp/claude-1000/-home-napo-Documents-development-LTSBikePlan/bce6ea2a-704a-4048-b06e-ceeb90adf983/scratchpad/cache-test/_cache/)",
+      "Bash(dpkg -l)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(/usr/bin/python3 /tmp/claude-1000/-home-napo-Documents-development-LTSBikePlan/bce6ea2a-704a-4048-b06e-ceeb90adf983/scratchpad/mobile_audit.py)",
+      "Bash(/usr/bin/python3 /tmp/claude-1000/-home-napo-Documents-development-LTSBikePlan/bce6ea2a-704a-4048-b06e-ceeb90adf983/scratchpad/measure_geocoder.py)"
+    ]
+  }
+}

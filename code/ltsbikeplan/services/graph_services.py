@@ -11,10 +11,15 @@ from ltsbikeplan.domain.crs import WORKING_CRS, chunked_to_crs
 # useful_tags_way - without these, they'd silently never reach the domain
 # rules that need them on the osmnx ingestion path (motorroad: trunk/
 # trunk_link legally barred to bicycles; sac_scale: mountain trails too
-# technical for a city/e-bike despite being highway=path/footway). mtb:scale
-# was here too at one point - dropped along with the domain rule that read
-# it, see lts_rules.py's _HARD_SAC_SCALE_VALUES comment for why.
-_EXTRA_USEFUL_TAGS_WAY = ["motorroad", "sac_scale"]
+# technical for a city/e-bike despite being highway=path/footway;
+# zone:maxspeed: Italian "Zona 30" traffic-calmed zones are frequently
+# tagged only with zone:maxspeed=IT:30, no plain maxspeed at all - without
+# this, get_max_speed's fallback chain never sees it and assumes a bare
+# 50 km/h `local` default instead, understating how calm the street
+# actually is). mtb:scale was here too at one point - dropped along with
+# the domain rule that read it, see lts_rules.py's _HARD_SAC_SCALE_VALUES
+# comment for why.
+_EXTRA_USEFUL_TAGS_WAY = ["motorroad", "sac_scale", "zone:maxspeed"]
 
 
 class GraphLoaderService:

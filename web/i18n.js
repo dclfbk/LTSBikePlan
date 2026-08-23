@@ -111,6 +111,7 @@ const I18N = {
         a: `<p>Perché non c'è solo il traffico.</p>
 <p>Una strada può avere buone caratteristiche infrastrutturali, ma una salita lunga e molto ripida può comunque cambiare parecchio l'esperienza di chi la percorre.</p>
 <p>Nel nostro adattamento dell'LTS, quando una salita è sufficientemente lunga e ripida il valore può aumentare.</p>
+<p>La pendenza viene calcolata da un modello digitale del terreno con una risoluzione di circa 10 metri. Su un tratto molto corto (pochi metri) questa misura può non essere affidabile: per questo la penalità si applica solo ai tratti di almeno 500 metri, dove il dato è stabile.</p>
 <p>La vista 3D della mappa aiuta anche a leggere questo aspetto del territorio.</p>`,
       },
       {
@@ -303,7 +304,7 @@ const I18N = {
       p9: "LTS impostato a 1: è una scalinata dotata di rampa per biciclette.",
       p10: "Ciclabilità non consentita: è una strada a scorrimento veloce (motorroad) di categoria trunk, vietata alle biciclette per legge.",
       p11: "Ciclabilità non consentita: l'accesso è riservato (privato, con permesso, clienti, destinazione, uso agricolo/forestale/militare) e non è indicato un permesso esplicito per le biciclette.",
-      p12: "Ciclabilità non consentita: è una strada di servizio (passo carraio, corsia di parcheggio, vicolo) e non è indicato un permesso esplicito per le biciclette.",
+      p12: "Ciclabilità non consentita: è un passo carraio, una corsia interna a un parcheggio o un accesso riservato ai mezzi di soccorso, e non è indicato un permesso esplicito per le biciclette.",
       s3: "Questo tratto è una pista ciclabile separata dal traffico.",
       s1: "Questo tratto è un sentiero o percorso separato dalla circolazione motorizzata.",
       s2: "Questo tratto è un percorso pedonale separato dal traffico, non un attraversamento.",
@@ -501,7 +502,7 @@ const I18N = {
       p9: "LTS set to 1: it's a flight of stairs with a bicycle ramp.",
       p10: "Cycling not permitted: it's a trunk-class expressway (motorroad), off-limits to bicycles by law.",
       p11: "Cycling not permitted: access is restricted (private, permit, customers, destination, agricultural/forestry/military use) with no explicit permission for bicycles.",
-      p12: "Cycling not permitted: it's a service road (driveway, parking aisle, alley) with no explicit permission for bicycles.",
+      p12: "Cycling not permitted: it's a driveway, a parking-lot lane, or an emergency-vehicle-only access road, with no explicit permission for bicycles.",
       s3: "This way is a cycle path physically separated from traffic.",
       s1: "This way is a path separated from motor traffic.",
       s2: "This way is a footpath separated from traffic, not a crossing.",
@@ -699,7 +700,7 @@ const I18N = {
       p9: "LTS auf 1 gesetzt: Es handelt sich um eine Treppe mit Fahrradrampe.",
       p10: "Radfahren nicht erlaubt: Es handelt sich um eine Schnellstraße (motorroad) der Kategorie trunk, gesetzlich für Fahrräder gesperrt.",
       p11: "Radfahren nicht erlaubt: Der Zugang ist eingeschränkt (privat, mit Erlaubnis, Kunden, Ziel, land-/forstwirtschaftliche/militärische Nutzung) und es liegt keine ausdrückliche Freigabe für Fahrräder vor.",
-      p12: "Radfahren nicht erlaubt: Es handelt sich um eine Erschließungsstraße (Zufahrt, Parkplatzgasse, Gasse) ohne ausdrückliche Freigabe für Fahrräder.",
+      p12: "Radfahren nicht erlaubt: Es handelt sich um eine private Zufahrt, eine Parkplatzfahrgasse oder eine nur für Rettungsfahrzeuge zugängliche Straße, ohne ausdrückliche Freigabe für Fahrräder.",
       s3: "Getrennter Weg: baulich vom Verkehr getrennter Radweg.",
       s1: "Getrennter Weg: vom motorisierten Verkehr getrennter Weg.",
       s2: "Getrennter Weg: vom Verkehr getrennter Gehweg, keine Querung.",
@@ -897,7 +898,7 @@ const I18N = {
       p9: "LTS fixé à 1 : il s'agit d'un escalier équipé d'une rampe pour vélos.",
       p10: "Vélo non autorisé : il s'agit d'une voie rapide (motorroad) de catégorie trunk, interdite aux vélos par la loi.",
       p11: "Vélo non autorisé : l'accès est réservé (privé, avec permis, clients, destination, usage agricole/forestier/militaire) et aucune autorisation explicite pour les vélos n'est indiquée.",
-      p12: "Vélo non autorisé : il s'agit d'une voie de desserte (allée privée, allée de stationnement, ruelle) sans autorisation explicite pour les vélos.",
+      p12: "Vélo non autorisé : il s'agit d'une allée privée, d'une allée de stationnement ou d'un accès réservé aux véhicules d'urgence, sans autorisation explicite pour les vélos.",
       s3: "Voie séparée : piste cyclable physiquement séparée de la circulation.",
       s1: "Voie séparée : chemin séparé de la circulation motorisée.",
       s2: "Voie séparée : trottoir séparé de la circulation, ce n'est pas une traversée.",
