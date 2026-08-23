@@ -616,6 +616,8 @@ document.getElementById("lang-select").addEventListener("change", (e) => {
   currentLang = e.target.value;
   applyUiTranslations();
   renderLegend();
+  renderFacilityLegend();
+  updateZoomHint();
   if (gapModeOn) renderGapInterventions();
   updateGapToggleState();
   syncUrlState();
@@ -757,7 +759,36 @@ function applyLtsFilter() {
   for (const id of ltsLineLayerIds()) map.setFilter(id, filter);
 }
 
+// Not a filter (unlike the LTS colour legend above) - purely explains what
+// the FACILITY_DASH_EXPRESSION patterns on the map mean, so it's static,
+// no click handlers. Dasharray values here are scaled by an arbitrary
+// preview stroke-width (3) purely for the little SVG icon - same ratios as
+// FACILITY_*_DASH above (MapLibre's own units, multiples of the line's
+// actual on-map width), just re-expressed in SVG pixels for a fixed-size
+// preview.
+function facilityDashIcon(dasharrayCss) {
+  return `<svg width="28" height="10" viewBox="0 0 28 10" aria-hidden="true">
+    <line x1="1" y1="5" x2="27" y2="5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="${dasharrayCss}" />
+  </svg>`;
+}
+function renderFacilityLegend() {
+  const legend = document.getElementById("facility-legend");
+  legend.innerHTML = "";
+  const rows = [
+    { icon: facilityDashIcon("1000 0"), label: t("facilityStreet") },
+    { icon: facilityDashIcon("6 3"), label: t("facilityCycleway") },
+    { icon: facilityDashIcon("1.5 4.5"), label: t("facilityPath") },
+  ];
+  for (const { icon, label } of rows) {
+    const item = document.createElement("div");
+    item.className = "legend-item static";
+    item.innerHTML = `${icon} ${label}`;
+    legend.appendChild(item);
+  }
+}
+
 renderLegend();
+renderFacilityLegend();
 
 // OSM tag values -> a fragment that reads as a sentence once composed
 // below ("Strada " + phrase, "Strada con " + phrase). A raw OSM value
@@ -839,6 +870,41 @@ const LTS_LINE_WIDTH = [
   12, ["match", ["to-string", ["get", "lts"]], "1", 1.0, "2", 1.2, "3", 1.8, "4", 2.2, 1.5],
   18, ["match", ["to-string", ["get", "lts"]], "1", 3.5, "2", 4.0, "3", 5.5, "4", 6.5, 5.0],
 ];
+// Facility-type visual distinction - independent of the LTS colour/width
+// channel above (which stays purely about stress severity): solid = street
+// (mixed traffic, the default/majority case), long dash = a separated/
+// dedicated cycleway, fine dots = an unpaved path or track - the near-
+// universal cartographic convention for "informal/unsurfaced" (matches
+// OSM-carto's own rendering). Driven by `highway` for the clear-cut cases
+// (highway=cycleway/path/track/footway/bridleway) and by the same "s3"/
+// "s7"/"s8" (physically-separated cycleway) and "s1"/"s2" (path/non-
+// crossing footway) rule codes domain/lts_rules.py's is_separated_path
+// already assigns, for a cycleway/path that reaches that classification
+// via a cycleway:*/footway sub-tag rather than the highway tag itself.
+// Dasharray units are multiples of the line's own width (MapLibre style
+// spec), so the pattern scales automatically with LTS_LINE_WIDTH's own
+// zoom/LTS-based sizing - no separate zoom interpolation needed here.
+const FACILITY_SOLID_DASH = ["literal", [1, 0]];
+const FACILITY_CYCLEWAY_DASH = ["literal", [2, 1]];
+const FACILITY_PATH_DASH = ["literal", [0.5, 1.5]];
+const FACILITY_CYCLEWAY_RULES = ["literal", ["s3", "s7", "s8"]];
+const FACILITY_PATH_RULES = ["literal", ["s1", "s2"]];
+const FACILITY_PATH_HIGHWAYS = ["literal", ["path", "track", "footway", "bridleway"]];
+const FACILITY_DASH_EXPRESSION = [
+  "case",
+  ["any",
+    ["==", ["get", "highway"], "cycleway"],
+    ["in", ["get", "rule"], FACILITY_CYCLEWAY_RULES],
+  ],
+  FACILITY_CYCLEWAY_DASH,
+  ["any",
+    ["in", ["get", "highway"], FACILITY_PATH_HIGHWAYS],
+    ["in", ["get", "rule"], FACILITY_PATH_RULES],
+  ],
+  FACILITY_PATH_DASH,
+  FACILITY_SOLID_DASH,
+];
+
 const GAP_EDGE_WIDTH = 4;
 // Shared by the base "gap-edges" layer and every per-comune gap-edges-<slug>
 // layer added by addComuneLayers below - one filter definition, not one
@@ -905,6 +971,7 @@ function addDataLayers() {
         paint: {
           "line-color": buildLtsLineColorExpression(),
           "line-width": LTS_LINE_WIDTH,
+          "line-dasharray": FACILITY_DASH_EXPRESSION,
         },
       },
       firstSymbolLayerId,
@@ -1050,6 +1117,7 @@ function addComuneLayers(slug) {
       paint: {
         "line-color": buildLtsLineColorExpression(),
         "line-width": LTS_LINE_WIDTH,
+        "line-dasharray": FACILITY_DASH_EXPRESSION,
       },
     },
     firstSymbolLayerId,
@@ -1143,11 +1211,11 @@ function hideLoadingIndicator() {
 }
 
 map.on("dataloading", () => {
-  // Below MIN_STREETS_ZOOM, lts-lines/gap-edges are hidden (see their
-  // `minzoom`) and #zoom-hint is showing instead - "loading" would be
-  // both wrong (nothing street-related is being fetched at this zoom) and
-  // confusing stacked on top of the zoom-in hint.
-  if (map.getZoom() < MIN_STREETS_ZOOM) return;
+  // Below MIN_CLICK_ZOOM, #zoom-hint is always showing something (either
+  // "zoom in to see streets" below MIN_STREETS_ZOOM, or "zoom in further
+  // to click them" between that and MIN_CLICK_ZOOM - see updateZoomHint) -
+  // "loading" would be confusing stacked on top of either.
+  if (map.getZoom() < MIN_CLICK_ZOOM) return;
   if (loadingShowTimer == null && document.getElementById("loading-indicator").classList.contains("hidden")) {
     loadingShowTimer = setTimeout(showLoadingIndicator, LOADING_SHOW_DELAY_MS);
   }
@@ -1156,15 +1224,31 @@ map.on("idle", hideLoadingIndicator);
 
 // #zoom-hint takes the same top-center slot #loading-indicator uses -
 // mutually exclusive by construction (the dataloading handler above never
-// shows the loading indicator below MIN_STREETS_ZOOM), so no explicit
+// shows the loading indicator below MIN_CLICK_ZOOM), so no explicit
 // z-index fight between the two, just whichever one's condition currently
-// holds. "zoom" (not "zoomend") for the same reason the cursor style
-// updates on "mousemove" above rather than only once movement settles -
-// the hint should track the gesture live, not wait for it to finish.
+// holds. Two tiers below MIN_CLICK_ZOOM: below MIN_STREETS_ZOOM streets
+// aren't rendered at all yet (nothing to click regardless); between that
+// and MIN_CLICK_ZOOM they ARE visible but too close together to click
+// reliably (see the click handler's own MIN_CLICK_ZOOM guard) - a
+// different hint for each, so "zoom in more" doesn't linger unexplained
+// once streets are already on screen. "zoom" (not "zoomend") for the same
+// reason the cursor style updates on "mousemove" above rather than only
+// once movement settles - the hint should track the gesture live, not
+// wait for it to finish.
 function updateZoomHint() {
-  const showHint = map.getZoom() < MIN_STREETS_ZOOM;
-  document.getElementById("zoom-hint").classList.toggle("hidden", !showHint);
-  if (showHint) hideLoadingIndicator();
+  const zoom = map.getZoom();
+  const hintEl = document.getElementById("zoom-hint");
+  if (zoom < MIN_STREETS_ZOOM) {
+    hintEl.textContent = t("zoomHint");
+    hintEl.classList.remove("hidden");
+    hideLoadingIndicator();
+  } else if (zoom < MIN_CLICK_ZOOM) {
+    hintEl.textContent = t("zoomClickHint");
+    hintEl.classList.remove("hidden");
+    hideLoadingIndicator();
+  } else {
+    hintEl.classList.add("hidden");
+  }
 }
 map.on("zoom", updateZoomHint);
 updateZoomHint();

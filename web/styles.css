@@ -110,6 +110,11 @@ body { display: flex; flex-direction: column; }
 .legend-item span.swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
 .lts-face { vertical-align: middle; flex-shrink: 0; }
 #legend-hint { font-size: 11px; color: #777; margin: 4px 0 0; }
+/* Informational only (what the dash patterns on the map mean), not a
+   filter like #legend above - no hover affordance, no click handler. */
+.legend-item.static { cursor: default; color: #555; }
+.legend-item.static:hover { background: none; }
+#facility-legend { margin-top: 6px; border-top: 1px solid #eee; padding-top: 6px; }
 #style-switcher { margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; }
 #style-switcher label { display: block; font-weight: normal; margin: 2px 0; cursor: pointer; }
 /* Compact icon button inside its own maplibregl-ctrl-group, stacked
