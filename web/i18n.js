@@ -103,15 +103,8 @@ const I18N = {
         a: `<p>No.</p>
 <p>L'LTS <strong>non è un indice di incidentalità</strong> e non misura direttamente la probabilità di avere un incidente.</p>
 <p>Una strada con LTS 4 può essere percepita come molto impegnativa a causa del traffico, della velocità o delle sue caratteristiche, ma questo non significa necessariamente che sia la strada dove avvengono più incidenti.</p>
-<p>Allo stesso modo, un valore LTS basso non garantisce che una strada sia priva di rischi.</p>`,
-      },
-      {
-        q: "Quindi cosa misura realmente Stress in bici?",
-        a: `<p>Prova a rappresentare <strong>come le caratteristiche di una strada possono influire sulla percezione di chi la percorre in bicicletta</strong>.</p>
-<p>In altre parole, non vuole rispondere alla domanda:</p>
-<p><strong>"Questa strada è sicura?"</strong></p>
-<p>ma piuttosto:</p>
-<p><strong>"Quanto stress può generare questa strada quando la percorro in bici?"</strong></p>`,
+<p>Allo stesso modo, un valore LTS basso non garantisce che una strada sia priva di rischi.</p>
+<p>In altre parole, Stress in bici non prova a rispondere alla domanda <strong>"Questa strada è sicura?"</strong>, ma piuttosto a <strong>"Quanto stress può generare questa strada quando la percorro in bici?"</strong></p>`,
       },
       {
         q: "Perché considerate anche la pendenza?",
@@ -214,8 +207,8 @@ const I18N = {
       {
         q: "Posso segnalare un problema o proporre un miglioramento?",
         a: `<p>Sì, ed è proprio uno degli obiettivi di un progetto aperto.</p>
-<p>Se il problema riguarda <strong>le caratteristiche di una strada</strong>, vale la pena controllare prima i dati presenti in OpenStreetMap.</p>
-<p>Se riguarda invece <strong>l'algoritmo, il calcolo o il software</strong>, il codice pubblico permette di verificare il funzionamento e contribuire al suo miglioramento.</p>`,
+<p>Per una strada classificata male vale quanto detto sopra: si corregge su OpenStreetMap, non qui.</p>
+<p>Per tutto il resto - <strong>l'algoritmo, il calcolo o il software</strong> - il codice pubblico permette di verificare il funzionamento e contribuire al suo miglioramento.</p>`,
       },
     ],
     privacyToggle: "Cookie",
@@ -371,9 +364,9 @@ const I18N = {
     faqHeading: "FAQ",
     faqCloseAndScrollUp: "Close and scroll to top",
     aiTranslationNote: "Translation by AI",
-    aboutHeading: "Si pedala?",
-    aboutSubtitle: "How calm is it to cycle on Italian roads?",
-    aboutBody: `<p><strong>Si pedala?</strong> ("Are we riding?") is a map that tries to answer a simple question: <strong>how calm is it to ride a bicycle on a given road?</strong></p>
+    aboutHeading: "Stress in bici",
+    aboutSubtitle: "How much stress can a street generate when you ride it by bike?",
+    aboutBody: `<p><strong>Stress in bici</strong> is a map that tries to answer a simple question: <strong>how much stress can a street generate when you ride it by bike?</strong></p>
 <p>To do this it uses <strong>LTS &ndash; Level of Traffic Stress</strong>, a method that describes how comfortable or demanding a road can be for cyclists.</p>
 <p>LTS doesn't directly measure collision risk: it tries instead to represent the sense of comfort, discomfort, or perceived danger in relation to traffic and the road's characteristics.</p>
 <p>Every segment is classified from <strong>LTS 1</strong>, the calmest, to <strong>LTS 4</strong>, the most demanding.</p>
@@ -569,9 +562,9 @@ const I18N = {
     faqHeading: "FAQ",
     faqCloseAndScrollUp: "Schließen und nach oben",
     aiTranslationNote: "Übersetzung durch KI",
-    aboutHeading: "Si pedala?",
-    aboutSubtitle: "Wie entspannt lässt es sich auf italienischen Straßen Rad fahren?",
-    aboutBody: `<p><strong>Si pedala?</strong> ("Fährt man Rad?") ist eine Karte, die eine einfache Frage zu beantworten versucht: <strong>Wie entspannt ist es, eine Straße mit dem Fahrrad zu befahren?</strong></p>
+    aboutHeading: "Stress in bici",
+    aboutSubtitle: "Wie viel Stress kann eine Straße verursachen, wenn man sie mit dem Fahrrad befährt?",
+    aboutBody: `<p><strong>Stress in bici</strong> ist eine Karte, die eine einfache Frage zu beantworten versucht: <strong>Wie viel Stress kann eine Straße verursachen, wenn man sie mit dem Fahrrad befährt?</strong></p>
 <p>Dafür wird der <strong>LTS &ndash; Level of Traffic Stress</strong> verwendet, eine Methode, die beschreibt, wie komfortabel oder anspruchsvoll eine Straße für Radfahrende sein kann.</p>
 <p>Der LTS misst nicht direkt das Unfallrisiko: Er versucht vielmehr, das Gefühl von Komfort, Unbehagen oder wahrgenommener Gefahr im Verhältnis zu Verkehr und Straßenmerkmalen darzustellen.</p>
 <p>Jeder Abschnitt wird von <strong>LTS 1</strong>, dem entspanntesten, bis <strong>LTS 4</strong>, dem anspruchsvollsten, eingestuft.</p>
@@ -767,9 +760,9 @@ const I18N = {
     faqHeading: "FAQ",
     faqCloseAndScrollUp: "Fermer et remonter",
     aiTranslationNote: "Traduction par IA",
-    aboutHeading: "Si pedala?",
-    aboutSubtitle: "À quel point est-il tranquille de rouler à vélo sur les routes italiennes ?",
-    aboutBody: `<p><strong>Si pedala?</strong> (&laquo; On p&eacute;dale&nbsp;? &raquo;) est une carte qui tente de r&eacute;pondre &agrave; une question simple&nbsp;: <strong>&agrave; quel point est-il tranquille de parcourir une route &agrave; v&eacute;lo&nbsp;?</strong></p>
+    aboutHeading: "Stress in bici",
+    aboutSubtitle: "Quel niveau de stress une route peut-elle générer quand on la parcourt à vélo ?",
+    aboutBody: `<p><strong>Stress in bici</strong> est une carte qui tente de r&eacute;pondre &agrave; une question simple&nbsp;: <strong>quel niveau de stress une route peut-elle g&eacute;n&eacute;rer quand on la parcourt &agrave; v&eacute;lo&nbsp;?</strong></p>
 <p>Pour cela, elle utilise le <strong>LTS &ndash; Level of Traffic Stress</strong>, une m&eacute;thode qui d&eacute;crit &agrave; quel point une route peut &ecirc;tre confortable ou exigeante pour les cyclistes.</p>
 <p>Le LTS ne mesure pas directement le risque d'accident&nbsp;: il cherche plut&ocirc;t &agrave; repr&eacute;senter la sensation de confort, de g&ecirc;ne ou de danger per&ccedil;u en fonction du trafic et des caract&eacute;ristiques de la route.</p>
 <p>Chaque tron&ccedil;on est class&eacute; de <strong>LTS 1</strong>, le plus tranquille, &agrave; <strong>LTS 4</strong>, le plus exigeant.</p>

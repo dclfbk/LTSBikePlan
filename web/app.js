@@ -433,14 +433,16 @@ class PrintControl {
     const button = document.createElement("button");
     button.id = "print-toggle";
     button.type = "button";
-    // A drawn PDF-file icon (document + folded corner + red "PDF" band,
-    // same red as the LTS 4 swatch) rather than an emoji - no Unicode
-    // emoji actually depicts a PDF specifically, and a generic document/
-    // printer glyph doesn't say "this exports a PDF" as directly.
+    // A drawn PDF-file icon (document + folded corner + the classic Adobe-
+    // red "PDF" band) rather than an emoji - no Unicode emoji actually
+    // depicts a PDF specifically, and a generic document/printer glyph
+    // doesn't say "this exports a PDF" as directly. Deliberately NOT tied
+    // to the LTS palette (unlike an earlier version of this icon) - PDF-red
+    // is its own universal convention, independent of stress-level colour.
     button.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M5 2 H14 L19 7 V22 H5 Z" fill="#f5f5f5" stroke="#888" stroke-width="1" stroke-linejoin="round" />
       <path d="M14 2 L19 7 H14 Z" fill="#cccccc" />
-      <rect x="4" y="13" width="15" height="6" rx="1" fill="#D1495B" />
+      <rect x="4" y="13" width="15" height="6" rx="1" fill="#E31B1C" />
       <text x="11.5" y="17.6" font-size="5.5" font-family="Arial, sans-serif" font-weight="bold" fill="white" text-anchor="middle">PDF</text>
     </svg>`;
     button.addEventListener("click", exportMapToPdf);
@@ -634,13 +636,34 @@ document.querySelectorAll('input[name="basemap"]').forEach((radio) => {
   });
 });
 
-// LTS colour palette: muted teal/soft-green for the comfortable classes,
-// progressively more saturated orange/brick-red for the demanding ones -
-// labels are NOT here, they come from I18N[currentLang].lts, so a
-// language switch doesn't need to touch the colours at all.
+// LTS colour palette: labels are NOT here, they come from
+// I18N[currentLang].lts, so a language switch doesn't need to touch the
+// colours at all.
+//
+// Colorblind-safe (validated against simulated deuteranopia/protanopia/
+// tritanopia, all-pairs not just adjacent - see dataviz skill's
+// validate_palette.js): teal -> gold -> orange -> purple, deliberately
+// avoiding red for LTS4 - a lot of what lands there is a structural
+// street (a state road, a bridge) nobody's about to reroute, so "danger
+// red" reads as an alarm with no fix rather than "give this one a
+// separated bike/foot facility", which is the actual intervention.
+//
+// "3"'s orange is as saturated as it can get while stayng validator-clean
+// against "2"'s gold: orange and yellow-green sit on the same deutan/
+// protan confusion line, so pushing #B75218 any further toward a vivid
+// orange (tried up to #C05E12) drops the normal-vision ΔE below the 15
+// floor against #A99000 - i.e. full-colour readers start struggling too,
+// not just CVD ones. Going more vivid than this needs moving "2" off
+// gold entirely (tried blue - swapping "2" to blue clears CVD but then
+// "4"'s purple collides with it instead; not a free move).
 const LTS_COLORS = {
-  "1": "#2A9D8F", "2": "#A8C957", "3": "#F4A261", "4": "#D1495B", "0": "#555555",
+  "1": "#0E8A72", "2": "#A99000", "3": "#B75218", "4": "#7B4B9E", "0": "#6B6B6B",
 };
+// "4"'s dark-basemap variant - lighter purple, needed to clear 3:1 contrast
+// against the dark map style (validated separately per mode; every other
+// LTS_COLORS entry, including "0", already clears 3:1 on both surfaces
+// with its one shared value - see buildLtsLineColorExpression below).
+const LTS4_DARK_COLOR = "#9366B8";
 const LTS_FALLBACK_COLOR = "#BDBDBD";
 
 // One face per comfort level, drawn as inline SVG rather than a system
@@ -677,31 +700,39 @@ function ltsIndicatorHtml(key, color) {
   return ltsFaceIcon(key, color) || `<span class="swatch" style="background:${color}"></span>`;
 }
 
-// LTS_COLORS' own "0" (#555555, near-black) all but disappears against the
-// "dark" basemap - swapped for white here, but only for the on-map line
-// layer: the legend/popup/PDF swatches (which read LTS_COLORS directly,
-// always against #panel's white background - see styles.css) stay the
-// documented grey regardless of basemap. Rebuilt fresh on every call
-// rather than cached once, since addDataLayers() (which calls this) reruns
-// on every basemap switch and currentBasemap may have changed since the
-// last build.
+// LTS_COLORS' own "4" (#7B4B9E) dips under 3:1 against the "dark" basemap -
+// swapped for LTS4_DARK_COLOR here, but only for the on-map line layer: the
+// legend/popup/PDF swatches (which read LTS_COLORS directly, always against
+// #panel's white background - see styles.css) stay the documented purple
+// regardless of basemap. "0" needs no such swap any more - #6B6B6B was
+// picked to clear 3:1 on both the light and dark basemap with one value.
+// Rebuilt fresh on every call rather than cached once, since addDataLayers()
+// (which calls this) reruns on every basemap switch and currentBasemap may
+// have changed since the last build.
 function buildLtsLineColorExpression() {
-  const zeroColor = currentBasemap === "dark" ? "#FFFFFF" : LTS_COLORS["0"];
+  const fourColor = currentBasemap === "dark" ? LTS4_DARK_COLOR : LTS_COLORS["4"];
   const expression = ["match", ["to-string", ["get", "lts"]]];
   for (const [key, color] of Object.entries(LTS_COLORS)) {
-    expression.push(key, key === "0" ? zeroColor : color);
+    expression.push(key, key === "4" ? fourColor : color);
   }
   expression.push(LTS_FALLBACK_COLOR);
   return expression;
 }
 
 // Legend doubles as a filter: click a class to hide/show it on the map.
-// All classes start active (or whatever the URL's ?lts= says); the layer
-// filter and legend re-render on every toggle so they can't disagree
-// about what's currently shown.
+// Every class starts active EXCEPT "0" (not cyclable at all - motorways,
+// excluded private/service roads, etc.) - it's not part of the LTS 1-4
+// comfort scale the map is actually about, and left on by default it was
+// competing for attention with the streets a rider could choose between.
+// Still one click away in the legend for anyone who wants to see what's
+// excluded. Overridden entirely by the URL's ?lts= when present, so a
+// shared/bookmarked link's chosen set (including "0" if it was explicitly
+// on) always wins over this default.
 const requestedLts = params.get("lts");
 const activeLts = new Set(
-  requestedLts ? requestedLts.split(",").filter((key) => key in LTS_COLORS) : Object.keys(LTS_COLORS),
+  requestedLts
+    ? requestedLts.split(",").filter((key) => key in LTS_COLORS)
+    : Object.keys(LTS_COLORS).filter((key) => key !== "0"),
 );
 
 function renderLegend() {

@@ -19,7 +19,7 @@ body { display: flex; flex-direction: column; }
 }
 #footer-credit { white-space: nowrap; }
 #footer-credit a { color: inherit; text-decoration: underline; }
-#footer-credit a:hover { color: #4c78a8; }
+#footer-credit a:hover { color: #3B4A7A; }
 #footer-hosting { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #footer-logo { height: 18px; width: auto; vertical-align: middle; }
 
@@ -31,7 +31,8 @@ body { display: flex; flex-direction: column; }
   position: relative; z-index: 10;
   font: 13px/1.4 system-ui, sans-serif;
 }
-#header-brand { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+#header-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+#site-logo { width: 26px; height: 26px; flex: none; }
 #site-title { font-size: 18px; margin: 0; white-space: nowrap; }
 #site-tagline { font-size: 13px; color: #555; }
 #area-badge { font-size: 13px; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -54,7 +55,7 @@ body { display: flex; flex-direction: column; }
   padding: 6px;
 }
 #geocoder-panel.hidden { display: none; }
-#geocoder-toggle.active { background: #4c78a8; color: white; }
+#geocoder-toggle.active { background: #3B4A7A; color: white; }
 #geocoder-input {
   font: inherit; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px;
   width: 100%; box-sizing: border-box;
@@ -70,7 +71,7 @@ body { display: flex; flex-direction: column; }
   text-decoration: none; display: inline-block;
 }
 .nav-link:hover { background: #f0f0f0; }
-.nav-link.active { background: #4c78a8; color: white; border-color: #4c78a8; }
+.nav-link.active { background: #3B4A7A; color: white; border-color: #3B4A7A; }
 
 #panel {
   position: absolute; top: 10px; left: 10px; z-index: 5;
@@ -115,12 +116,12 @@ body { display: flex; flex-direction: column; }
    below the zoom/compass NavigationControl (see TerrainControl in
    app.js) - sizing/border/hover inherited from maplibregl-ctrl-group's
    own styles, only the active (terrain-on) state needs a custom rule. */
-#terrain-toggle.active { background: #4c78a8; }
+#terrain-toggle.active { background: #3B4A7A; }
 
 .lts-popup { font: 13px/1.5 system-ui, sans-serif; }
 .lts-popup h3 { font-size: 14px; margin: 0 0 6px; }
 .lts-popup details { margin-top: 6px; }
-.lts-popup summary { cursor: pointer; color: #4c78a8; }
+.lts-popup summary { cursor: pointer; color: #3B4A7A; }
 .priority-note { font-size: 11px; color: #7B2CBF; margin: 4px 0 0; }
 
 .hidden { display: none !important; }
@@ -144,7 +145,7 @@ body { display: flex; flex-direction: column; }
 #loading-indicator.hidden { display: none; }
 .spinner {
   width: 20px; height: 20px; flex: 0 0 auto;
-  border: 3px solid #ddd; border-top-color: #4c78a8; border-radius: 50%;
+  border: 3px solid #ddd; border-top-color: #3B4A7A; border-radius: 50%;
   animation: lts-spin 0.8s linear infinite;
 }
 @keyframes lts-spin { to { transform: rotate(360deg); } }
@@ -171,7 +172,7 @@ body { display: flex; flex-direction: column; }
    button like the original, not the header nav-link style tried in
    between (moved there and back per feedback). */
 #gap-toggle { margin-top: 8px; width: 100%; }
-#gap-toggle.active { background: #4c78a8; color: white; border-color: #4c78a8; }
+#gap-toggle.active { background: #3B4A7A; color: white; border-color: #3B4A7A; }
 #gap-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Accordion section inside #panel, right under the toggle button -
@@ -220,7 +221,7 @@ body { display: flex; flex-direction: column; }
 .info-panel h2 { font-size: 15px; margin: 0 0 8px; }
 .info-panel h3 { font-size: 13px; margin: 14px 0 4px; color: #222; }
 .info-panel p { margin: 6px 0; }
-.info-panel a { color: #4c78a8; }
+.info-panel a { color: #3B4A7A; }
 .info-panel-close {
   position: absolute; top: 6px; right: 8px; border: none; background: none;
   font-size: 16px; cursor: pointer; color: #777; line-height: 1;
@@ -238,7 +239,7 @@ body { display: flex; flex-direction: column; }
   background: none; border: none; padding: 10px 22px 10px 0; cursor: pointer; color: #222;
   position: relative;
 }
-.faq-question:hover { color: #4c78a8; }
+.faq-question:hover { color: #3B4A7A; }
 .faq-question::after { content: "+"; position: absolute; right: 2px; top: 8px; color: #999; }
 .faq-item.open .faq-question::after { content: "\2212"; }
 .faq-answer { padding: 0 0 10px; }
@@ -248,7 +249,7 @@ body { display: flex; flex-direction: column; }
   color: #999; background: none; border: none; padding: 0;
   cursor: pointer; text-decoration: underline;
 }
-.faq-close-answer:hover { color: #4c78a8; }
+.faq-close-answer:hover { color: #3B4A7A; }
 
 /* Print widget (see PrintControl in app.js): keeps the map and the
    legend (colour meaning is essential context for a printed map), drops

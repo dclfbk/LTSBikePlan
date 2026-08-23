@@ -151,12 +151,21 @@ class BikePathAnalysis:
         restricted_access = (
             gdf_edges["access"].isin(BikePathAnalysis._RESTRICTED_ACCESS_VALUES) & ~bicycle_permitted_override
         )
-        # highway=service covers driveway/parking_aisle/alley/generic
-        # service alike - a service road exists to serve the
-        # building(s)/business it runs to, not through cycling traffic, so
-        # it's excluded the same way a private/no-access street is unless a
-        # bicycle=* tag explicitly says otherwise.
-        service_excluded = (gdf_edges["highway"] == "service") & ~bicycle_permitted_override
+        # Only service=driveway (single-property access) and
+        # emergency_access (restricted to emergency vehicles) are excluded
+        # here - NOT every highway=service. A service road with no
+        # sub-tag, or service=alley/parking_aisle, is often shared/
+        # quasi-public infrastructure a cyclist can actually use - in
+        # practice frequently the literal entry point onto a real cycleway
+        # (a short service-tagged connector, sometimes a chain of them,
+        # before reaching the ciclabile itself). Blanket-excluding all of
+        # highway=service broke exactly those connections. mixed_traffic
+        # below already scores alley/parking_aisle/generic service
+        # (m2/m3/m16) same as before; genuinely private access is still
+        # caught separately by access=private/... above regardless of
+        # highway type.
+        service_value = gdf_edges["service"] if "service" in gdf_edges.columns else pd.Series(None, index=gdf_edges.index)
+        service_excluded = service_value.isin(["driveway", "emergency_access"]) & ~bicycle_permitted_override
 
         conditions = [
             bicycle_no,

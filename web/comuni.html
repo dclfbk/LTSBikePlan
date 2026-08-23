@@ -17,7 +17,8 @@
     background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
     position: relative; z-index: 10;
   }
-  #header-brand { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  #header-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  #site-logo { width: 26px; height: 26px; flex: none; }
   #site-title { font-size: 18px; margin: 0; white-space: nowrap; }
   #header-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   #lang-switcher select { font: inherit; padding: 2px 4px; }
@@ -52,7 +53,7 @@
   tbody tr:hover { background: #f7f9fc; }
   .comune-name { font-weight: 600; }
   .badge {
-    display: inline-block; font-size: 10px; font-weight: normal; color: #4c78a8;
+    display: inline-block; font-size: 10px; font-weight: normal; color: #3B4A7A;
     background: #eaf1fa; border-radius: 3px; padding: 1px 5px; margin-left: 6px; vertical-align: middle;
   }
   #empty-state { padding: 30px; text-align: center; color: #777; }
@@ -72,6 +73,7 @@
 <body>
 <header id="site-header">
   <div id="header-brand">
+    <img id="site-logo" src="logo.svg" alt="" />
     <h1 id="site-title">Stress in bici</h1>
   </div>
   <nav id="header-nav">
