@@ -105,9 +105,17 @@ class BikePathAnalysis:
     # access. All excluded UNLESS a more specific bicycle=* tag explicitly
     # overrides the general access restriction (see bicycle_permitted_
     # override below) - standard OSM tag-hierarchy convention, e.g.
-    # access=private + bicycle=yes means cyclists specifically are let
+    # access=destination + bicycle=yes means cyclists specifically are let
     # through even though the general public isn't.
-    _RESTRICTED_ACCESS_VALUES = {"private", "permit", "customers", "delivery", "agricultural", "forestry", "destination", "military"}
+    #
+    # "private" is deliberately NOT in this set (see access_private below):
+    # unlike the other restricted values, a bicycle=yes/designated/... next
+    # to access=private is treated as a mapper mistake, not a genuine
+    # cyclist-specific carve-out - product decision, since "private" means
+    # the owner personally admits people, and a blanket bicycle=designated
+    # can't stand in for that individual permission the way it can for a
+    # generic "customers"/"destination" restriction.
+    _RESTRICTED_ACCESS_VALUES = {"permit", "customers", "delivery", "agricultural", "forestry", "destination", "military"}
 
     @staticmethod
     def biking_permitted(gdf_edges):
@@ -148,6 +156,10 @@ class BikePathAnalysis:
         # than folded into restricted_access below - see the class-level
         # comment on _RESTRICTED_ACCESS_VALUES.
         access_no = (gdf_edges["access"] == "no") & ~bicycle_permitted_override
+        # No bicycle_permitted_override here, unlike access_no/restricted_
+        # access below - see the _RESTRICTED_ACCESS_VALUES comment for why
+        # access=private stays excluded even next to bicycle=designated.
+        access_private = gdf_edges["access"] == "private"
         restricted_access = (
             gdf_edges["access"].isin(BikePathAnalysis._RESTRICTED_ACCESS_VALUES) & ~bicycle_permitted_override
         )
@@ -171,6 +183,7 @@ class BikePathAnalysis:
         conditions = [
             bicycle_no,
             access_no,
+            access_private,
             (gdf_edges["highway"] == "motorway"),
             (gdf_edges["highway"] == "motorway_link"),
             (gdf_edges["highway"] == "proposed"),
@@ -181,7 +194,7 @@ class BikePathAnalysis:
         ]
 
         gdf_edges.loc[:, "rule"] = np.select(
-            conditions, ["p2", "p6", "p3", "p4", "p7", "p5", "p10", "p11", "p12"], default="p0"
+            conditions, ["p2", "p6", "p13", "p3", "p4", "p7", "p5", "p10", "p11", "p12"], default="p0"
         )
 
         gdf_allowed = gdf_edges[gdf_edges["rule"] == "p0"]

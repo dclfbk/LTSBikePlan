@@ -12,13 +12,28 @@
 # is tuned for point density and picked z12 for both a tiny comune (Atrani)
 # and a full city (Trento, 126k edges) alike - at z12 a street network is
 # too coarse and looks pre-simplified even before the browser gets to draw
-# it. z16 keeps real street-level geometry at close zoom. Deliberately NOT
-# using --drop-densest-as-needed: for a connected road network it drops
-# whole segments (visible gaps) to shrink oversized tiles, whereas
-# tippecanoe's default line-simplification (reducing vertex precision, not
-# removing features) looks far better at the same zoom - verified visually
-# on Trento (126k edges): --drop-densest-as-needed left the city looking
-# almost empty at the zoom level `fitBounds` lands on.
+# it. z16 keeps real street-level geometry at close zoom.
+#
+# --drop-densest-as-needed is a fallback ONLY - for a connected road
+# network it drops whole segments (visible gaps) to shrink an oversized
+# tile, whereas tippecanoe's default line-simplification (reducing vertex
+# precision via --maximum-tile-bytes below, not removing features) looks
+# far better at the same zoom, so it stays off in spirit: on any area
+# that never hits tippecanoe's hard, non-negotiable 200,000-features-per-
+# tile cap (Trento's 126k edges included - verified this flag being
+# present makes zero difference there), this never actually triggers.
+# It's required as a safety net for a real mega-city, though - confirmed
+# live on Milano (855,650 features): its densest z12 tile alone estimated
+# 340,340 features, tippecanoe has NO size-based fallback for that specific
+# cap (--maximum-tile-bytes doesn't apply - byte size and feature count are
+# independent limits), and WITHOUT this flag tippecanoe doesn't even exit
+# non-zero on hitting it - it just warns and silently truncates the whole
+# tileset to whatever zoom it managed (z11 here, i.e. no street-level
+# detail anywhere), which build_tiles.sh's `set -e` can't catch and would
+# otherwise ship as if it had succeeded. A few thinned segments in Milano's
+# single densest tile is a far better failure mode than that - paired with
+# --extend-zooms-if-still-dropping (below) so dropping still tries to claw
+# back to full zoom range rather than settling for less.
 #
 # --maximum-tile-bytes raises tippecanoe's per-tile size cap well above its
 # 500KB default. Below that default, a dense tile (Trento's urban core at
@@ -105,6 +120,7 @@ tippecanoe \
   --minimum-zoom=4 \
   --maximum-zoom=16 \
   --extend-zooms-if-still-dropping \
+  --drop-densest-as-needed \
   --maximum-tile-bytes=5000000 \
   -j "$MAJOR_ROADS_FILTER" \
   -l lts \

@@ -8,6 +8,7 @@ const I18N = {
   it: {
     legendToggle: "Legenda",
     legendHint: "Clicca per mostrare/nascondere",
+    legendZoomDisabledHint: "Visibile da zoom {zoom} in poi",
     bgLight: "Sfondo chiaro",
     bgSummer: "Sfondo estivo",
     bgCycling: "Sfondo ciclabile",
@@ -101,6 +102,17 @@ const I18N = {
 <li><strong>LTS 4</strong> - stress molto elevato</li>
 </ul>
 <p>Più aumenta il valore, più le caratteristiche della strada possono rendere impegnativa l'esperienza in bicicletta.</p>`,
+      },
+      {
+        q: "Perché in alcuni casi non riesco ad attivare tutti i livelli LTS dalla legenda?",
+        a: `<p>Per mantenere leggibile la mappa quando si vede una porzione ampia di territorio, i livelli LTS vengono mostrati gradualmente man mano che si aumenta lo zoom:</p>
+<ul>
+<li><strong>Zoom 4-7</strong> - solo <strong>LTS 1</strong> e <strong>LTS 2</strong> (stress basso)</li>
+<li><strong>Zoom 8-11</strong> - si aggiunge <strong>LTS 3</strong></li>
+<li><strong>Zoom 12 e oltre</strong> - tutti i livelli, incluso <strong>LTS 4</strong> e le strade non ciclabili</li>
+</ul>
+<p>Mostrare da subito ogni strada di ogni livello, su tutta l'Italia, avrebbe reso la mappa una macchia di colore poco leggibile. Nella legenda le voci non ancora disponibili al livello di zoom corrente compaiono <strong>disattivate</strong>, con l'indicazione dello zoom da cui si sbloccano: basta avvicinarsi alla zona di interesse per vederle.</p>
+<p>Una volta sbloccata, ogni voce resta comunque cliccabile per mostrarla o nasconderla, esattamente come prima.</p>`,
       },
       {
         q: "LTS 4 significa che una strada è pericolosa?",
@@ -352,6 +364,7 @@ const I18N = {
   en: {
     legendToggle: "Legend",
     legendHint: "Click to show/hide",
+    legendZoomDisabledHint: "Visible from zoom {zoom} onward",
     bgLight: "Light background",
     bgSummer: "Summer background",
     bgCycling: "Cycling background",
@@ -554,6 +567,7 @@ const I18N = {
   de: {
     legendToggle: "Legende",
     legendHint: "Klicken zum Ein-/Ausblenden",
+    legendZoomDisabledHint: "Sichtbar ab Zoomstufe {zoom}",
     bgLight: "Heller Hintergrund",
     bgSummer: "Sommer-Hintergrund",
     bgCycling: "Rad-Hintergrund",
@@ -756,6 +770,7 @@ const I18N = {
   fr: {
     legendToggle: "Légende",
     legendHint: "Cliquer pour afficher/masquer",
+    legendZoomDisabledHint: "Visible à partir du zoom {zoom}",
     bgLight: "Fond clair",
     bgSummer: "Fond estival",
     bgCycling: "Fond cyclable",

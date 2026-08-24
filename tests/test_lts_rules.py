@@ -42,25 +42,42 @@ class TestLtsRules(unittest.TestCase):
     def test_biking_permitted_marks_restricted_access_not_allowed(self):
         edges = pd.DataFrame(
             {
-                "bicycle": [None, None, None, None],
-                "access": ["yes", "private", "destination", "customers"],
-                "highway": ["residential", "residential", "residential", "residential"],
+                "bicycle": [None, None, None],
+                "access": ["yes", "destination", "customers"],
+                "highway": ["residential", "residential", "residential"],
             }
         )
 
         allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
         self.assertEqual(len(allowed), 1)
-        self.assertEqual(len(not_allowed), 3)
+        self.assertEqual(len(not_allowed), 2)
         self.assertTrue((not_allowed["rule"] == "p11").all())
 
+    def test_biking_permitted_marks_private_access_not_allowed_even_with_bicycle_tag(self):
+        # Unlike the other restricted access values, access=private is a
+        # mapper mistake when paired with bicycle=designated/yes/... rather
+        # than a genuine cyclist-specific carve-out - stays excluded.
+        edges = pd.DataFrame(
+            {
+                "bicycle": [None, "yes", "designated", "permissive", "official"],
+                "access": ["private", "private", "private", "private", "private"],
+                "highway": ["residential"] * 5,
+            }
+        )
+
+        allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
+        self.assertEqual(len(allowed), 0)
+        self.assertEqual(len(not_allowed), 5)
+        self.assertTrue((not_allowed["rule"] == "p13").all())
+
     def test_biking_permitted_bicycle_override_wins_over_restricted_access(self):
-        # access=private + an explicit bicycle=* tag is the standard OSM
-        # convention for "closed to the general public, but cyclists
+        # access=destination/no + an explicit bicycle=* tag is the standard
+        # OSM convention for "closed to the general public, but cyclists
         # specifically may pass" - should stay allowed.
         edges = pd.DataFrame(
             {
                 "bicycle": ["yes", "designated", "permissive", "official"],
-                "access": ["private", "private", "destination", "no"],
+                "access": ["destination", "destination", "destination", "no"],
                 "highway": ["residential", "residential", "residential", "residential"],
             }
         )
