@@ -114,11 +114,6 @@ body { display: flex; flex-direction: column; }
    filter like #legend above - no hover affordance, no click handler. */
 .legend-item.static { cursor: default; color: #555; }
 .legend-item.static:hover { background: none; }
-/* LTS class not reachable at the current zoom (see LTS_CLASS_MIN_ZOOM in
-   app.js) - not-allowed cursor distinguishes "unlock by zooming in" from a
-   plain user-toggled-off class (.inactive alone, still clickable). */
-.legend-item.zoom-disabled { cursor: not-allowed; }
-.legend-item.zoom-disabled:hover { background: none; }
 #facility-legend { margin-top: 6px; border-top: 1px solid #eee; padding-top: 6px; }
 #style-switcher { margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; }
 #style-switcher label { display: block; font-weight: normal; margin: 2px 0; cursor: pointer; }

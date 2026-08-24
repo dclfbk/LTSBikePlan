@@ -685,29 +685,6 @@ const LTS_COLORS = {
 const LTS4_DARK_COLOR = "#9366B8";
 const LTS_FALLBACK_COLOR = "#BDBDBD";
 
-// Progressive reveal of LTS classes by zoom, independent of (and applied on
-// TOP of) the legend's own per-class toggle below (activeLts): a class
-// hidden by zoom stays hidden even if the user has it checked in the
-// legend, and a class the user unchecked stays hidden even once zoom would
-// otherwise allow it. Without this, the whole-Italy overview at low zoom
-// rendered every LTS class (including the busiest, highest-stress streets)
-// all at once - a solid mass of colour rather than a legible skeleton.
-// 1/2 (lowest stress) from MIN_STREETS_ZOOM, 3 joins from LTS_TIER3_MIN_ZOOM,
-// the full 0-4 range only from COMUNE_SWAP_MIN_ZOOM on - which is also
-// where per-comune full-detail tiles take over, so "everything" arrives
-// exactly when the data backing it does too.
-const LTS_TIER3_MIN_ZOOM = 8;
-const LTS_CLASS_MIN_ZOOM = {
-  "1": MIN_STREETS_ZOOM,
-  "2": MIN_STREETS_ZOOM,
-  "3": LTS_TIER3_MIN_ZOOM,
-  "4": COMUNE_SWAP_MIN_ZOOM,
-  "0": COMUNE_SWAP_MIN_ZOOM,
-};
-function ltsClassesAllowedAtZoom(zoom) {
-  return Object.keys(LTS_COLORS).filter((key) => zoom >= LTS_CLASS_MIN_ZOOM[key]);
-}
-
 // One face per comfort level, drawn as inline SVG rather than a system
 // emoji (😌🙂😐😣, the previous approach) - native emoji glyphs are
 // fixed-colour pictographs the browser's colour-emoji font renders as
@@ -777,67 +754,27 @@ const activeLts = new Set(
     : Object.keys(LTS_COLORS).filter((key) => key !== "0"),
 );
 
-// Zoom-disabled entries (see LTS_CLASS_MIN_ZOOM above) render greyed out
-// and un-clickable, with a tooltip naming the zoom they unlock at - same
-// "not a real choice right now" treatment as .legend-item.static, just
-// zoom-driven instead of permanent.
 function renderLegend() {
   const legend = document.getElementById("legend");
   legend.innerHTML = "";
-  const allowed = new Set(ltsClassesAllowedAtZoom(map.getZoom()));
   for (const [key, color] of Object.entries(LTS_COLORS)) {
-    const zoomDisabled = !allowed.has(key);
     const item = document.createElement("div");
-    item.className = "legend-item"
-      + (zoomDisabled || !activeLts.has(key) ? " inactive" : "")
-      + (zoomDisabled ? " zoom-disabled" : "");
+    item.className = "legend-item" + (activeLts.has(key) ? "" : " inactive");
     item.innerHTML = `${ltsIndicatorHtml(key, color)} ${t("lts")[key]}`;
-    if (zoomDisabled) {
-      item.title = t("legendZoomDisabledHint").replace("{zoom}", LTS_CLASS_MIN_ZOOM[key]);
-    } else {
-      item.addEventListener("click", () => {
-        if (activeLts.has(key)) activeLts.delete(key); else activeLts.add(key);
-        renderLegend();
-        applyLtsFilter();
-        syncUrlState();
-      });
-    }
+    item.addEventListener("click", () => {
+      if (activeLts.has(key)) activeLts.delete(key); else activeLts.add(key);
+      renderLegend();
+      applyLtsFilter();
+      syncUrlState();
+    });
     legend.appendChild(item);
   }
 }
 
-// Single source of truth for "which LTS classes actually render right now":
-// the legend's own per-class toggle (activeLts) intersected with whichever
-// classes the current zoom allows (ltsClassesAllowedAtZoom). Both
-// applyLtsFilter (national + already-visible comune layers) and
-// addComuneLayers (a comune layer just added) funnel through this so a
-// newly added layer starts in sync instead of needing its own copy of the
-// same logic.
-function currentLtsFilterExpression() {
-  const allowed = ltsClassesAllowedAtZoom(map.getZoom());
-  const effective = [...activeLts].filter((key) => allowed.includes(key));
-  return ["in", ["to-string", ["get", "lts"]], ["literal", effective]];
-}
-
 function applyLtsFilter() {
-  const filter = currentLtsFilterExpression();
+  const filter = ["in", ["to-string", ["get", "lts"]], ["literal", [...activeLts]]];
   for (const id of ltsLineLayerIds()) map.setFilter(id, filter);
 }
-
-// Re-applies the zoom/legend filter and redraws the legend's disabled
-// state whenever the current zoom crosses an LTS_CLASS_MIN_ZOOM boundary -
-// tracked by tier signature rather than reacting to every "zoom" tick, so
-// a scroll/pinch gesture that stays within one tier doesn't thrash the
-// legend DOM or re-run setFilter on every frame.
-let lastLtsZoomTierKey = null;
-function handleLtsZoomTierChange() {
-  const tierKey = ltsClassesAllowedAtZoom(map.getZoom()).join(",");
-  if (tierKey === lastLtsZoomTierKey) return;
-  lastLtsZoomTierKey = tierKey;
-  applyLtsFilter();
-  renderLegend();
-}
-map.on("zoom", handleLtsZoomTierChange);
 
 // Not a filter (unlike the LTS colour legend above) - purely explains what
 // the FACILITY_DASH_EXPRESSION patterns on the map mean, so it's static,
@@ -1217,9 +1154,9 @@ function addComuneLayers(slug) {
     },
   });
   // New layer starts with no LTS-class filter applied - match whatever the
-  // legend's toggles and the current zoom tier currently say (same filter
-  // every other lts-lines layer already has).
-  map.setFilter(comuneLinesLayerId(slug), currentLtsFilterExpression());
+  // legend's toggles currently say (same filter every other lts-lines
+  // layer already has).
+  map.setFilter(comuneLinesLayerId(slug), ["in", ["to-string", ["get", "lts"]], ["literal", [...activeLts]]]);
 }
 
 function removeComuneLayers(slug) {
