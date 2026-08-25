@@ -942,13 +942,14 @@ function popupHtml(props) {
 // don't let the area's own fitBounds override it once data loads.
 let hasFitBoundsOnce = hasExplicitView;
 
-// Thinner/lighter for the comfortable classes, progressively bolder for
-// the demanding ones - same zoom range as before, per-class endpoints
-// via a match expression nested inside the interpolation stops.
+// Bolder for the comfortable classes so they stand out as "where it's
+// good to bike"; thinner for the demanding ones so they recede visually.
+// Same zoom range as before, per-class endpoints via a match expression
+// nested inside the interpolation stops.
 const LTS_LINE_WIDTH = [
   "interpolate", ["linear"], ["zoom"],
-  12, ["match", ["to-string", ["get", "lts"]], "1", 1.0, "2", 1.2, "3", 1.8, "4", 2.2, 1.5],
-  18, ["match", ["to-string", ["get", "lts"]], "1", 3.5, "2", 4.0, "3", 5.5, "4", 6.5, 5.0],
+  12, ["match", ["to-string", ["get", "lts"]], "1", 1.0, "2", 1.2, "3", 0.8, "4", 0.6, 1.5],
+  18, ["match", ["to-string", ["get", "lts"]], "1", 3.5, "2", 4.0, "3", 2.5, "4", 2.0, 5.0],
 ];
 // Facility-type visual distinction - independent of the LTS colour/width
 // channel above (which stays purely about stress severity): solid = street
