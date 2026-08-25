@@ -660,29 +660,40 @@ document.querySelectorAll('input[name="basemap"]').forEach((radio) => {
 // colours at all.
 //
 // Colorblind-safe (validated against simulated deuteranopia/protanopia/
-// tritanopia, all-pairs not just adjacent - see dataviz skill's
-// validate_palette.js): teal -> gold -> orange -> purple, deliberately
-// avoiding red for LTS4 - a lot of what lands there is a structural
+// tritanopia - see dataviz skill's validate_palette.js), and built as two
+// families rather than four independent hues: 1/2 are both green ("the
+// calm pair"), 3/4 are both purple ("the effortful pair") - deliberately
+// avoiding red for LTS4 since a lot of what lands there is a structural
 // street (a state road, a bridge) nobody's about to reroute, so "danger
 // red" reads as an alarm with no fix rather than "give this one a
 // separated bike/foot facility", which is the actual intervention.
+// Chroma kept low throughout so nothing reads as a "loud" warning colour.
 //
-// "3"'s orange is as saturated as it can get while stayng validator-clean
-// against "2"'s gold: orange and yellow-green sit on the same deutan/
-// protan confusion line, so pushing #B75218 any further toward a vivid
-// orange (tried up to #C05E12) drops the normal-vision ΔE below the 15
-// floor against #A99000 - i.e. full-colour readers start struggling too,
-// not just CVD ones. Going more vivid than this needs moving "2" off
-// gold entirely (tried blue - swapping "2" to blue clears CVD but then
-// "4"'s purple collides with it instead; not a free move).
+// Within each family the two steps are fully separated (ΔE >= ~18-23,
+// comfortably clear of the 15 normal-vision floor). The 2<->3 boundary -
+// crossing from "calm" to "effortful" - is the one deliberately *closer*
+// pair (ΔE 14.5 normal-vision, 9.1 CVD - a floor-band pass, not a fail):
+// 2 leans slightly teal, 3 leans slightly blue-violet, so the palette
+// reads as one continuum instead of two colours slammed together. That
+// pair relies on the existing face-icon secondary encoding (see
+// LTS_FACE_MOUTHS below - each class also gets a distinct mouth shape)
+// rather than colour alone, which is what makes the floor-band ΔE
+// legitimate instead of a plain accessibility miss.
 const LTS_COLORS = {
-  "1": "#0E8A72", "2": "#A99000", "3": "#B75218", "4": "#7B4B9E", "0": "#6B6B6B",
+  "1": "#2F6E2A", "2": "#32A091", "3": "#7A87C9", "4": "#5D3C8D", "0": "#6B6B6B",
 };
-// "4"'s dark-basemap variant - lighter purple, needed to clear 3:1 contrast
-// against the dark map style (validated separately per mode; every other
-// LTS_COLORS entry, including "0", already clears 3:1 on both surfaces
-// with its one shared value - see buildLtsLineColorExpression below).
-const LTS4_DARK_COLOR = "#9366B8";
+// Dark-basemap variants for the on-map line layer only (legend/popup/PDF
+// swatches always show the LTS_COLORS above, regardless of basemap - see
+// buildLtsLineColorExpression). All three of 1/3/4 dip under 3:1 contrast
+// against the dark map style and need lightening; "2" already clears it
+// unswapped. 3 and 4 (both purple) additionally fight each other for room
+// in the dark style's narrower lightness band - lightening each in place
+// at the same hue collapses their separation, so both variants nudge hue
+// apart slightly (3 cooler, 4 warmer) to buy back ΔE 15.1 (still a full
+// pass, unlike the deliberately-relaxed 2<->3 boundary above).
+const LTS1_DARK_COLOR = "#387733";
+const LTS3_DARK_COLOR = "#9291CE";
+const LTS4_DARK_COLOR = "#745D9C";
 const LTS_FALLBACK_COLOR = "#BDBDBD";
 
 // Progressive reveal of LTS classes by zoom, independent of (and applied on
@@ -742,20 +753,22 @@ function ltsIndicatorHtml(key, color) {
   return ltsFaceIcon(key, color) || `<span class="swatch" style="background:${color}"></span>`;
 }
 
-// LTS_COLORS' own "4" (#7B4B9E) dips under 3:1 against the "dark" basemap -
-// swapped for LTS4_DARK_COLOR here, but only for the on-map line layer: the
-// legend/popup/PDF swatches (which read LTS_COLORS directly, always against
-// #panel's white background - see styles.css) stay the documented purple
-// regardless of basemap. "0" needs no such swap any more - #6B6B6B was
-// picked to clear 3:1 on both the light and dark basemap with one value.
-// Rebuilt fresh on every call rather than cached once, since addDataLayers()
-// (which calls this) reruns on every basemap switch and currentBasemap may
-// have changed since the last build.
+// LTS_COLORS' own "1", "3" and "4" dip under 3:1 against the "dark"
+// basemap - swapped for LTS1_DARK_COLOR/LTS3_DARK_COLOR/LTS4_DARK_COLOR
+// here, but only for the on-map line layer: the legend/popup/PDF swatches
+// (which read LTS_COLORS directly, always against #panel's white
+// background - see styles.css) stay the documented colours regardless of
+// basemap. "2" and "0" need no such swap - both already clear 3:1 on the
+// light and dark basemap with their one shared value. Rebuilt fresh on
+// every call rather than cached once, since addDataLayers() (which calls
+// this) reruns on every basemap switch and currentBasemap may have changed
+// since the last build.
 function buildLtsLineColorExpression() {
-  const fourColor = currentBasemap === "dark" ? LTS4_DARK_COLOR : LTS_COLORS["4"];
+  const darkOverrides = { "1": LTS1_DARK_COLOR, "3": LTS3_DARK_COLOR, "4": LTS4_DARK_COLOR };
   const expression = ["match", ["to-string", ["get", "lts"]]];
   for (const [key, color] of Object.entries(LTS_COLORS)) {
-    expression.push(key, key === "4" ? fourColor : color);
+    const useColor = currentBasemap === "dark" && darkOverrides[key] ? darkOverrides[key] : color;
+    expression.push(key, useColor);
   }
   expression.push(LTS_FALLBACK_COLOR);
   return expression;
