@@ -31,6 +31,7 @@ build/
 # Editor and CI local policy
 .vscode/
 .github/
+.claude/
 
 # Temporary files
 *.tmp
