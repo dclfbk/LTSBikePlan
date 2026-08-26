@@ -659,44 +659,31 @@ document.querySelectorAll('input[name="basemap"]').forEach((radio) => {
 // I18N[currentLang].lts, so a language switch doesn't need to touch the
 // colours at all.
 //
-// Colorblind-safe (validated against simulated deuteranopia/protanopia/
-// tritanopia - see dataviz skill's validate_palette.js), and built as two
-// families rather than four independent hues: 1/2 are both green ("the
-// calm pair"), 3/4 are both purple ("the effortful pair") - deliberately
-// avoiding red for LTS4 since a lot of what lands there is a structural
-// street (a state road, a bridge) nobody's about to reroute, so "danger
-// red" reads as an alarm with no fix rather than "give this one a
-// separated bike/foot facility", which is the actual intervention.
-//
-// Green carries more chroma (~0.16) than purple (~0.105) on purpose: sRGB's
-// gamut is simply smaller in the green/teal region than in the blue-violet
-// one, so a purple and a green at the *same* nominal OKLCH chroma don't
-// read as equally vivid - the purple looks louder because it's using less
-// of its own headroom. Green is the answer to the map's actual question
-// ("where's it comfortable to bike"), so it gets pushed toward its gamut
-// ceiling to read as the protagonist; purple is kept closer to the chroma
-// floor so it recedes instead of competing for attention. (This replaced
-// an earlier version where 2 leaned teal and 3 leaned blue-violet so the
-// 2<->3 boundary would read as a continuum - that pulled 2 away from pure
-// green and capped how vivid it could get, which was the direct cause of
-// the imbalance; the boundary is now a full ΔE 23.9 apart, same as any
-// other adjacent pair.)
+// Traffic-light style green/green/orange/red, matching the reference
+// legend the map is meant to echo. Checked against simulated
+// deuteranopia/protanopia rather than assumed safe: a fully-saturated
+// orange+red pair (e.g. #E07C1C/#E4322F) collapses under red-green CVD -
+// LTS3 vs LTS4 drops to a simulated RGB distance of ~33-43, because orange
+// and red are hue-neighbours that both project onto the same remaining
+// blue-yellow axis. Darkening/desaturating both a step (LTS3 #C4681A,
+// LTS4 #B7231F) recovers most of that separation (~48-55 simulated) while
+// still clearing 3:1 contrast on white for all four classes. It's not as
+// safe as the blue/violet scheme this replaced, but it's a floor-band
+// pass rather than a fail, and the map has a second, colour-independent
+// channel for the same distinction: the face icons' mouth shape
+// (LTS_FACE_MOUTHS further down) still reads 1-4 correctly with no colour
+// vision at all.
 const LTS_COLORS = {
-  "1": "#056F00", "2": "#2EA64D", "3": "#657DBF", "4": "#564384", "0": "#6B6B6B",
+  "1": "#056F00", "2": "#2EA64D", "3": "#C4681A", "4": "#B7231F", "0": "#6B6B6B",
 };
 // Dark-basemap variants for the on-map line layer only (legend/popup/PDF
 // swatches always show the LTS_COLORS above, regardless of basemap - see
-// buildLtsLineColorExpression). "1" and "4" dip under 3:1 contrast against
-// the dark map style and need lightening; "2" and "3" already clear it
-// unswapped. 3 and 4 (both purple) additionally fight each other for room
-// in the dark style's narrower lightness band once 4 is lightened - nudging
-// 4's dark variant warmer (instead of lightening it in place at the same
-// hue) buys back ΔE 13.1 normal-vision / 8.3 CVD (a floor-band pass, not a
-// fail - legitimate here because of the same face-icon secondary encoding
-// as the 2<->3 note above, LTS_FACE_MOUTHS further down).
+// buildLtsLineColorExpression). All four of 1/3/4 dip under 3:1 contrast
+// against the dark map style's ~#3B3B3B background and need lightening;
+// "2" already clears it unswapped.
 const LTS1_DARK_COLOR = "#1C7B14";
-const LTS3_DARK_COLOR = "#4B7CBA";
-const LTS4_DARK_COLOR = "#835685";
+const LTS3_DARK_COLOR = "#E08A3E";
+const LTS4_DARK_COLOR = "#E86A64";
 const LTS_FALLBACK_COLOR = "#BDBDBD";
 
 // Progressive reveal of LTS classes by zoom, independent of (and applied on
@@ -871,8 +858,8 @@ function renderFacilityLegend() {
   const legend = document.getElementById("facility-legend");
   legend.innerHTML = "";
   const rows = [
-    { icon: facilityDashIcon("1000 0"), label: t("facilityStreet") },
-    { icon: facilityDashIcon("6 3"), label: t("facilityCycleway") },
+    { icon: facilityDashIcon("6 3"), label: t("facilityStreet") },
+    { icon: facilityDashIcon("1000 0"), label: t("facilityCycleway") },
     { icon: facilityDashIcon("1.5 4.5"), label: t("facilityPath") },
   ];
   for (const { icon, label } of rows) {
@@ -984,8 +971,13 @@ const LTS_LINE_WIDTH = [
 // Dasharray units are multiples of the line's own width (MapLibre style
 // spec), so the pattern scales automatically with LTS_LINE_WIDTH's own
 // zoom/LTS-based sizing - no separate zoom interpolation needed here.
-const FACILITY_SOLID_DASH = ["literal", [1, 0]];
-const FACILITY_CYCLEWAY_DASH = ["literal", [2, 1]];
+// Solid = a real physically-separated facility (dedicated cycleway);
+// dashed = an ordinary street ridden in mixed traffic, the ambient
+// default. Matches the reference legend's convention (and standard
+// cartographic practice) - previously inverted, with the default street
+// case drawn solid and the cycleway case dashed.
+const FACILITY_CYCLEWAY_DASH = ["literal", [1, 0]];
+const FACILITY_STREET_DASH = ["literal", [2, 1]];
 const FACILITY_PATH_DASH = ["literal", [0.5, 1.5]];
 const FACILITY_CYCLEWAY_RULES = ["literal", ["s3", "s7", "s8"]];
 const FACILITY_PATH_RULES = ["literal", ["s1", "s2"]];
@@ -1002,7 +994,7 @@ const FACILITY_DASH_EXPRESSION = [
     ["in", ["get", "rule"], FACILITY_PATH_RULES],
   ],
   FACILITY_PATH_DASH,
-  FACILITY_SOLID_DASH,
+  FACILITY_STREET_DASH,
 ];
 
 const GAP_EDGE_WIDTH = 4;
