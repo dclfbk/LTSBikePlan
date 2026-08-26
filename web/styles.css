@@ -65,6 +65,77 @@ body { display: flex; flex-direction: column; }
 .geocoder-item { padding: 6px 8px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
 .geocoder-item:last-child { border-bottom: none; }
 .geocoder-item:hover { background: #f0f0f0; }
+
+/* LTS-preferring router (see RoutingControl in app.js) - same toggle-
+   button + left-flyout-panel shape as the geocoder control just above,
+   stacked directly below it. */
+.routing-control { position: relative; }
+#routing-panel {
+  position: absolute; top: 0; right: 100%; margin-right: 6px; width: 300px;
+  z-index: 6;
+  background: white; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  padding: 8px; display: flex; flex-direction: column; gap: 6px;
+  /* The route summary (LTS/road-type bars, elevation chart, download
+     buttons) can make this taller than a short browser window - without
+     its own scroll, the bottom content (the download buttons, found via
+     real browser testing) becomes genuinely unreachable rather than just
+     visually cut off, since this panel isn't inside any other scroll
+     container. */
+  max-height: calc(100vh - 90px); overflow-y: auto;
+}
+#routing-panel.hidden { display: none; }
+#routing-toggle.active { background: #3B4A7A; color: white; }
+.routing-field { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12px; }
+.routing-field label { color: #555; flex: 0 0 auto; }
+/* maplibre-gl.css's `.maplibregl-ctrl-group button` rule (width/height:29px,
+   padding:0, display:block) applies to EVERY <button> nested anywhere
+   inside a .maplibregl-ctrl-group - including these, since RoutingControl's
+   whole panel lives inside .routing-control (which carries that class).
+   Explicit width/height/display here is not decorative, it's the override
+   - found by screenshotting the real rendered panel and measuring the
+   button's actual box (29x29px, text silently clipped) rather than
+   guessing from the CSS source alone. */
+.routing-field button, #routing-find, #routing-clear {
+  font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px;
+  background: white; cursor: pointer; white-space: nowrap; flex: 0 0 auto;
+  width: auto; height: auto; display: inline-block;
+}
+#routing-find { background: #3B4A7A; color: white; border-color: #3B4A7A; }
+#routing-status { font-size: 12px; color: #555; }
+#routing-status.hidden { display: none; }
+
+/* Route summary (LTS bar, road-type bar, elevation profile - see
+   RoutingControl._renderRouteSummary/_renderElevationProfile in app.js) -
+   sits below the find/clear buttons, same section-divider idiom used
+   throughout #panel (#facility-legend/#style-switcher/#gap-panel). */
+#routing-summary {
+  margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+#routing-summary.hidden { display: none; }
+.routing-stacked-bar {
+  display: flex; height: 18px; border-radius: 3px; overflow: hidden; background: #f0f0f0;
+}
+.routing-bar-segment { cursor: default; }
+.routing-bar-segment + .routing-bar-segment { margin-left: 2px; }
+.routing-total-km { font-size: 13px; font-weight: bold; color: #333; }
+.routing-caption { font-size: 11px; color: #777; }
+.routing-facility-legend { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.routing-facility-legend .legend-item.static { padding: 0; font-size: 12px; }
+.routing-facility-legend .swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block; vertical-align: middle; margin-right: 4px; }
+.routing-elevation-chart svg { display: block; width: 100%; height: 70px; }
+.routing-download-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+.routing-download-buttons button {
+  font: inherit; font-size: 11px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px;
+  background: white; cursor: pointer; flex: 1 1 auto;
+  width: auto; height: auto; display: inline-block; /* override maplibre-gl.css - see the comment above .routing-field button */
+}
+#routing-bar-tooltip {
+  position: absolute; z-index: 7; pointer-events: none;
+  background: white; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  padding: 4px 8px; font-size: 12px; color: #333; white-space: nowrap;
+}
+#routing-bar-tooltip.hidden { display: none; }
 .nav-link {
   font: inherit; background: none; border: 1px solid #ccc; border-radius: 4px;
   padding: 4px 10px; cursor: pointer; color: #333;
@@ -308,4 +379,13 @@ body { display: flex; flex-direction: column; }
      body.geocoder-open), keeps the two from ever overlapping. */
   #geocoder-panel { top: 100%; right: 0; margin-right: 0; margin-top: 6px; }
   body.geocoder-open #panel { display: none; }
+
+  /* Same downward-flyout/hide-#panel treatment as #geocoder-panel above,
+     and for the same reason (RoutingControl._open()/_close() toggle
+     body.routing-open) - a separate body class rather than reusing
+     geocoder-open, since the two controls open/close independently and a
+     shared flag would let one control's close wipe out the other's open
+     state. */
+  #routing-panel { top: 100%; right: 0; margin-right: 0; margin-top: 6px; width: auto; min-width: 200px; }
+  body.routing-open #panel { display: none; }
 }

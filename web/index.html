@@ -40,6 +40,12 @@
 <!-- Only used to build the downloadable PDF (see PrintControl in app.js) -
      a real PDF file, not the browser print dialog: exposes window.jspdf.jsPDF. -->
 <script src="https://unpkg.com/jspdf@2/dist/jspdf.umd.min.js"></script>
+<!-- Client-side A* pathfinding for the LTS-preferring router (see
+     web/routing.js / RoutingControl in app.js) - globals: createGraph
+     (ngraph.graph), ngraphPath (ngraph.path). -->
+<script src="https://unpkg.com/ngraph.graph@20/dist/ngraph.graph.umd.js"></script>
+<script src="https://unpkg.com/ngraph.path@1/dist/ngraph.path.umd.js"></script>
+<script src="routing.js"></script>
 <script src="i18n.js"></script>
 <link rel="stylesheet" href="styles.css" />
 </head>

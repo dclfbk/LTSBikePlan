@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Builds web/data/comuni_index.json: [{istat, slug, bbox}, ...] for every
-comune that already has a <slug>_lts.pmtiles built - the lookup web/app.js
-uses at zoom >= COMUNE_SWAP_MIN_ZOOM to decide which per-comune pmtiles to
-add as sources once italia_lts.pmtiles (capped at maxzoom 11, see
-build_national_tiles.sh) runs out of detail.
+"""Builds web/data/comuni_index.json: [{istat, slug, bbox, has_routing}, ...]
+for every comune that already has a <slug>_lts.pmtiles built - the lookup
+web/app.js uses at zoom >= COMUNE_SWAP_MIN_ZOOM to decide which per-comune
+pmtiles to add as sources once italia_lts.pmtiles (capped at maxzoom 11, see
+build_national_tiles.sh) runs out of detail. web/routing.js also reads this
+list (regardless of current zoom) to find which comuni's <slug>_routing.json
+to fetch for a given start/end pair - see has_routing below.
 
 istat->slug comes from data/_cache/comuni_progress.tsv, but that file only
 records fetch+compute-lts success - build_tiles.sh's own tile build can fail
@@ -74,11 +76,13 @@ def main() -> None:
         if slug is None:
             continue
         minx, miny, maxx, maxy = row.geometry.bounds
+        has_routing = os.path.exists(os.path.join(web_data_dir, f"{slug}_routing.json"))
         entries.append(
             {
                 "istat": row["istat"],
                 "slug": slug,
                 "bbox": [round(minx, 5), round(miny, 5), round(maxx, 5), round(maxy, 5)],
+                "has_routing": has_routing,
             }
         )
 

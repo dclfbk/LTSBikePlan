@@ -86,13 +86,27 @@
 # measurements; applies per-batch here (each batch's own tippecanoe call),
 # same as --drop-densest-as-needed already does.
 #
-# Usage: LTSBP_NATIONAL_BATCH_MAX_MB=1000 scripts/build_national_tiles.sh [data_dir]
+# LTSBP_NATIONAL_PARALLEL_BATCHES (default 1, today's sequential
+# behaviour): how many batches' tippecanoe runs to execute concurrently.
+# Each batch is otherwise fully independent (its own GeoJSON regeneration
+# + its own tippecanoe call, writing to its own batch<N>.mbtiles) - only
+# the final tile-join merge needs every batch done. tippecanoe already
+# multithreads WITHIN one batch (uses all available cores for its own
+# tiling/sorting), so this isn't a 1:1 core multiplier - it mainly helps
+# when a single tippecanoe run doesn't saturate every core on its own
+# (I/O-bound reading, smaller batches from a low LTSBP_NATIONAL_BATCH_MAX_MB).
+# On a many-core box, 2-4 is a reasonable start; pushing it to the full
+# core count risks memory pressure (each concurrent tippecanoe process
+# holds its own working set) more than it buys extra throughput.
+#
+# Usage: LTSBP_NATIONAL_BATCH_MAX_MB=1000 LTSBP_NATIONAL_PARALLEL_BATCHES=4 scripts/build_national_tiles.sh [data_dir]
 set -euo pipefail
 
 DATA_DIR="${1:-${LTSBP_DATA_DIR:-data}}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="$REPO_ROOT/web/data"
 BATCH_MAX_BYTES=$(( ${LTSBP_NATIONAL_BATCH_MAX_MB:-1000} * 1000 * 1000 ))
+PARALLEL_BATCHES="${LTSBP_NATIONAL_PARALLEL_BATCHES:-1}"
 PARQUET_TO_GEOJSON_RATIO=30
 # -y lts -y highway -y rule (see run_batch's tippecanoe call below): keeps
 # ONLY these 3 properties in italia_lts.pmtiles, dropping name/comune/
@@ -200,6 +214,7 @@ run_batch() {
   tippecanoe \
     -o "$batch_mbtiles" \
     --force \
+    --read-parallel \
     --minimum-zoom=4 \
     --maximum-zoom=11 \
     --extend-zooms-if-still-dropping \
@@ -213,7 +228,30 @@ run_batch() {
     "${inputs[@]}"
 
   rm -f "${batch_tmp[@]}"
-  BATCH_MBTILES+=("$batch_mbtiles")
+  # batch_mbtiles is NOT appended to BATCH_MBTILES here - when
+  # PARALLEL_BATCHES > 1 this runs in a background subshell (see
+  # launch_batch below), and array mutations in a subshell never reach the
+  # parent. BATCH_MBTILES is instead reconstructed after every batch has
+  # finished, from the deterministic batch<N>.mbtiles naming.
+}
+
+# Bounded-concurrency launcher: keeps at most PARALLEL_BATCHES tippecanoe
+# runs in flight. Always waits for the OLDEST in-flight batch once at
+# capacity (not the first one to finish) - simpler and fully portable
+# (`wait -n` needs bash 4.3+/5.1+ for PID-returning variants not
+# guaranteed on every box this runs on), and batches are similarly sized
+# by construction (BATCH_MAX_BYTES bucketing) so it isn't far from optimal
+# in practice. set -e means a failed batch's nonzero `wait` here aborts
+# the whole script immediately, same fail-fast behaviour as the previous
+# purely-sequential code.
+BATCH_PIDS=()
+launch_batch() {
+  run_batch "$@" &
+  BATCH_PIDS+=("$!")
+  if [ "${#BATCH_PIDS[@]}" -ge "$PARALLEL_BATCHES" ]; then
+    wait "${BATCH_PIDS[0]}"
+    BATCH_PIDS=("${BATCH_PIDS[@]:1}")
+  fi
 }
 
 batch_num=0
@@ -222,7 +260,7 @@ batch_bytes=0
 while IFS=$'\t' read -r d size; do
   if [ ${#batch_dirs[@]} -gt 0 ] && [ $((batch_bytes + size)) -gt "$BATCH_MAX_BYTES" ]; then
     batch_num=$((batch_num + 1))
-    run_batch "$batch_num" "${batch_dirs[@]}"
+    launch_batch "$batch_num" "${batch_dirs[@]}"
     batch_dirs=()
     batch_bytes=0
   fi
@@ -231,10 +269,21 @@ while IFS=$'\t' read -r d size; do
 done < "$BATCHES_FILE"
 if [ ${#batch_dirs[@]} -gt 0 ]; then
   batch_num=$((batch_num + 1))
-  run_batch "$batch_num" "${batch_dirs[@]}"
+  launch_batch "$batch_num" "${batch_dirs[@]}"
 fi
 
+# Whatever's still in flight (fewer than PARALLEL_BATCHES, or - when
+# PARALLEL_BATCHES=1 - nothing, since launch_batch already waited
+# synchronously after each one above).
+for pid in "${BATCH_PIDS[@]}"; do
+  wait "$pid"
+done
+
 echo "Joining $batch_num batch(es) into the merged tileset..."
+BATCH_MBTILES=()
+for i in $(seq 1 "$batch_num"); do
+  BATCH_MBTILES+=("$TMPDIR_RUN/batch${i}.mbtiles")
+done
 tile-join -f -pk -o "$MBTILES" "${BATCH_MBTILES[@]}"
 
 pmtiles convert --force "$MBTILES" "$OUT_DIR/italia_lts.pmtiles"

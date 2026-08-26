@@ -65,6 +65,32 @@ protocol.add(tiles);
 const COMUNE_SWAP_MIN_ZOOM = 12;
 let comuniIndex = null;
 let visibleComuneSlugs = new Set();
+let comuniIndexPromise = null;
+
+// Fetches web/data/comuni_index.json once, however it's first needed - by
+// updateComuneOverlays' z12+ pmtiles swap (italia view only, see below) or
+// by RoutingControl (any view - a route can need cross-comune coverage
+// info regardless of which page loaded it). Concurrent/repeat callers
+// share the same in-flight promise instead of re-fetching.
+function ensureComuniIndexLoaded() {
+  if (comuniIndex) return Promise.resolve(comuniIndex);
+  if (!comuniIndexPromise) {
+    comuniIndexPromise = fetch(new URL("data/comuni_index.json", window.location.href))
+      .then((response) => response.json())
+      .then((data) => {
+        comuniIndex = data;
+        return data;
+      })
+      // Missing/unreachable index just means no z12+ swap and no routing
+      // coverage - callers already treat both as optional, so this fails
+      // silent rather than throwing.
+      .catch(() => {
+        comuniIndexPromise = null;
+        return null;
+      });
+  }
+  return comuniIndexPromise;
+}
 
 function comuneSourceId(slug) { return `lts-${slug}`; }
 function comuneLinesLayerId(slug) { return `lts-lines-${slug}`; }
@@ -85,16 +111,9 @@ function gapEdgeLayerIds() {
 }
 
 if (area === "italia") {
-  fetch(new URL("data/comuni_index.json", window.location.href))
-    .then((response) => response.json())
-    .then((data) => {
-      comuniIndex = data;
-      updateComuneOverlays();
-    })
-    // Missing/unreachable index just means no z12+ swap - the national
-    // overview (z4-11) still works fine on its own, so this fails silent
-    // rather than blocking the rest of the map.
-    .catch(() => {});
+  ensureComuniIndexLoaded().then((data) => {
+    if (data) updateComuneOverlays();
+  });
 }
 
 const BASE_STYLES = {
@@ -607,11 +626,517 @@ class GeocoderControl {
   }
 }
 
+// State shared between RoutingControl (the panel UI below) and the map's
+// global "click" handler further down this file - whichever fires next
+// needs to know "is a routing point being picked right now, and which
+// one" (routingPickMode), since a pick-mode click must be consumed
+// instead of falling through to the normal street-info popup.
+let routingPickMode = null; // null | "start" | "end"
+let routingStart = null; // maplibregl.LngLat | null
+let routingEnd = null;
+let routingStartMarker = null;
+let routingEndMarker = null;
+let routingControlInstance = null; // set by RoutingControl.onAdd, so the click handler can hand picked points back to the panel
+const routingFileCache = new Map(); // slug -> parsed <slug>_routing.json (never caches a failed fetch, so a transient network error can be retried)
+
+// Small teardrop pin, same silhouette family as maplibregl.Marker's own
+// default icon - used as the cursor while picking a routing point, so the
+// cursor previews the actual marker about to be dropped (colour matches
+// setPoint's marker colours below) instead of a generic crosshair.
+function pinSvg(color) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="32" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="${color}" stroke="white" stroke-width="1.5"/><circle cx="12" cy="12" r="4" fill="white"/></svg>`;
+}
+// Hotspot (12,30) points at the pin's tip, matching where the real marker
+// anchors once dropped.
+const START_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(pinSvg("#2E7D32"))}") 12 30, crosshair`;
+const END_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(pinSvg("#C62828"))}") 12 30, crosshair`;
+
+// Merges CONSECUTIVE segments (one per original graph edge, from
+// findRoute's `segments` return) sharing the same (name, lts,
+// facilityCode, comuneSlug) into "runs" - the single shared data
+// structure behind the coloured map layer, the click popup, the summary
+// bars, and all three downloads. startKm/endKm are cumulative over the
+// WHOLE route (not per-comune).
+function buildRouteRuns(segments, coordinates) {
+  const runs = [];
+  let cumKm = 0;
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const last = runs[runs.length - 1];
+    if (last && last.name === seg.name && last.lts === seg.lts
+        && last.facilityCode === seg.facilityCode && last.comuneSlug === seg.comuneSlug) {
+      last.coords.push(coordinates[i + 1]);
+      last.lengthM += seg.lengthM;
+    } else {
+      runs.push({
+        coords: [coordinates[i], coordinates[i + 1]],
+        name: seg.name, lts: seg.lts, facilityCode: seg.facilityCode, comuneSlug: seg.comuneSlug,
+        lengthM: seg.lengthM, startKm: cumKm,
+      });
+    }
+    cumKm += seg.lengthM / 1000;
+    runs[runs.length - 1].endKm = cumKm;
+  }
+  return runs;
+}
+
+function routeRunsToFeatureCollection(runs) {
+  return {
+    type: "FeatureCollection",
+    features: runs.map((run) => ({
+      type: "Feature",
+      properties: { lts: run.lts, name: run.name, comuneSlug: run.comuneSlug, startKm: run.startKm, endKm: run.endKm },
+      geometry: { type: "LineString", coordinates: run.coords },
+    })),
+  };
+}
+
+function _xmlEscape(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function downloadTextFile(filename, mimeType, content) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function buildRouteGeoJson(runs) {
+  const fc = {
+    type: "FeatureCollection",
+    features: runs.map((r) => ({
+      type: "Feature",
+      properties: { name: r.name || null, lts: r.lts, lts_label: t("lts")[String(r.lts)] || null, length_m: Math.round(r.lengthM) },
+      geometry: { type: "LineString", coordinates: r.coords },
+    })),
+  };
+  return JSON.stringify(fc, null, 2);
+}
+
+function buildRouteGpx(runs) {
+  const tracks = runs
+    .map((r) => {
+      const ltsLabel = t("lts")[String(r.lts)] || "";
+      const name = _xmlEscape(`${r.name || t("popupNoName")} (${ltsLabel})`);
+      const points = r.coords.map(([lon, lat]) => `      <trkpt lat="${lat}" lon="${lon}"></trkpt>`).join("\n");
+      return `  <trk>\n    <name>${name}</name>\n    <trkseg>\n${points}\n    </trkseg>\n  </trk>`;
+    })
+    .join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Stress in bici" xmlns="http://www.topografix.com/GPX/1/1">\n${tracks}\n</gpx>`;
+}
+
+function buildRouteKml(runs) {
+  const placemarks = runs
+    .map((r) => {
+      const ltsLabel = t("lts")[String(r.lts)] || "";
+      const name = _xmlEscape(r.name || t("popupNoName"));
+      const coords = r.coords.map(([lon, lat]) => `${lon},${lat},0`).join(" ");
+      return `  <Placemark>\n    <name>${name}</name>\n    <description>${_xmlEscape(ltsLabel)}</description>\n    <LineString><coordinates>${coords}</coordinates></LineString>\n  </Placemark>`;
+    })
+    .join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n${placemarks}\n</Document>\n</kml>`;
+}
+
+// Client-side LTS-preferring bike routing (web/routing.js's
+// candidateComuniForRoute/mergeRoutingGraphs/findRoute - no routing
+// server). Same toggle-button + left-flyout-panel shape as
+// GeocoderControl just above, stacked directly below it.
+class RoutingControl {
+  onAdd() {
+    routingControlInstance = this;
+    this._container = document.createElement("div");
+    this._container.className = "maplibregl-ctrl maplibregl-ctrl-group routing-control";
+
+    this._button = document.createElement("button");
+    this._button.id = "routing-toggle";
+    this._button.type = "button";
+    this._button.textContent = "\u{1F6B2}"; // 🚲
+    this._button.addEventListener("click", () => this._toggle());
+    this._container.appendChild(this._button);
+
+    this._panel = document.createElement("div");
+    this._panel.id = "routing-panel";
+    this._panel.className = "hidden";
+    this._panel.innerHTML = `
+      <div class="routing-field">
+        <label>${t("routingStartLabel")}</label>
+        <button type="button" id="routing-pick-start">${t("routingPickOnMap")}</button>
+      </div>
+      <div class="routing-field">
+        <label>${t("routingEndLabel")}</label>
+        <button type="button" id="routing-pick-end">${t("routingPickOnMap")}</button>
+      </div>
+      <button type="button" id="routing-find">${t("routingFindButton")}</button>
+      <button type="button" id="routing-clear">${t("routingClearButton")}</button>
+      <div id="routing-status" class="hidden"></div>
+      <div id="routing-summary" class="hidden">
+        <div id="routing-lts-bar" class="routing-stacked-bar"></div>
+        <div id="routing-total-km" class="routing-total-km"></div>
+        <div id="routing-facility-bar" class="routing-stacked-bar"></div>
+        <div id="routing-facility-legend" class="routing-facility-legend"></div>
+        <div class="routing-caption">${t("routeElevationHeading")}</div>
+        <div id="routing-elevation-chart" class="routing-elevation-chart"></div>
+        <div class="routing-caption">${t("routeDownloadHeading")}</div>
+        <div class="routing-download-buttons">
+          <button type="button" id="routing-download-geojson">${t("routeDownloadGeoJson")}</button>
+          <button type="button" id="routing-download-gpx">${t("routeDownloadGpx")}</button>
+          <button type="button" id="routing-download-kml">${t("routeDownloadKml")}</button>
+        </div>
+      </div>
+      <div id="routing-bar-tooltip" class="routing-bar-tooltip hidden"></div>
+    `;
+    this._container.appendChild(this._panel);
+
+    this._pickStartBtn = this._panel.querySelector("#routing-pick-start");
+    this._pickEndBtn = this._panel.querySelector("#routing-pick-end");
+    this._findBtn = this._panel.querySelector("#routing-find");
+    this._clearBtn = this._panel.querySelector("#routing-clear");
+    this._status = this._panel.querySelector("#routing-status");
+    this._summary = this._panel.querySelector("#routing-summary");
+    this._ltsBar = this._panel.querySelector("#routing-lts-bar");
+    this._totalKmEl = this._panel.querySelector("#routing-total-km");
+    this._facilityBar = this._panel.querySelector("#routing-facility-bar");
+    this._facilityLegend = this._panel.querySelector("#routing-facility-legend");
+    this._elevationChart = this._panel.querySelector("#routing-elevation-chart");
+    this._barTooltip = this._panel.querySelector("#routing-bar-tooltip");
+    this._runs = []; // current route's runs (buildRouteRuns) - feeds the 3 download buttons
+
+    this._pickStartBtn.addEventListener("click", () => this._startPicking("start"));
+    this._pickEndBtn.addEventListener("click", () => this._startPicking("end"));
+    this._findBtn.addEventListener("click", () => this._findRoute());
+    this._clearBtn.addEventListener("click", () => this._clear());
+    this._panel.querySelector("#routing-download-geojson").addEventListener("click", () => {
+      downloadTextFile("percorso.geojson", "application/geo+json", buildRouteGeoJson(this._runs));
+    });
+    this._panel.querySelector("#routing-download-gpx").addEventListener("click", () => {
+      downloadTextFile("percorso.gpx", "application/gpx+xml", buildRouteGpx(this._runs));
+    });
+    this._panel.querySelector("#routing-download-kml").addEventListener("click", () => {
+      downloadTextFile("percorso.kml", "application/vnd.google-earth.kml+xml", buildRouteKml(this._runs));
+    });
+    document.addEventListener("click", (e) => {
+      if (!this._container.contains(e.target)) this._close();
+    });
+
+    return this._container;
+  }
+
+  onRemove() {
+    this._container.remove();
+    routingControlInstance = null;
+  }
+
+  _toggle() {
+    const willOpen = this._panel.classList.contains("hidden");
+    if (willOpen) this._open(); else this._close();
+  }
+
+  _open() {
+    this._panel.classList.remove("hidden");
+    this._button.classList.add("active");
+    document.body.classList.add("routing-open");
+  }
+
+  _close() {
+    this._panel.classList.add("hidden");
+    this._button.classList.remove("active");
+    routingPickMode = null;
+    this._updateCursor();
+    document.body.classList.remove("routing-open");
+  }
+
+  _startPicking(which) {
+    routingPickMode = which;
+    this._updateCursor();
+    this._setStatus("");
+  }
+
+  _updateCursor() {
+    map.getCanvas().style.cursor = routingPickMode === "start" ? START_CURSOR : routingPickMode === "end" ? END_CURSOR : "";
+  }
+
+  // Called by the map's global "click" handler once it has consumed a
+  // pick-mode click - keeps marker/state bookkeeping in one place instead
+  // of duplicating it at the click-handler call site.
+  setPoint(which, lngLat) {
+    if (which === "start") {
+      routingStart = lngLat;
+      if (routingStartMarker) routingStartMarker.remove();
+      routingStartMarker = new maplibregl.Marker({ color: "#2E7D32" }).setLngLat(lngLat).addTo(map);
+    } else {
+      routingEnd = lngLat;
+      if (routingEndMarker) routingEndMarker.remove();
+      routingEndMarker = new maplibregl.Marker({ color: "#C62828" }).setLngLat(lngLat).addTo(map);
+    }
+    routingPickMode = null;
+    this._updateCursor();
+    this._setStatus("");
+  }
+
+  _setStatus(text) {
+    this._status.textContent = text;
+    this._status.classList.toggle("hidden", !text);
+  }
+
+  async _findRoute() {
+    if (!routingStart || !routingEnd) return;
+    this._setStatus(t("routingCalculating"));
+
+    const comuniIndexData = await ensureComuniIndexLoaded();
+    if (!comuniIndexData) {
+      this._setStatus(t("routingNoCoverage"));
+      return;
+    }
+
+    // Widen-and-retry: a route needing a comune beyond the tight
+    // rectangle around start/end (e.g. via a third comune in between)
+    // needs a wider candidate margin - bounded to a few attempts so a
+    // genuinely out-of-coverage pair fails fast rather than pulling in
+    // half of Italy.
+    const marginsDeg = [0.02, 0.08, 0.25];
+    for (const marginDeg of marginsDeg) {
+      const slugs = candidateComuniForRoute(routingStart, routingEnd, comuniIndexData, marginDeg);
+      if (slugs.size === 0) continue;
+
+      const files = await Promise.all([...slugs].map((slug) => this._loadRoutingFile(slug)));
+      const usable = files.filter(Boolean);
+      if (!usable.length) continue;
+
+      const { graph, coordByOsmId } = mergeRoutingGraphs(usable);
+      const result = findRoute(routingStart, routingEnd, graph, coordByOsmId);
+      if (result) {
+        this._applyRoute(result);
+        this._setStatus("");
+        return;
+      }
+    }
+    this._setStatus(t("routingNoRoute"));
+  }
+
+  async _loadRoutingFile(slug) {
+    if (routingFileCache.has(slug)) return routingFileCache.get(slug);
+    try {
+      const response = await fetch(new URL(`data/${slug}_routing.json`, window.location.href));
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      routingFileCache.set(slug, data);
+      return data;
+    } catch (error) {
+      return null; // not cached - a later retry (e.g. a transient network error) can still succeed
+    }
+  }
+
+  // Draws the route, frames it, and renders the summary/elevation - the
+  // single call site everything downstream of a successful findRoute()
+  // flows through, all fed by the same `runs` (buildRouteRuns).
+  _applyRoute(result) {
+    this._runs = buildRouteRuns(result.segments, result.feature.geometry.coordinates);
+    const featureCollection = routeRunsToFeatureCollection(this._runs);
+    map.getSource("routing-path").setData(featureCollection);
+
+    const bounds = boundsForFeatures(featureCollection.features);
+    if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 60, maxZoom: MAX_MAP_ZOOM });
+
+    this._renderRouteSummary(this._runs);
+    this._renderElevationProfile(result.feature);
+  }
+
+  _renderRouteSummary(runs) {
+    const totalKm = runs.reduce((sum, r) => sum + r.lengthM, 0) / 1000;
+    this._summary.classList.remove("hidden");
+    this._totalKmEl.textContent = `${t("routeTotalKm")}: ${totalKm.toFixed(1)} km`;
+
+    // LTS mix bar - LTS_COLORS (the off-map palette, see ROUTE_LTS_COLORS'
+    // own comment for why the map line itself uses a different one).
+    const kmByLts = {};
+    for (const run of runs) kmByLts[run.lts] = (kmByLts[run.lts] || 0) + run.lengthM / 1000;
+    this._ltsBar.innerHTML = "";
+    for (const lts of Object.keys(kmByLts).sort()) {
+      const km = kmByLts[lts];
+      const label = t("lts")[lts] || "";
+      const descriptor = label.includes(" - ") ? label.split(" - ").slice(1).join(" - ") : label;
+      this._appendBarSegment(
+        this._ltsBar, (km / totalKm) * 100, LTS_COLORS[lts] || LTS_FALLBACK_COLOR,
+        t("routeLtsSegmentTemplate")(km.toFixed(1), descriptor),
+      );
+    }
+
+    // Road-type mix bar - same 3-way split/order as renderFacilityLegend
+    // (Street -> Cycleway -> Path), FACILITY_BAR_COLORS (not LTS_COLORS -
+    // a different dimension on the same panel).
+    const FACILITY_ORDER = [
+      { code: 0, colorKey: "street", labelKey: "facilityStreet" },
+      { code: 1, colorKey: "cycleway", labelKey: "facilityCycleway" },
+      { code: 2, colorKey: "path", labelKey: "facilityPath" },
+    ];
+    const kmByFacility = {};
+    for (const run of runs) kmByFacility[run.facilityCode] = (kmByFacility[run.facilityCode] || 0) + run.lengthM / 1000;
+    this._facilityBar.innerHTML = "";
+    this._facilityLegend.innerHTML = "";
+    for (const { code, colorKey, labelKey } of FACILITY_ORDER) {
+      const km = kmByFacility[code];
+      if (!km) continue;
+      const label = t(labelKey);
+      const color = FACILITY_BAR_COLORS[colorKey];
+      this._appendBarSegment(this._facilityBar, (km / totalKm) * 100, color, t("routeFacilitySegmentTemplate")(km.toFixed(1), label));
+
+      const legendRow = document.createElement("div");
+      legendRow.className = "legend-item static";
+      legendRow.innerHTML = `<span class="swatch" style="background:${color}"></span> ${label}`;
+      this._facilityLegend.appendChild(legendRow);
+    }
+  }
+
+  _appendBarSegment(bar, pct, color, tooltipText) {
+    const segment = document.createElement("div");
+    segment.className = "routing-bar-segment";
+    segment.style.width = `${pct}%`;
+    segment.style.background = color;
+    segment.addEventListener("mouseenter", (e) => this._showBarTooltip(e, tooltipText));
+    segment.addEventListener("mousemove", (e) => this._moveBarTooltip(e));
+    segment.addEventListener("mouseleave", () => this._hideBarTooltip());
+    bar.appendChild(segment);
+  }
+
+  _showBarTooltip(e, text) {
+    this._barTooltip.textContent = text;
+    this._barTooltip.classList.remove("hidden");
+    this._moveBarTooltip(e);
+  }
+
+  _moveBarTooltip(e) {
+    const panelRect = this._panel.getBoundingClientRect();
+    this._barTooltip.style.left = `${e.clientX - panelRect.left + 10}px`;
+    this._barTooltip.style.top = `${e.clientY - panelRect.top + 10}px`;
+  }
+
+  _hideBarTooltip() {
+    this._barTooltip.classList.add("hidden");
+  }
+
+  // Samples elevation along the route from the already-loaded Mapterhorn
+  // terrain tiles (map.queryTerrainElevation - needs an ACTIVE
+  // map.setTerrain call, the raster-dem source alone isn't enough) and
+  // draws a small SVG profile. Temporarily enables terrain if the user
+  // hasn't turned "Terreno 3D" on, and restores whatever state it found -
+  // no visible/lasting change for someone who never asked for 3D terrain.
+  async _renderElevationProfile(feature) {
+    this._elevationChart.innerHTML = "";
+    const wasTerrainOn = terrainOn;
+    if (!wasTerrainOn) map.setTerrain({ source: "mapterhorn-dem" });
+
+    // Gives the DEM tiles for the just-fitBounds'd viewport a chance to
+    // load - queryTerrainElevation returns null for an unloaded tile.
+    await new Promise((resolve) => map.once("idle", resolve));
+
+    const line = turf.lineString(feature.geometry.coordinates);
+    const totalKm = turf.length(line, { units: "kilometers" });
+    const sampleCount = 100;
+    const points = [];
+    for (let i = 0; i <= sampleCount; i++) {
+      const km = (totalKm * i) / sampleCount;
+      const along = i === sampleCount ? feature.geometry.coordinates[feature.geometry.coordinates.length - 1] : turf.along(line, km, { units: "kilometers" }).geometry.coordinates;
+      points.push({ km, elev: map.queryTerrainElevation(along) });
+    }
+    this._interpolateMissingElevations(points);
+
+    if (!wasTerrainOn) map.setTerrain(null);
+
+    this._drawElevationSvg(points);
+  }
+
+  _interpolateMissingElevations(points) {
+    for (let i = 0; i < points.length; i++) {
+      if (points[i].elev != null) continue;
+      let before = i - 1;
+      while (before >= 0 && points[before].elev == null) before--;
+      let after = i + 1;
+      while (after < points.length && points[after].elev == null) after++;
+      if (before >= 0 && after < points.length) {
+        const frac = (points[i].km - points[before].km) / (points[after].km - points[before].km);
+        points[i].elev = points[before].elev + frac * (points[after].elev - points[before].elev);
+      } else if (before >= 0) {
+        points[i].elev = points[before].elev;
+      } else if (after < points.length) {
+        points[i].elev = points[after].elev;
+      } else {
+        points[i].elev = 0; // no terrain data anywhere along the route
+      }
+    }
+  }
+
+  _drawElevationSvg(points) {
+    const width = 260;
+    const height = 70;
+    const padding = 4;
+    const elevs = points.map((p) => p.elev);
+    const minElev = Math.min(...elevs);
+    const maxElev = Math.max(...elevs);
+    const range = Math.max(maxElev - minElev, 1);
+    const maxKm = points[points.length - 1].km || 1;
+
+    const xFor = (km) => padding + (km / maxKm) * (width - 2 * padding);
+    const yFor = (elev) => height - padding - ((elev - minElev) / range) * (height - 2 * padding);
+
+    const linePoints = points.map((p) => `${xFor(p.km).toFixed(1)},${yFor(p.elev).toFixed(1)}`).join(" ");
+    const areaPoints = `${xFor(0).toFixed(1)},${(height - padding).toFixed(1)} ${linePoints} ${xFor(maxKm).toFixed(1)},${(height - padding).toFixed(1)}`;
+
+    this._elevationChart.innerHTML = `
+      <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+        <polygon points="${areaPoints}" fill="#52514e" fill-opacity="0.15"></polygon>
+        <polyline points="${linePoints}" fill="none" stroke="#52514e" stroke-width="2"></polyline>
+        <text x="${padding}" y="10" font-size="9" fill="#52514e">${Math.round(maxElev)} m</text>
+        <text x="${padding}" y="${height - 2}" font-size="9" fill="#52514e">${Math.round(minElev)} m</text>
+        <line class="routing-elevation-crosshair" x1="0" y1="0" x2="0" y2="${height}" stroke="#999" stroke-width="1" visibility="hidden"></line>
+      </svg>
+    `;
+    const svg = this._elevationChart.querySelector("svg");
+    const crosshair = this._elevationChart.querySelector(".routing-elevation-crosshair");
+    svg.addEventListener("mousemove", (e) => {
+      const rect = svg.getBoundingClientRect();
+      const relX = ((e.clientX - rect.left) / rect.width) * width;
+      const km = Math.max(0, Math.min(maxKm, ((relX - padding) / (width - 2 * padding)) * maxKm));
+      const nearest = points.reduce((best, p) => (Math.abs(p.km - km) < Math.abs(best.km - km) ? p : best), points[0]);
+      const x = xFor(nearest.km).toFixed(1);
+      crosshair.setAttribute("x1", x);
+      crosshair.setAttribute("x2", x);
+      crosshair.setAttribute("visibility", "visible");
+      this._showBarTooltip(e, `${nearest.km.toFixed(1)} km - ${Math.round(nearest.elev)} m`);
+    });
+    svg.addEventListener("mouseleave", () => {
+      crosshair.setAttribute("visibility", "hidden");
+      this._hideBarTooltip();
+    });
+  }
+
+  _clear() {
+    routingStart = null;
+    routingEnd = null;
+    routingPickMode = null;
+    this._updateCursor();
+    if (routingStartMarker) { routingStartMarker.remove(); routingStartMarker = null; }
+    if (routingEndMarker) { routingEndMarker.remove(); routingEndMarker = null; }
+    if (map.getSource("routing-path")) map.getSource("routing-path").setData(EMPTY_FEATURE_COLLECTION);
+    this._runs = [];
+    this._summary.classList.add("hidden");
+    this._elevationChart.innerHTML = "";
+    this._hideBarTooltip();
+    this._setStatus("");
+  }
+}
+
 // Stacking order (each addControl call appends below the previous one
-// at the same position): zoom -> fullscreen -> geocoder -> 3D -> PDF.
+// at the same position): zoom -> fullscreen -> geocoder -> routing -> 3D -> PDF.
 map.addControl(new maplibregl.NavigationControl(), "top-right");
 map.addControl(new maplibregl.FullscreenControl(), "top-right");
 map.addControl(new GeocoderControl(), "top-right");
+map.addControl(new RoutingControl(), "top-right");
 map.addControl(new TerrainControl(), "top-right");
 map.addControl(new PrintControl(), "top-right");
 map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
@@ -685,6 +1210,26 @@ const LTS1_DARK_COLOR = "#1C7B14";
 const LTS3_DARK_COLOR = "#E08A3E";
 const LTS4_DARK_COLOR = "#E86A64";
 const LTS_FALLBACK_COLOR = "#BDBDBD";
+
+// Route-line-only LTS palette (RoutingControl's drawn path) - deliberately
+// NOT LTS_COLORS. The base map already colours the whole street network
+// green/orange/red by LTS; an overlaid route reusing those same hues would
+// read as "just another LTS-coloured street", not "this is my selected
+// route, and here's how stressful each part is". One hue (blue, matching
+// this layer's original flat colour), four monotonic-lightness steps -
+// darkest/most saturated = LTS 1 (lowest stress = highest intensity),
+// palest = LTS 4. Off-map UI (the routing panel's own summary bar) keeps
+// LTS_COLORS instead - no basemap to clash with there.
+const ROUTE_LTS_COLORS = { "1": "#0D47A1", "2": "#1565C0", "3": "#1E88E5", "4": "#90CAF9" };
+
+// Road-type mix bar colours (RoutingControl's summary panel) - 3 new
+// categorical colours, deliberately not green/orange/red (already mean
+// LTS on the very same panel). From the dataviz skill's reference
+// palette, Street->Cycleway->Path order, validated
+// (scripts under the skill's own tooling; light mode only - this app's
+// panel chrome has no dark-mode CSS, only the map *basemap* has a "dark"
+// style option, unrelated to panel background).
+const FACILITY_BAR_COLORS = { street: "#2a78d6", cycleway: "#4a3aa7", path: "#1baf7a" };
 
 // Progressive reveal of LTS classes by zoom, independent of (and applied on
 // TOP of) the legend's own per-class toggle below (activeLts): a class
@@ -941,6 +1486,29 @@ function popupHtml(props) {
   `;
 }
 
+// Popup for a click on RoutingControl's drawn route (see the
+// "routing-path-line" branch in the map's click handler below) - a
+// deliberately smaller sibling of popupHtml above: km-so-far, street name,
+// comune, and LTS in natural language, all off `routing-path`'s own
+// FeatureCollection properties (see buildRouteRuns/_renderRoute in
+// RoutingControl - startKm/endKm/name/lts/comuneSlug per run).
+function routePopupHtml(props) {
+  const ltsKey = String(props.lts ?? "");
+  const color = LTS_COLORS[ltsKey] || LTS_FALLBACK_COLOR;
+  const ltsLabel = t("lts")[ltsKey] || t("lts").fallback;
+  const comuneLabel = props.comuneSlug ? String(props.comuneSlug).replace(/_/g, " ") : "-";
+  const kmSoFar = Number(props.endKm ?? 0).toFixed(1);
+
+  return `
+    <div class="lts-popup">
+      <h3>${props.name || t("popupNoName")}</h3>
+      <div><b>${t("popupComune")}:</b> ${comuneLabel}</div>
+      <div><b>${t("routeKmSoFar")}:</b> ${kmSoFar} km</div>
+      <div>${ltsIndicatorHtml(ltsKey, color)} ${ltsLabel}</div>
+    </div>
+  `;
+}
+
 // If the URL already pins a camera position (a shared/bookmarked link),
 // don't let the area's own fitBounds override it once data loads.
 let hasFitBoundsOnce = hasExplicitView;
@@ -1129,6 +1697,29 @@ function addDataLayers() {
         "line-color": GAP_SELECTION_COLOR,
         "line-width": 1.5,
         "line-dasharray": [2, 2],
+      },
+    });
+  }
+
+  // The route drawn by RoutingControl (web/routing.js's findRoute) - own
+  // GeoJSON source, same reason as gap-edge-selected-buffer above: it's
+  // computed fresh client-side per query, not part of any tileset.
+  if (!map.getSource("routing-path")) {
+    map.addSource("routing-path", { type: "geojson", data: EMPTY_FEATURE_COLLECTION });
+  }
+  if (!map.getLayer("routing-path-line")) {
+    map.addLayer({
+      id: "routing-path-line",
+      type: "line",
+      source: "routing-path",
+      layout: { "line-join": "round", "line-cap": "round" },
+      paint: {
+        "line-color": [
+          "match", ["to-string", ["get", "lts"]],
+          "1", ROUTE_LTS_COLORS["1"], "2", ROUTE_LTS_COLORS["2"], "3", ROUTE_LTS_COLORS["3"], "4", ROUTE_LTS_COLORS["4"],
+          ROUTE_LTS_COLORS["4"],
+        ],
+        "line-width": 5,
       },
     });
   }
@@ -1375,11 +1966,34 @@ updateZoomHint();
 // every move so the cursor updates correctly even if the user scroll-zooms
 // without moving the mouse off the street they're hovering.
 map.on("mousemove", (e) => {
-  const hovering = map.getZoom() >= MIN_CLICK_ZOOM
-    && map.queryRenderedFeatures(e.point, { layers: ltsLineLayerIds() }).length > 0;
+  const overRoute = map.getLayer("routing-path-line")
+    && map.queryRenderedFeatures(e.point, { layers: ["routing-path-line"] }).length > 0;
+  const hovering = overRoute || (map.getZoom() >= MIN_CLICK_ZOOM
+    && map.queryRenderedFeatures(e.point, { layers: ltsLineLayerIds() }).length > 0);
   map.getCanvas().style.cursor = hovering ? "pointer" : "";
 });
 map.on("click", (e) => {
+  // A routing start/end pick takes over this click entirely - it must
+  // never fall through to the street-info popup below, at any zoom.
+  if (routingPickMode && routingControlInstance) {
+    routingControlInstance.setPoint(routingPickMode, e.lngLat);
+    return;
+  }
+  // The drawn route (when present) is the more specific thing being
+  // clicked - it's rendered on top of the base LTS layer - so it's
+  // queried first, at any zoom (not gated by MIN_CLICK_ZOOM: fitBounds
+  // already framed the route, and it's a single small layer regardless
+  // of zoom, not the dense full street network that gate exists for).
+  if (map.getLayer("routing-path-line")) {
+    const routeFeatures = map.queryRenderedFeatures(e.point, { layers: ["routing-path-line"] });
+    if (routeFeatures.length) {
+      new maplibregl.Popup({ maxWidth: "280px" })
+        .setLngLat(e.lngLat)
+        .setHTML(routePopupHtml(routeFeatures[0].properties))
+        .addTo(map);
+      return;
+    }
+  }
   if (map.getZoom() < MIN_CLICK_ZOOM) return;
   const features = map.queryRenderedFeatures(e.point, { layers: ltsLineLayerIds() });
   if (!features.length) return;

@@ -229,6 +229,19 @@ def run_compute_lts(data_dir: str, area: AreaSpec, include_report_exports: bool 
     ExportService.write_geoparquet(all_lts[export_columns], lts_parquet)
     ExportService.write_geojson(all_lts[export_columns], lts_geojson)
 
+    # Real node positions (osmid/x/y), for scripts/build_routing_graph.py -
+    # NOT derivable from all_lts's own edge geometry: this project's edge
+    # geometry is not guaranteed oriented u->v (verified on real adjacent-
+    # comune data - a two-way street's reverse-direction (v,u) row can
+    # carry the SAME unflipped geometry as its (u,v) counterpart), so
+    # treating an edge's first/last coordinate as u's/v's own position
+    # measured up to ~190m off on a real case. gdf_nodes' x/y are still in
+    # the graph's original CRS here (see the include_report_exports branch
+    # below, which is the only place that reprojects it) - EPSG:4326,
+    # exactly what the routing export needs, no reprojection required.
+    nodes_parquet = os.path.join(area_dir, f"{area_slug}_nodes.parquet")
+    gdf_nodes[["x", "y"]].rename_axis("osmid").reset_index().to_parquet(nodes_parquet)
+
     # Per-area indicators for web/comuni.html's cross-comune comparison page
     # - istat_code/comune added here (not part of compute_area_statistics'
     # own LTS-derived indicators) so scripts/build_comuni_stats.py can join

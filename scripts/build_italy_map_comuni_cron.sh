@@ -146,6 +146,10 @@ process_comune() {
     log "WARNING: tile build failed for $name (LTS data was computed - only its .pmtiles is missing, it'll just be absent from the national tileset until re-run)"
   fi
 
+  if ! PYTHONPATH=code python3 scripts/build_routing_graph.py "$slug" "$DATA_DIR"; then
+    log "WARNING: routing graph export failed for $name (LTS data was computed - only its routing coverage is missing)"
+  fi
+
   # The .geojson is ~25-30x the size of its .parquet twin (measured on real
   # areas) and, once this comune's own tiles are built, nothing reads it
   # again until the next full national rebuild - which regenerates it from
