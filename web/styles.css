@@ -71,7 +71,11 @@ body { display: flex; flex-direction: column; }
    stacked directly below it. */
 .routing-control { position: relative; }
 #routing-panel {
-  position: absolute; top: 0; right: 100%; margin-right: 6px; width: 300px;
+  position: absolute; top: 0; right: 100%; margin-right: 6px;
+  /* Relative, not a raw px width - this app runs on phones too, and a
+     fixed px width either overflows a narrow screen or wastes space on a
+     wide one. */
+  width: min(85vw, 260px);
   z-index: 6;
   background: white; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
   padding: 8px; display: flex; flex-direction: column; gap: 6px;
@@ -83,10 +87,50 @@ body { display: flex; flex-direction: column; }
      container. */
   max-height: calc(100vh - 90px); overflow-y: auto;
 }
+/* Expanded mode: RoutingControl._setExpanded (JS) both toggles this class
+   AND reparents the panel to <body> - required because .maplibregl-ctrl
+   (an ancestor in the compact/anchored state) sets `transform:
+   translate(0)`, which makes IT the containing block for any
+   position:fixed descendant instead of the real viewport (the exact same
+   bug already found and fixed for #routing-bar-tooltip - see that
+   comment in app.js). Centred between the ACTUAL header/footer (top/
+   bottom set inline in px by that same JS, from their real measured
+   height - both can wrap to 2 lines depending on language/viewport, so a
+   hardcoded CSS value would be wrong for some of them) rather than the
+   corner-anchored position, and sized in vw/min() rather than a raw px
+   width so it works on a phone screen too. */
+#routing-panel.expanded {
+  position: fixed; top: auto; bottom: auto; right: auto; margin: 0;
+  left: 50%; transform: translateX(-50%);
+  width: min(92vw, 480px);
+  max-height: none; /* top/bottom set inline by JS already constrain the height */
+}
 #routing-panel.hidden { display: none; }
 #routing-toggle.active { background: #3B4A7A; color: white; }
-.routing-field { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12px; }
-.routing-field label { color: #555; flex: 0 0 auto; }
+.routing-panel-header { display: flex; align-items: center; justify-content: space-between; }
+.routing-panel-title { font-size: 13px; font-weight: 600; color: #222; }
+.routing-panel-header-buttons { display: flex; gap: 4px; }
+.routing-panel-close {
+  border: none; background: none; font-size: 16px; cursor: pointer; color: #777; line-height: 1;
+  width: auto; height: auto; padding: 0; display: inline-block; /* override maplibre-gl.css, see the note further down */
+}
+#routing-panel-expand.active { color: #3B4A7A; }
+.routing-hint { margin: 0; font-size: 11px; color: #777; }
+.routing-disclaimer { font-size: 11px; color: #777; }
+.routing-disclaimer summary { cursor: pointer; color: #3B4A7A; }
+.routing-disclaimer p { margin: 4px 0 0; }
+/* Replaces the old "Scegli sulla mappa" buttons: a click on the map
+   itself sets whichever of start/end isn't set yet (see
+   routingNextPickTarget in app.js) - these rows are just status display,
+   not controls. .is-set (toggled in RoutingControl._updatePointRows)
+   shows a checkmark once that point exists; the dot itself stays the
+   marker's own colour always, set/unset only changes label weight/check. */
+.routing-point-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #777; }
+.routing-point-row.is-set { color: #333; font-weight: 600; }
+.routing-point-dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; opacity: 0.4; }
+.routing-point-row.is-set .routing-point-dot { opacity: 1; }
+.routing-point-label { flex: 1 1 auto; }
+.routing-point-row.is-set .routing-point-label::after { content: " \2713"; }
 /* maplibre-gl.css's `.maplibregl-ctrl-group button` rule (width/height:29px,
    padding:0, display:block) applies to EVERY <button> nested anywhere
    inside a .maplibregl-ctrl-group - including these, since RoutingControl's
@@ -95,14 +139,17 @@ body { display: flex; flex-direction: column; }
    - found by screenshotting the real rendered panel and measuring the
    button's actual box (29x29px, text silently clipped) rather than
    guessing from the CSS source alone. */
-.routing-field button, #routing-find, #routing-clear {
+#routing-clear {
   font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px;
   background: white; cursor: pointer; white-space: nowrap; flex: 0 0 auto;
   width: auto; height: auto; display: inline-block;
 }
-#routing-find { background: #3B4A7A; color: white; border-color: #3B4A7A; }
-#routing-status { font-size: 12px; color: #555; }
+#routing-status { font-size: 12px; color: #555; display: flex; align-items: center; gap: 8px; }
 #routing-status.hidden { display: none; }
+/* Smaller than the main #loading-indicator's 20px .spinner - this one
+   sits inline in a narrow panel row, not a standalone banner. */
+#routing-status-spinner { width: 13px; height: 13px; border-width: 2px; }
+#routing-status-spinner.hidden { display: none; }
 
 /* Route summary (LTS bar, road-type bar, elevation profile - see
    RoutingControl._renderRouteSummary/_renderElevationProfile in app.js) -
@@ -130,12 +177,24 @@ body { display: flex; flex-direction: column; }
   background: white; cursor: pointer; flex: 1 1 auto;
   width: auto; height: auto; display: inline-block; /* override maplibre-gl.css - see the comment above .routing-field button */
 }
+/* position:fixed (viewport-relative), NOT absolute relative to the panel
+   - see RoutingControl._moveBarTooltip's own comment for why: the panel
+   is narrow and scrolls its own content, which was clipping/hiding this
+   tooltip's text against the panel's own edge. */
 #routing-bar-tooltip {
-  position: absolute; z-index: 7; pointer-events: none;
+  position: fixed; z-index: 20; pointer-events: none;
   background: white; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
   padding: 4px 8px; font-size: 12px; color: #333; white-space: nowrap;
 }
 #routing-bar-tooltip.hidden { display: none; }
+/* ShareControl's copy confirmation - same fixed-positioning reasoning as
+   #routing-bar-tooltip just above. */
+.share-toast {
+  position: fixed; top: 60px; right: 12px; z-index: 30;
+  background: #222; color: white; padding: 8px 14px; border-radius: 6px;
+  font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  max-width: min(80vw, 360px); word-break: break-all;
+}
 .nav-link {
   font: inherit; background: none; border: 1px solid #ccc; border-radius: 4px;
   padding: 4px 10px; cursor: pointer; color: #333;
@@ -386,6 +445,17 @@ body { display: flex; flex-direction: column; }
      geocoder-open, since the two controls open/close independently and a
      shared flag would let one control's close wipe out the other's open
      state. */
-  #routing-panel { top: 100%; right: 0; margin-right: 0; margin-top: 6px; width: auto; min-width: 200px; }
+  /* max-height here is a vh FRACTION, not the desktop rule's
+     calc(100vh - 90px): that value doesn't account for this panel
+     starting further down the screen (top:100%, below its icon+header,
+     whose combined height varies by language/wrapping) - on a short
+     phone viewport the box itself could extend past the visible bottom
+     edge with nothing to scroll it into view (its OWN overflow-y:auto
+     only rescues content overflowing WITHIN the box, not the box being
+     positioned partly off-screen). A safe vh fraction leaves headroom
+     below the icon regardless of the exact header height. Doesn't apply
+     to .expanded - that's fixed-positioned via JS with its own top/bottom
+     and isn't affected by this rule's lower specificity. */
+  #routing-panel { top: 100%; right: 0; margin-right: 0; margin-top: 6px; width: auto; min-width: 200px; max-height: 65vh; }
   body.routing-open #panel { display: none; }
 }

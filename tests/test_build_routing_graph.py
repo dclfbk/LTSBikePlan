@@ -1,4 +1,6 @@
+import json
 import math
+import struct
 import sys
 import unittest
 from pathlib import Path
@@ -12,7 +14,7 @@ try:
     from shapely.geometry import LineString
 
     from ltsbikeplan.domain.crs import WORKING_CRS
-    from build_routing_graph import build_routing_graph
+    from build_routing_graph import build_routing_graph, encode_routing_graph_binary
 
     GEO_DEPS_AVAILABLE = True
 except ImportError:  # pragma: no cover - geo deps optional in this env
@@ -30,21 +32,28 @@ def _edges_gdf():
     #
     # highway/rule/name cover: a plain street (edge0), a highway=cycleway
     # street reusing edge0's own name (the interning-dedup case), a
-    # rule=s1 path with NO name (the -1/unnamed case).
-    index = pd.MultiIndex.from_tuples([(10, 20, 0), (20, 30, 0), (30, 40, 0), (40, 50, 0)], names=["u", "v", "key"])
+    # rule=s1 path with NO name (the -1/unnamed case). edge4 (40,60,0) is
+    # LTS 0 ("Non ciclabile") with a real length AND a real position for
+    # node 60 (nodes_df below) - isolates "dropped because LTS 0" from the
+    # already-covered "dropped because no known position"/"dropped because
+    # NaN length" cases (edge3, (40,50,0)).
+    index = pd.MultiIndex.from_tuples(
+        [(10, 20, 0), (20, 30, 0), (30, 40, 0), (40, 50, 0), (40, 60, 0)], names=["u", "v", "key"]
+    )
     return gpd.GeoDataFrame(
         {
-            "length": [50.0, 30.0, 40.0, float("nan")],
-            "lts": [1, 2, float("nan"), 3],
-            "istat_code": ["022205"] * 4,
-            "highway": ["residential", "cycleway", "track", "residential"],
-            "rule": [None, None, None, None],
-            "name": ["Via Roma", "Via Roma", float("nan"), "Via Garibaldi"],
+            "length": [50.0, 30.0, 40.0, float("nan"), 25.0],
+            "lts": [1, 2, float("nan"), 3, 0],
+            "istat_code": ["022205"] * 5,
+            "highway": ["residential", "cycleway", "track", "residential", "motorway"],
+            "rule": [None, None, None, None, None],
+            "name": ["Via Roma", "Via Roma", float("nan"), "Via Garibaldi", "Autostrada Test"],
             "geometry": [
                 LineString([(4300000, 2300000), (4300100, 2300000)]),
                 LineString([(4300100, 2300000), (4300200, 2300000)]),
                 LineString([(4300200, 2300000), (4300300, 2300000)]),
                 LineString([(4300300, 2300000), (4300400, 2300000)]),
+                LineString([(4300300, 2300000), (4300500, 2300000)]),
             ],
         },
         index=index,
@@ -53,15 +62,18 @@ def _edges_gdf():
 
 
 def _nodes_df():
-    # Real positions for nodes 10/20/30/40, deliberately NOT node 50 - the
-    # "no known position for this endpoint" case (e.g. a node dropped by
-    # some upstream inconsistency), which must drop the edge that needs it
-    # rather than guessing a coordinate for it.
+    # Real positions for nodes 10/20/30/40/60, deliberately NOT node 50 -
+    # the "no known position for this endpoint" case (e.g. a node dropped
+    # by some upstream inconsistency), which must drop the edge that needs
+    # it rather than guessing a coordinate for it. Node 60 DOES have a
+    # position - it's only ever reached via the LTS-0 edge (40,60,0), so
+    # if it's missing from the output that's proof the edge was dropped
+    # for being LTS 0, not for a missing position.
     return pd.DataFrame(
         {
-            "osmid": [10, 20, 30, 40],
-            "x": [7.700000, 7.700100, 7.700200, 7.700300],
-            "y": [45.300000, 45.300010, 45.300020, 45.300030],
+            "osmid": [10, 20, 30, 40, 60],
+            "x": [7.700000, 7.700100, 7.700200, 7.700300, 7.700500],
+            "y": [45.300000, 45.300010, 45.300020, 45.300030, 45.300050],
         }
     )
 
@@ -121,10 +133,25 @@ class TestBuildRoutingGraph(unittest.TestCase):
     def test_edge_with_unpositioned_endpoint_dropped(self):
         # Edge (40,50,0) has valid length/lts, but node 50 has no entry in
         # nodes_df - it must be dropped rather than guessing a position,
-        # and node 50 must never appear in the output at all.
+        # and node 50 must never appear in the output at all. (edge4,
+        # (40,60,0), is also dropped, but for the separate LTS-0 reason
+        # covered by test_lts_zero_edge_excluded_not_just_penalized below
+        # - the count here stays 3 either way.)
         result = build_routing_graph(_edges_gdf(), _nodes_df(), "testcomune")
         self.assertEqual(len(result["edges"]), 3)
         self.assertNotIn(50, result["node_osm_ids"])
+
+    def test_lts_zero_edge_excluded_not_just_penalized(self):
+        # LTS 0 ("Non ciclabile") means no bike access at all, not just
+        # "very stressful" - edge (40,60,0) must be dropped entirely
+        # (never appear with lts=0 in the output), not merely kept with a
+        # high cost. Node 60 has a real position in nodes_df and is
+        # reached ONLY via this edge, so its absence from node_osm_ids is
+        # proof the edge itself was excluded, not that its endpoint
+        # happened to lack a position (that's the separate case above).
+        result = build_routing_graph(_edges_gdf(), _nodes_df(), "testcomune")
+        self.assertNotIn(60, result["node_osm_ids"])
+        self.assertTrue(all(edge[2] != 0 for edge in result["edges"]))
 
     def test_nan_length_edge_dropped(self):
         # Edge (40,50,0) also has NaN length (belt-and-suspenders with the
@@ -157,6 +184,79 @@ class TestBuildRoutingGraph(unittest.TestCase):
             self.assertTrue(math.isfinite(lat))
             self.assertTrue(-180.0 <= lon <= 180.0)
             self.assertTrue(-90.0 <= lat <= 90.0)
+
+
+def _decode_binary_pure_python(blob: bytes) -> dict:
+    """A from-scratch, independent decoder (deliberately NOT importing
+    anything from encode_routing_graph_binary) mirroring
+    web/routing.js's decodeRoutingGraphBinary byte-for-byte - the point is
+    to catch a Python-side layout bug that a decoder sharing the same
+    (possibly also wrong) assumptions couldn't. The real cross-language
+    check (this Python encoder's output actually decoded BY the real JS
+    function) is a separate Node-based test, not part of this suite."""
+    (header_len,) = struct.unpack_from("<I", blob, 0)
+    header = json.loads(blob[4 : 4 + header_len].decode("utf-8"))
+    nc, ec = header["nodeCount"], header["edgeCount"]
+
+    offset = 4 + header_len
+    offset += (8 - (offset % 8)) % 8
+
+    def read(dtype_fmt, count, size):
+        nonlocal offset
+        values = struct.unpack_from(f"<{count}{dtype_fmt}", blob, offset)
+        offset += count * size
+        return values
+
+    node_lons = read("f", nc, 4)
+    node_lats = read("f", nc, 4)
+    node_osm_ids = read("d", nc, 8)
+    edge_u = read("I", ec, 4)
+    edge_v = read("I", ec, 4)
+    edge_length = read("f", ec, 4)
+    edge_name_idx = read("i", ec, 4)
+    edge_lts = read("B", ec, 1)
+    edge_facility = read("B", ec, 1)
+
+    return {
+        "slug": header["slug"],
+        "names": header["names"],
+        "nodes": list(zip(node_lons, node_lats)),
+        "node_osm_ids": list(node_osm_ids),
+        "edges": list(zip(edge_u, edge_v, edge_lts, edge_length, edge_facility, edge_name_idx)),
+    }
+
+
+@unittest.skipUnless(GEO_DEPS_AVAILABLE, "geopandas/shapely (geo extras) not installed")
+class TestEncodeRoutingGraphBinary(unittest.TestCase):
+    def test_round_trip_matches_the_source_dict(self):
+        result = build_routing_graph(_edges_gdf(), _nodes_df(), "testcomune")
+        decoded = _decode_binary_pure_python(encode_routing_graph_binary(result))
+
+        self.assertEqual(decoded["slug"], result["slug"])
+        self.assertEqual(decoded["names"], result["names"])
+        self.assertEqual(decoded["node_osm_ids"], result["node_osm_ids"])
+        self.assertEqual(len(decoded["edges"]), len(result["edges"]))
+
+        # float32 round-trip isn't bit-exact vs the source float64s - assert
+        # "close enough for a coordinate/length", not equality.
+        for (dec_lon, dec_lat), (src_lon, src_lat) in zip(decoded["nodes"], result["nodes"]):
+            self.assertAlmostEqual(dec_lon, src_lon, places=5)
+            self.assertAlmostEqual(dec_lat, src_lat, places=5)
+        for dec_edge, src_edge in zip(decoded["edges"], result["edges"]):
+            dec_u, dec_v, dec_lts, dec_len, dec_fac, dec_name_idx = dec_edge
+            src_u, src_v, src_lts, src_len, src_fac, src_name_idx = src_edge
+            self.assertEqual((dec_u, dec_v, dec_lts, dec_fac, dec_name_idx), (src_u, src_v, src_lts, src_fac, src_name_idx))
+            self.assertAlmostEqual(dec_len, src_len, places=1)
+
+    def test_empty_graph_encodes_and_decodes_without_error(self):
+        # nodeCount=0/edgeCount=0 - the padding-and-section-length math
+        # (all `count * elementSize`) must not divide-by-zero or misindex
+        # on an empty comune's routing graph (a real, if rare, case).
+        empty = {"slug": "empty", "names": [], "nodes": [], "node_osm_ids": [], "edges": []}
+        decoded = _decode_binary_pure_python(encode_routing_graph_binary(empty))
+        self.assertEqual(decoded["nodes"], [])
+        self.assertEqual(decoded["edges"], [])
+        self.assertEqual(decoded["slug"], "empty")
 
 
 if __name__ == "__main__":

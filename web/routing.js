@@ -1,6 +1,7 @@
 // Client-side LTS-preferring bike routing. Loads on demand only the
-// per-comune routing graphs (web/data/<slug>_routing.json, see
-// scripts/build_routing_graph.py) touched by a given start/end pair,
+// per-comune routing graphs (web/data/<slug>_routing.bin, see
+// scripts/build_routing_graph.py and decodeRoutingGraphBinary below)
+// touched by a given start/end pair,
 // stitches them into one in-memory graph, and runs ngraph.path's A* with
 // an LTS-weighted cost - no routing server. See web/app.js's
 // RoutingControl for the UI that drives these functions.
@@ -13,6 +14,14 @@
 // Mirrors code/ltsbikeplan/domain/routing_cost.py's LTS_PENALTY exactly -
 // no shared build step between the Python pipeline and this static site,
 // so if that table changes there, update this one too.
+//
+// No entry for LTS 0 ("Non ciclabile" - not merely stressful, no bike
+// access at all) is deliberate: scripts/build_routing_graph.py already
+// drops those edges entirely before they ever reach a routing.json file,
+// so this should never actually see lts=0 - the `?? LTS_PENALTY[4]`
+// fallback below is only a defensive last resort, not a real routing
+// choice (see the Python module's own comment for the bug this used to be
+// when 0 silently fell back to the LTS-4 rate here too).
 const LTS_PENALTY = { 1: 1.0, 2: 1.3, 3: 2.5, 4: 6.0 };
 
 function edgeCost(lts, lengthM) {
@@ -33,6 +42,53 @@ function approxMetersBetween(a, b) {
   const dx = (b[0] - a[0]) * 111320 * Math.cos(latRad);
   const dy = (b[1] - a[1]) * 110540;
   return Math.sqrt(dx * dx + dy * dy);
+}
+
+// Decodes the compact binary wire format
+// scripts/build_routing_graph.py's encode_routing_graph_binary writes to
+// <slug>_routing.bin - see that Python function's own comment for the
+// full layout rationale (single-producer/single-consumer format, so a
+// hand-packed structure-of-arrays layout gets FlatBuffers' real benefit -
+// zero-copy typed-array reads, no JSON.parse of a huge array-of-arrays -
+// without a schema compiler or generated code).
+//
+// Layout (all little-endian), field order load-bearing - every
+// multi-byte field before the two 1-byte ones, so each section starts at
+// a naturally correct alignment with NO padding needed anywhere in the
+// body, only once right after the header:
+//   [u32] headerLen=H, [H bytes] UTF-8 JSON {slug,names,nodeCount,edgeCount}
+//   [pad to next 8-byte boundary]
+//   [f32 x NC] node lon, [f32 x NC] node lat, [f64 x NC] node OSM id
+//   [u32 x EC] edge u_idx, [u32 x EC] edge v_idx, [f32 x EC] edge length_m,
+//   [i32 x EC] edge name_idx, [u8 x EC] edge lts, [u8 x EC] edge facility_code
+function decodeRoutingGraphBinary(buffer) {
+  const view = new DataView(buffer);
+  const headerLen = view.getUint32(0, true);
+  const headerJson = new TextDecoder("utf-8").decode(new Uint8Array(buffer, 4, headerLen));
+  const header = JSON.parse(headerJson);
+  const nodeCount = header.nodeCount;
+  const edgeCount = header.edgeCount;
+
+  let offset = 4 + headerLen;
+  offset += (8 - (offset % 8)) % 8; // same padding rule as the Python encoder
+
+  const nodeLons = new Float32Array(buffer, offset, nodeCount); offset += nodeCount * 4;
+  const nodeLats = new Float32Array(buffer, offset, nodeCount); offset += nodeCount * 4;
+  const nodeOsmIds = new Float64Array(buffer, offset, nodeCount); offset += nodeCount * 8;
+  const edgeU = new Uint32Array(buffer, offset, edgeCount); offset += edgeCount * 4;
+  const edgeV = new Uint32Array(buffer, offset, edgeCount); offset += edgeCount * 4;
+  const edgeLength = new Float32Array(buffer, offset, edgeCount); offset += edgeCount * 4;
+  const edgeNameIdx = new Int32Array(buffer, offset, edgeCount); offset += edgeCount * 4;
+  const edgeLts = new Uint8Array(buffer, offset, edgeCount); offset += edgeCount;
+  const edgeFacility = new Uint8Array(buffer, offset, edgeCount); offset += edgeCount;
+
+  return {
+    slug: header.slug,
+    names: header.names,
+    nodeCount, edgeCount,
+    nodeLons, nodeLats, nodeOsmIds,
+    edgeU, edgeV, edgeLength, edgeNameIdx, edgeLts, edgeFacility,
+  };
 }
 
 // Filters comuniIndex (web/data/comuni_index.json, loaded client-side by
@@ -56,8 +112,8 @@ function candidateComuniForRoute(startLngLat, endLngLat, comuniIndex, marginDeg)
   return slugs;
 }
 
-// Builds one in-memory graph from an array of parsed <slug>_routing.json
-// objects. Node identity is the edge's real OSM node id (see
+// Builds one in-memory graph from an array of decodeRoutingGraphBinary()
+// results. Node identity is the edge's real OSM node id (see
 // scripts/build_routing_graph.py's docstring) - the same OSM node shared
 // by two adjacent comuni's independent extracts joins automatically, no
 // coordinate-tolerance snapping needed. multigraph:true keeps parallel
@@ -68,10 +124,10 @@ function mergeRoutingGraphs(routingFiles) {
   const coordByOsmId = new Map();
 
   for (const file of routingFiles) {
-    const { nodes, node_osm_ids, edges, names, slug } = file;
-    for (let i = 0; i < node_osm_ids.length; i++) {
-      const osmId = node_osm_ids[i];
-      const coord = nodes[i];
+    const { nodeCount, edgeCount, nodeLons, nodeLats, nodeOsmIds, edgeU, edgeV, edgeLength, edgeNameIdx, edgeLts, edgeFacility, names, slug } = file;
+    for (let i = 0; i < nodeCount; i++) {
+      const osmId = nodeOsmIds[i];
+      const coord = [nodeLons[i], nodeLats[i]];
       const existing = coordByOsmId.get(osmId);
       if (existing) {
         // Defensive only - expected to never actually fire, since two
@@ -87,13 +143,17 @@ function mergeRoutingGraphs(routingFiles) {
       coordByOsmId.set(osmId, coord);
       graph.addNode(osmId, coord);
     }
-    for (const [uIdx, vIdx, lts, lengthM, facilityCode, nameIdx] of edges) {
+    for (let i = 0; i < edgeCount; i++) {
       // nameIdx is only meaningful within this file's own `names` array -
       // resolve to the actual string now, before it's merged with other
       // files' edges (a shared/global index would be meaningless once
       // multiple files' name tables are mixed together).
+      const nameIdx = edgeNameIdx[i];
       const name = nameIdx >= 0 ? names[nameIdx] : null;
-      graph.addLink(node_osm_ids[uIdx], node_osm_ids[vIdx], { lts, lengthM, facilityCode, name, comuneSlug: slug });
+      graph.addLink(
+        nodeOsmIds[edgeU[i]], nodeOsmIds[edgeV[i]],
+        { lts: edgeLts[i], lengthM: edgeLength[i], facilityCode: edgeFacility[i], name, comuneSlug: slug },
+      );
     }
   }
   return { graph, coordByOsmId };
@@ -139,15 +199,86 @@ function _nearestNode(lngLat, coordByOsmId) {
   return bestId;
 }
 
+// Among every node REACHABLE from `fromId` (a plain BFS over the merged
+// graph - cheap even at a Trento-sized graph, and this only ever runs
+// once findRoute's direct A* has already failed), returns whichever one
+// sits closest (straight-line) to `targetLngLat`. Used when the actual
+// destination isn't reachable at all - typically because the only
+// physical connection onward is a non-cyclable road (LTS 0 edges are
+// excluded from the graph entirely, see build_routing_graph.py's own
+// comment on why) - so the router can still show how far a rider CAN get
+// on cyclable roads, instead of a flat "no route".
+function _nearestReachableNode(graph, fromId, targetLngLat, coordByOsmId) {
+  const target = [targetLngLat.lng, targetLngLat.lat];
+  const visited = new Set([fromId]);
+  const queue = [fromId];
+  let bestId = fromId;
+  let bestDist = approxMetersBetween(coordByOsmId.get(fromId), target);
+  let head = 0;
+  while (head < queue.length) {
+    const current = queue[head++];
+    const links = graph.getLinks(current);
+    if (!links) continue;
+    links.forEach((link) => {
+      const other = link.fromId === current ? link.toId : link.fromId;
+      if (visited.has(other)) return;
+      visited.add(other);
+      queue.push(other);
+      const coord = coordByOsmId.get(other);
+      if (!coord) return;
+      const dist = approxMetersBetween(coord, target);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestId = other;
+      }
+    });
+  }
+  return bestId;
+}
+
+// Shared by both the direct and partial-fallback cases below: turns a
+// list of ngraph path NODES (start -> end order already) into the
+// { feature, segments } shape findRoute returns. pathFinder.find() only
+// hands back the node sequence - the {lts, name, ...} data lives on the
+// LINKS between them, recovered per consecutive pair via
+// _bestLinkBetween (same "cheapest wins" rule A* implicitly used).
+function _buildRouteResult(pathNodes, mergedGraph, partial) {
+  const coordinates = pathNodes.map((node) => node.data);
+  const segments = [];
+  for (let i = 0; i < pathNodes.length - 1; i++) {
+    const link = _bestLinkBetween(mergedGraph, pathNodes[i].id, pathNodes[i + 1].id);
+    segments.push(
+      link
+        ? { lts: link.data.lts, lengthM: link.data.lengthM, facilityCode: link.data.facilityCode, name: link.data.name, comuneSlug: link.data.comuneSlug }
+        : { lts: 4, lengthM: approxMetersBetween(coordinates[i], coordinates[i + 1]), facilityCode: 0, name: null, comuneSlug: null },
+    );
+  }
+  return {
+    feature: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates } },
+    segments,
+    partial,
+  };
+}
+
 // Runs A* over the merged graph, preferring low-LTS edges via edgeCost.
-// Returns { feature, segments } where `feature` is a GeoJSON LineString
-// and `segments` is one entry per original graph edge along the path
-// (segments[i] describes the edge between feature.geometry.coordinates[i]
-// and [i+1]): { lts, lengthM, facilityCode, name, comuneSlug }. Returns
-// null (not { feature: null, ... }) if no route exists (start and end
-// snap to the same node, or the graph is disconnected between them) -
-// callers treat null as the definitive "no route" signal, never a
-// partial/wrong path.
+// Returns { feature, segments, partial } where `feature` is a GeoJSON
+// LineString and `segments` is one entry per original graph edge along
+// the path (segments[i] describes the edge between
+// feature.geometry.coordinates[i] and [i+1]): { lts, lengthM,
+// facilityCode, name, comuneSlug }.
+//
+// If the actual destination isn't reachable at all from the start
+// (typically: the only physical way onward is a non-cyclable road - LTS 0
+// edges are excluded from the graph entirely, see
+// build_routing_graph.py), falls back to routing as far as the closest
+// point ON THE CYCLABLE NETWORK gets to the destination
+// (_nearestReachableNode) rather than failing outright - `partial: true`
+// marks this case so callers can tell a rider "this is as far as you can
+// get by bike" instead of silently presenting it as the real route.
+//
+// Returns null (not { feature: null, ... }) only when there is truly
+// nothing to show - start and end snap to the same node, or start itself
+// has no reachable neighbours at all - the definitive "no route" signal.
 function findRoute(startLngLat, endLngLat, mergedGraph, coordByOsmId) {
   const startId = _nearestNode(startLngLat, coordByOsmId);
   const endId = _nearestNode(endLngLat, coordByOsmId);
@@ -159,29 +290,16 @@ function findRoute(startLngLat, endLngLat, mergedGraph, coordByOsmId) {
   });
 
   const found = pathFinder.find(startId, endId);
-  if (!found || found.length < 2) return null;
-
-  // ngraph.path returns the path from `toId` back to `fromId` - reverse
-  // to get start -> end order for drawing.
-  const pathNodes = found.reverse();
-  const coordinates = pathNodes.map((node) => node.data);
-
-  // pathFinder.find() only returns the sequence of NODES - the {lts,
-  // name, ...} data lives on the LINKS between them, which the search
-  // itself doesn't hand back. Recover it per consecutive pair via
-  // _bestLinkBetween (same "cheapest wins" rule A* implicitly used).
-  const segments = [];
-  for (let i = 0; i < pathNodes.length - 1; i++) {
-    const link = _bestLinkBetween(mergedGraph, pathNodes[i].id, pathNodes[i + 1].id);
-    segments.push(
-      link
-        ? { lts: link.data.lts, lengthM: link.data.lengthM, facilityCode: link.data.facilityCode, name: link.data.name, comuneSlug: link.data.comuneSlug }
-        : { lts: 4, lengthM: approxMetersBetween(coordinates[i], coordinates[i + 1]), facilityCode: 0, name: null, comuneSlug: null },
-    );
+  if (found && found.length >= 2) {
+    // ngraph.path returns the path from `toId` back to `fromId` - reverse
+    // to get start -> end order for drawing.
+    return _buildRouteResult(found.reverse(), mergedGraph, false);
   }
 
-  return {
-    feature: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates } },
-    segments,
-  };
+  const nearestId = _nearestReachableNode(mergedGraph, startId, endLngLat, coordByOsmId);
+  if (nearestId === startId) return null; // start itself is isolated - nothing reachable to show
+
+  const partialFound = pathFinder.find(startId, nearestId);
+  if (!partialFound || partialFound.length < 2) return null;
+  return _buildRouteResult(partialFound.reverse(), mergedGraph, true);
 }

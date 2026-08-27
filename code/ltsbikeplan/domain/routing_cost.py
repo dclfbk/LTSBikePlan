@@ -12,15 +12,30 @@ from __future__ import annotations
 # requires regenerating every comune's file. web/routing.js's own
 # `LTS_PENALTY`/`edgeCost()` mirror this by hand (no shared build step
 # between Python and the static site) - if this table changes, update both.
+#
+# Deliberately has NO entry for LTS 0 ("Non ciclabile" in LTS_COLORS/the
+# legend - a road with no bike access at all, e.g. a motorway, not merely a
+# stressful one). LTS 0 is not "the worst penalty", it's not a valid choice
+# in the first place - build_routing_graph.py drops those edges entirely
+# rather than letting them reach this table, so `edge_cost` is never
+# actually called with lts=0 in practice. Don't add a `0: ...` entry here
+# as a shortcut instead of fixing the export - that would silently let the
+# router draw a route across a road a cyclist can't use (this was a real
+# bug: the old fallback below quietly treated 0 the same as 4).
 LTS_PENALTY: dict[int, float] = {1: 1.0, 2: 1.3, 3: 2.5, 4: 6.0}
 
 
 def edge_cost(lts: int, length_m: float) -> float:
     """Routing cost of one edge: its length, scaled by how much its LTS
-    class should be avoided. Unknown/out-of-range `lts` values fall back to
-    the LTS 4 (most-penalized) rate rather than raising - conservative
-    default for the one caller that also needs it (build_routing_graph.py
-    coerces NaN `lts` to 4 explicitly before calling this, but the fallback
-    stays here too so this function is safe on its own).
+    class should be avoided. Unknown/out-of-range `lts` values (LTS 0
+    included - see the module comment on why that's wrong for a *routable*
+    edge) fall back to the LTS 4 (most-penalized) rate rather than raising
+    - conservative default for the one caller that also needs it
+    (build_routing_graph.py coerces NaN `lts` to 4 explicitly before
+    calling this, but the fallback stays here too so this function is safe
+    on its own). Callers that might see LTS 0 - i.e. anything reading
+    `all_lts` directly rather than an already-filtered routing export -
+    must exclude it themselves; this function has no way to tell "unusual
+    but real" apart from "not a road you can route on".
     """
     return length_m * LTS_PENALTY.get(lts, LTS_PENALTY[4])

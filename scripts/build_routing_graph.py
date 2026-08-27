@@ -35,12 +35,14 @@ from __future__ import annotations
 
 import json
 import os
+import struct
 import sys
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "code"))
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 
 # LTS coerced to this when NaN (unclassified edge) - stays usable as a
@@ -79,7 +81,8 @@ def build_routing_graph(edges_gdf: gpd.GeoDataFrame, nodes_df: pd.DataFrame, slu
     `nodes_df`: a plain frame with `osmid`/`x`(lon)/`y`(lat) columns, read
     from <slug>_nodes.parquet.
 
-    Returns the JSON-serializable dict written to <slug>_routing.json:
+    Returns the dict passed to encode_routing_graph_binary() (below), which
+    writes the actual <slug>_routing.bin file:
 
         {
           "istat": "022205", "slug": "trento", "generated_at": "...",
@@ -140,6 +143,20 @@ def build_routing_graph(edges_gdf: gpd.GeoDataFrame, nodes_df: pd.DataFrame, slu
     ):
         if pd.isna(length):
             continue
+        # LTS 0 means "not cyclable at all" (the LTS_COLORS/legend "Non
+        # ciclabile" class - e.g. a motorway with no bike access), not
+        # merely "very stressful". Treating it as just an expensive edge
+        # (the old behaviour: LTS_PENALTY.get(lts, LTS_PENALTY[4]) falls
+        # back to the LTS-4 rate for any unlisted class, 0 included) let
+        # the router silently draw a route across a road a cyclist can't
+        # actually use, instead of finding a real alternative or reporting
+        # no route. Dropping the edge entirely - same treatment as "no
+        # known position"/"null geometry" below - is the correct fix: it
+        # was never a valid choice, not just a costly one. NaN `lts`
+        # (unclassified, not explicitly 0) is unaffected and still falls
+        # back to _FALLBACK_LTS, per the "soft preference" design.
+        if not pd.isna(lts) and int(lts) == 0:
+            continue
         u_idx = node_index(u)
         v_idx = node_index(v)
         if u_idx is None or v_idx is None:
@@ -159,6 +176,88 @@ def build_routing_graph(edges_gdf: gpd.GeoDataFrame, nodes_df: pd.DataFrame, slu
         "names": names,
         "edges": edges,
     }
+
+
+# Compact binary wire format for <slug>_routing.bin, decoded by
+# web/routing.js's decodeRoutingGraphBinary (that function's own comment
+# has the identical layout description - keep both in sync). Chosen over
+# a schema-compiler format (FlatBuffers etc.): this is a single-producer/
+# single-consumer format with a schema that basically never changes, so
+# the interop/versioning machinery those tools exist for buys nothing here
+# - a hand-packed structure-of-arrays layout gets the same real win (zero-
+# copy typed-array reads in the browser, no JSON.parse of a huge array-of-
+# arrays, no text-encoding overhead on every float) with no new build
+# tooling (numpy - already a dependency - does the packing).
+#
+# `istat`/`generated_at` are dropped here even though build_routing_graph()
+# returns them - web/routing.js never reads either field (only `slug` is
+# consumed, for comuneSlug), so shipping them would be dead weight on
+# every fetch. Layout (all little-endian):
+#
+#   [u32]  headerLen = H
+#   [H bytes] UTF-8 JSON: {"slug","names","nodeCount":NC,"edgeCount":EC}
+#   [pad]  zero bytes up to the next 8-byte boundary (so nodeOsmIds below
+#          can be read as a real Float64Array, which requires 8-byte
+#          alignment - typed-array *construction* throws if the buffer
+#          offset isn't a multiple of the element size, unlike DataView)
+#   [f32 x NC] node longitudes
+#   [f32 x NC] node latitudes
+#   [f64 x NC] node OSM ids - float64, not a 32-bit int type: real OSM
+#              node ids already sit close to the uint32 ceiling (~4.29e9)
+#              and keep growing, but every id is comfortably inside
+#              float64's 53-bit exact-integer range, and it keeps the JS
+#              side a plain `number` (matching every other place in this
+#              codebase an osmid is used as a Map key/ngraph node id),
+#              no BigInt conversions needed anywhere.
+#   [u32 x EC] edge u_idx      (LOCAL to this file's node array)
+#   [u32 x EC] edge v_idx
+#   [f32 x EC] edge length_m
+#   [i32 x EC] edge name_idx   (signed - -1 means unnamed)
+#   [u8  x EC] edge lts
+#   [u8  x EC] edge facility_code
+#
+# Field ORDER is load-bearing, not cosmetic: every multi-byte (4/8-byte)
+# field comes before the two single-byte ones at the end. Uint8Array
+# construction has no alignment requirement at all, so putting both 1-byte
+# fields last means every section boundary in the whole body already
+# lands on a valid 4-byte (or 8-byte, for the f64 id array) boundary by
+# construction - NO padding is ever needed mid-body, only once, right
+# after the header. Reordering these fields without updating
+# decodeRoutingGraphBinary to match breaks silently (wrong values read
+# from the wrong byte offsets), not with a thrown error - the whole point
+# of typed-array views is that they trust the layout instead of checking it.
+def encode_routing_graph_binary(result: dict) -> bytes:
+    header = json.dumps(
+        {
+            "slug": result["slug"],
+            "names": result["names"],
+            "nodeCount": len(result["nodes"]),
+            "edgeCount": len(result["edges"]),
+        },
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+    nodes = result["nodes"]
+    edges = result["edges"]
+    node_lons = np.array([n[0] for n in nodes], dtype="<f4")
+    node_lats = np.array([n[1] for n in nodes], dtype="<f4")
+    node_osm_ids = np.array(result["node_osm_ids"], dtype="<f8")
+    edge_u = np.array([e[0] for e in edges], dtype="<u4")
+    edge_v = np.array([e[1] for e in edges], dtype="<u4")
+    edge_length = np.array([e[3] for e in edges], dtype="<f4")
+    edge_name_idx = np.array([e[5] for e in edges], dtype="<i4")
+    edge_lts = np.array([e[2] for e in edges], dtype="<u1")
+    edge_facility = np.array([e[4] for e in edges], dtype="<u1")
+
+    header_len_prefix = struct.pack("<I", len(header))
+    body_start = len(header_len_prefix) + len(header)
+    padding = b"\x00" * ((-body_start) % 8)  # round up to the next 8-byte boundary
+
+    body = b"".join(
+        arr.tobytes()
+        for arr in (node_lons, node_lats, node_osm_ids, edge_u, edge_v, edge_length, edge_name_idx, edge_lts, edge_facility)
+    )
+    return header_len_prefix + header + padding + body
 
 
 def main() -> None:
@@ -190,11 +289,12 @@ def main() -> None:
 
     web_data_dir = os.path.join(repo_root, "web", "data")
     os.makedirs(web_data_dir, exist_ok=True)
-    out_path = os.path.join(web_data_dir, f"{slug}_routing.json")
-    with open(out_path, "w") as file_handle:
-        json.dump(result, file_handle, separators=(",", ":"))
+    out_path = os.path.join(web_data_dir, f"{slug}_routing.bin")
+    binary = encode_routing_graph_binary(result)
+    with open(out_path, "wb") as file_handle:
+        file_handle.write(binary)
 
-    print(f"Wrote {out_path} ({len(result['nodes'])} nodes, {len(result['edges'])} edges)")
+    print(f"Wrote {out_path} ({len(result['nodes'])} nodes, {len(result['edges'])} edges, {len(binary)} bytes)")
 
 
 if __name__ == "__main__":

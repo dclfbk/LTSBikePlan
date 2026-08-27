@@ -35,6 +35,62 @@ const MIN_STREETS_ZOOM = 4;
 // it starts at a whole-Italy view rather than zooming to whatever areas
 // happen to be computed so far (see the fitBounds guard below).
 const params = new URLSearchParams(window.location.search);
+
+// Compact, fully client-side, REVERSIBLE "share code" - not a true short
+// link (this static site has no server/database to hold a mapping), just
+// a denser encoding of the same state syncUrlState() below already puts
+// in the address bar: short keys (already shortened, see that function)
+// + only non-default values, base64url'd. ShareControl's "Condividi"
+// button hands out a URL built from encodeShareState(); opening it
+// decodes back to the same key/value pairs and layers them onto `params`
+// right here (see the block below `area` unpacking further down for
+// where that overlay happens), and the ordinary syncUrlState() call this
+// script already makes on load rewrites the address bar into the normal,
+// fully explicit "public" form - matching "ricodifica tutto per avere
+// l'url pubblica": the ?c=... code is a transport detail, gone from the
+// bar the moment the page has read it.
+// Fixed field order, NOT a JSON object - this is what actually makes the
+// code shorter than the equivalent query string. A JSON object repeats
+// every key name ("area":"...", "z":"...", ...), which very nearly
+// cancels out base64's own space savings; a plain "|"-joined positional
+// list has none of that overhead (the schema is fixed/known, so position
+// alone identifies each field - "|" is safe as a separator since none of
+// these values can naturally contain one, `lts` already uses "," for its
+// own internal list). The 4 routing fields are appended only when a route
+// is active (see currentUrlState) - decodeShareState tells "no route" ​
+// apart from "route present" by the split length alone.
+const SHARE_FIELDS = ["area", "z", "y", "x", "p", "b", "bg", "lts", "t", "g", "lang"];
+const SHARE_ROUTE_FIELDS = ["sy", "sx", "ey", "ex"];
+
+function encodeShareState(stateObj) {
+  const fields = SHARE_FIELDS.map((key) => stateObj[key] ?? "");
+  if (stateObj.sy !== undefined) fields.push(...SHARE_ROUTE_FIELDS.map((key) => stateObj[key]));
+  const raw = fields.join("|");
+  const b64 = btoa(unescape(encodeURIComponent(raw))); // UTF-8 safe (area/lang names aren't ASCII-only)
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function decodeShareState(code) {
+  let b64 = code.replace(/-/g, "+").replace(/_/g, "/");
+  while (b64.length % 4) b64 += "=";
+  const parts = decodeURIComponent(escape(atob(b64))).split("|");
+  const result = {};
+  SHARE_FIELDS.forEach((key, i) => { result[key] = parts[i]; });
+  if (parts.length > SHARE_FIELDS.length) {
+    SHARE_ROUTE_FIELDS.forEach((key, i) => { result[key] = parts[SHARE_FIELDS.length + i]; });
+  }
+  return result;
+}
+if (params.has("c")) {
+  try {
+    const decoded = decodeShareState(params.get("c"));
+    for (const [key, value] of Object.entries(decoded)) params.set(key, String(value));
+  } catch (error) {
+    // Malformed/tampered code - fails open to whatever OTHER params (if
+    // any) are present, same as any other missing-param case below.
+  }
+  params.delete("c");
+}
+
 const area = params.get("area") || "italia";
 // "italia" (the merged whole-country tileset, and the default when no
 // ?area= is given) is left unlabelled - stating it would just be noise
@@ -231,15 +287,28 @@ function renderFaq() {
 // bearing), basemap, which LTS classes the legend has active, and whether
 // 3D terrain / the gap-analysis panel are on. Falls back to the
 // whole-Italy default view when a param is missing (e.g. a fresh link).
-const hasExplicitView = params.has("zoom") || params.has("lat") || params.has("lon");
-const initialZoom = params.has("zoom") ? parseFloat(params.get("zoom")) : 5.2;
-const initialLat = params.has("lat") ? parseFloat(params.get("lat")) : 42.3;
-const initialLon = params.has("lon") ? parseFloat(params.get("lon")) : 12.5;
-const initialPitch = params.has("pitch") ? parseFloat(params.get("pitch")) : 0;
-const initialBearing = params.has("bearing") ? parseFloat(params.get("bearing")) : 0;
+// Short keys (z/y/x/p/b/t/g) are what syncUrlState() writes now - the
+// long ones (zoom/lat/lon/pitch/bearing/terrain/gap) are read too, so a
+// link shared/bookmarked before this shortening still opens correctly.
+// Once opened, syncUrlState() rewrites the bar into the new short form
+// anyway (replaceState, not pushState - no extra back-button entry).
+function paramFloat(shortKey, longKey, fallback) {
+  const raw = params.has(shortKey) ? params.get(shortKey) : params.has(longKey) ? params.get(longKey) : null;
+  return raw === null ? fallback : parseFloat(raw);
+}
+function paramFlag(shortKey, longKey) {
+  return params.get(shortKey) === "1" || params.get(longKey) === "1";
+}
+const hasExplicitView = params.has("z") || params.has("y") || params.has("x")
+  || params.has("zoom") || params.has("lat") || params.has("lon");
+const initialZoom = paramFloat("z", "zoom", 5.2);
+const initialLat = paramFloat("y", "lat", 42.3);
+const initialLon = paramFloat("x", "lon", 12.5);
+const initialPitch = paramFloat("p", "pitch", 0);
+const initialBearing = paramFloat("b", "bearing", 0);
 let currentBasemap = params.get("bg") in BASE_STYLES ? params.get("bg") : "light";
-let terrainOn = params.get("terrain") === "1";
-let gapModeOn = params.get("gap") === "1";
+let terrainOn = paramFlag("t", "terrain");
+let gapModeOn = paramFlag("g", "gap");
 document.getElementById("gap-panel").classList.toggle("open", gapModeOn);
 document.getElementById("gap-toggle").classList.toggle("active", gapModeOn);
 
@@ -490,6 +559,69 @@ class PrintControl {
   }
 }
 
+// Copies a shareable link for the CURRENT view (camera/basemap/LTS
+// filters/language, plus the active route if one is set - same state
+// syncUrlState already keeps the address bar in sync with, via the
+// shared currentUrlState() helper) - but packed through
+// encodeShareState() into one compact ?c=... code instead of the full
+// query string, so what actually gets shared/pasted is short. See
+// encodeShareState's own comment (top of file) for why decoding it back
+// needs no server.
+class ShareControl {
+  onAdd() {
+    this._container = document.createElement("div");
+    this._container.className = "maplibregl-ctrl maplibregl-ctrl-group";
+    this._button = document.createElement("button");
+    this._button.id = "share-toggle";
+    this._button.type = "button";
+    this._button.title = t("shareButton");
+    this._button.textContent = "\u{1F517}"; // 🔗
+    this._button.addEventListener("click", () => this._share());
+    this._container.appendChild(this._button);
+    return this._container;
+  }
+
+  onRemove() {
+    this._container.remove();
+    if (this._toast) this._toast.remove();
+  }
+
+  async _share() {
+    const url = new URL(window.location.href);
+    url.search = "";
+    url.searchParams.set("c", encodeShareState(currentUrlState()));
+
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      copied = true;
+    } catch (error) {
+      // Clipboard API can be blocked (permissions, insecure context, an
+      // older browser) - fall back to just showing the link itself so it
+      // can still be copied by hand, instead of failing with nothing.
+    }
+    this._showToast(copied ? t("shareCopied") : url.toString());
+  }
+
+  // A toast, not a MapLibre popup/native alert - position:fixed (see
+  // .share-toast, and RoutingControl's own bar-tooltip fix earlier for
+  // why fixed rather than anchored to a control that's itself nested
+  // inside .maplibregl-ctrl's own transform:translate(0)) so it's never
+  // clipped regardless of where this control sits in the stack.
+  _showToast(text) {
+    if (this._toast) this._toast.remove();
+    const toast = document.createElement("div");
+    toast.className = "share-toast";
+    toast.textContent = text;
+    document.body.appendChild(toast);
+    this._toast = toast;
+    setTimeout(() => {
+      toast.remove();
+      if (this._toast === toast) this._toast = null;
+    }, 3000);
+  }
+}
+
 // Nominatim geocoder, restricted to Italy (countrycodes=it) - a plain
 // fetch against the public API, not a plugin: this project already
 // avoids adding a dependency where a fetch call does the job (see
@@ -627,17 +759,35 @@ class GeocoderControl {
 }
 
 // State shared between RoutingControl (the panel UI below) and the map's
-// global "click" handler further down this file - whichever fires next
-// needs to know "is a routing point being picked right now, and which
-// one" (routingPickMode), since a pick-mode click must be consumed
-// instead of falling through to the normal street-info popup.
-let routingPickMode = null; // null | "start" | "end"
+// global "click" handler further down this file. There's no explicit
+// "pick mode" toggle any more (see RoutingControl's own comment) - a plain
+// map click while the panel is open fills whichever of start/end isn't
+// set yet, in order; routingNextPickTarget() below is the single source
+// of truth both the click handler and the cursor styling read from.
+let routingPanelOpen = false;
 let routingStart = null; // maplibregl.LngLat | null
 let routingEnd = null;
 let routingStartMarker = null;
 let routingEndMarker = null;
+let routingPartialEndMarker = null; // marks where a PARTIAL route (findRoute's `partial: true`) actually ends - distinct from routingEndMarker, which stays at the point the rider asked for
+let routingHasEverRouted = false; // gates fitBounds to "first route only" - see _applyRoute
 let routingControlInstance = null; // set by RoutingControl.onAdd, so the click handler can hand picked points back to the panel
-const routingFileCache = new Map(); // slug -> parsed <slug>_routing.json (never caches a failed fetch, so a transient network error can be retried)
+const routingFileCache = new Map(); // slug -> decodeRoutingGraphBinary() result for <slug>_routing.bin (never caches a failed fetch, so a transient network error can be retried)
+// sorted-slugs key -> mergeRoutingGraphs() result. Populating one ngraph.graph
+// is the dominant cost once a comune's binary is already decoded (~550ms at
+// Trento's node/edge count, measured - see routing perf notes), and
+// _findRoute rebuilds it from scratch on every call: once per widen-retry
+// margin within a single search, and again on every drag/reroute even when
+// the candidate comuni haven't changed at all. Never evicted, same
+// unbounded-but-small-in-practice convention as routingFileCache above.
+const mergedGraphCache = new Map();
+
+function routingNextPickTarget() {
+  if (!routingPanelOpen) return null;
+  if (!routingStart) return "start";
+  if (!routingEnd) return "end";
+  return null; // both set - further map clicks don't set points (drag the existing markers instead)
+}
 
 // Small teardrop pin, same silhouette family as maplibregl.Marker's own
 // default icon - used as the cursor while picking a routing point, so the
@@ -650,6 +800,44 @@ function pinSvg(color) {
 // anchors once dropped.
 const START_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(pinSvg("#2E7D32"))}") 12 30, crosshair`;
 const END_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(pinSvg("#C62828"))}") 12 30, crosshair`;
+
+// Rough gradient-adjusted cycling speed model, for the estimated-time
+// line in the route summary (RoutingControl._renderElevationProfile,
+// which already samples {km, elev} points along the route for the
+// altimetric chart - this reuses those, no extra data needed). Assumes a
+// muscular (non-electric) bike: flat-ground baseline CYCLING_FLAT_KMH,
+// slowed on climbs, sped up (capped) on descents, by the real gradient
+// between consecutive sampled points. Deliberately simple/transparent
+// over "accurate" - no wind, fitness level, stops or traffic lights - see
+// this formula documented in plain language in the routing panel's own
+// "Come funziona questo calcolo" disclaimer and in the FAQ (both must
+// stay in sync with this if the constants change).
+const CYCLING_FLAT_KMH = 18;
+const CYCLING_MIN_KMH = 4;
+const CYCLING_MAX_KMH = 40;
+const CYCLING_CLIMB_KMH_PER_PERCENT = 1.5;
+const CYCLING_DESCENT_KMH_PER_PERCENT = 1.2;
+
+function estimateCyclingSpeedKmh(slopePercent) {
+  if (slopePercent >= 0) {
+    return Math.max(CYCLING_MIN_KMH, CYCLING_FLAT_KMH - slopePercent * CYCLING_CLIMB_KMH_PER_PERCENT);
+  }
+  return Math.min(CYCLING_MAX_KMH, CYCLING_FLAT_KMH + Math.abs(slopePercent) * CYCLING_DESCENT_KMH_PER_PERCENT);
+}
+
+// `points`: [{km, elev}, ...], the same array _renderElevationProfile
+// builds for the chart. Returns total estimated minutes.
+function estimateRouteTimeMinutes(points) {
+  let totalHours = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    const distKm = points[i + 1].km - points[i].km;
+    if (distKm <= 0) continue;
+    const riseM = points[i + 1].elev - points[i].elev;
+    const slopePercent = (riseM / (distKm * 1000)) * 100;
+    totalHours += distKm / estimateCyclingSpeedKmh(slopePercent);
+  }
+  return totalHours * 60;
+}
 
 // Merges CONSECUTIVE segments (one per original graph edge, from
 // findRoute's `segments` return) sharing the same (name, lts,
@@ -746,7 +934,12 @@ function buildRouteKml(runs) {
 // Client-side LTS-preferring bike routing (web/routing.js's
 // candidateComuniForRoute/mergeRoutingGraphs/findRoute - no routing
 // server). Same toggle-button + left-flyout-panel shape as
-// GeocoderControl just above, stacked directly below it.
+// GeocoderControl just above, stacked directly below it - but unlike
+// GeocoderControl, this panel does NOT close on an outside click: the
+// whole interaction (click map for start, click again for end) happens
+// while it's open, so auto-closing on the very click that sets a point
+// would force a re-open for the second one. It closes only via its own
+// toggle button (see _open/_close - no document-level click listener).
 class RoutingControl {
   onAdd() {
     routingControlInstance = this;
@@ -764,20 +957,35 @@ class RoutingControl {
     this._panel.id = "routing-panel";
     this._panel.className = "hidden";
     this._panel.innerHTML = `
-      <div class="routing-field">
-        <label>${t("routingStartLabel")}</label>
-        <button type="button" id="routing-pick-start">${t("routingPickOnMap")}</button>
+      <div class="routing-panel-header">
+        <span class="routing-panel-title">${t("routingToggle")}</span>
+        <span class="routing-panel-header-buttons">
+          <button type="button" id="routing-panel-expand" class="routing-panel-close">&#9974;</button>
+          <button type="button" id="routing-panel-close" class="routing-panel-close">&times;</button>
+        </span>
       </div>
-      <div class="routing-field">
-        <label>${t("routingEndLabel")}</label>
-        <button type="button" id="routing-pick-end">${t("routingPickOnMap")}</button>
+      <p class="routing-hint">${t("routingClickHint")}</p>
+      <div class="routing-point-row" id="routing-start-row">
+        <span class="routing-point-dot" style="background:#2E7D32"></span>
+        <span class="routing-point-label">${t("routingStartLabel")}</span>
       </div>
-      <button type="button" id="routing-find">${t("routingFindButton")}</button>
+      <div class="routing-point-row" id="routing-end-row">
+        <span class="routing-point-dot" style="background:#C62828"></span>
+        <span class="routing-point-label">${t("routingEndLabel")}</span>
+      </div>
       <button type="button" id="routing-clear">${t("routingClearButton")}</button>
-      <div id="routing-status" class="hidden"></div>
+      <div id="routing-status" class="hidden">
+        <span id="routing-status-spinner" class="spinner hidden"></span>
+        <span id="routing-status-text"></span>
+      </div>
+      <details class="routing-disclaimer">
+        <summary>${t("routingDisclaimerSummary")}</summary>
+        <p>${t("routingDisclaimerBody")}</p>
+      </details>
       <div id="routing-summary" class="hidden">
         <div id="routing-lts-bar" class="routing-stacked-bar"></div>
         <div id="routing-total-km" class="routing-total-km"></div>
+        <div id="routing-estimated-time" class="routing-caption hidden"></div>
         <div id="routing-facility-bar" class="routing-stacked-bar"></div>
         <div id="routing-facility-legend" class="routing-facility-legend"></div>
         <div class="routing-caption">${t("routeElevationHeading")}</div>
@@ -789,28 +997,46 @@ class RoutingControl {
           <button type="button" id="routing-download-kml">${t("routeDownloadKml")}</button>
         </div>
       </div>
-      <div id="routing-bar-tooltip" class="routing-bar-tooltip hidden"></div>
     `;
     this._container.appendChild(this._panel);
 
-    this._pickStartBtn = this._panel.querySelector("#routing-pick-start");
-    this._pickEndBtn = this._panel.querySelector("#routing-pick-end");
-    this._findBtn = this._panel.querySelector("#routing-find");
+    // NOT inside this._panel/this._container - MapLibre's own
+    // .maplibregl-ctrl CSS sets `transform: translate(0)` on every
+    // control (including this one), which makes it the containing block
+    // for any `position:fixed` DESCENDANT, trapping the tooltip inside
+    // the panel's own box instead of positioning it against the real
+    // viewport (confirmed via real browser testing: the tooltip's set
+    // `left`/`top` matched what _moveBarTooltip computed, but its actual
+    // getBoundingClientRect() was offset by hundreds of pixels). Appended
+    // to <body> directly sidesteps that entirely.
+    this._barTooltip = document.createElement("div");
+    this._barTooltip.id = "routing-bar-tooltip";
+    this._barTooltip.className = "routing-bar-tooltip hidden";
+    document.body.appendChild(this._barTooltip);
+
+    this._closeBtn = this._panel.querySelector("#routing-panel-close");
+    this._expandBtn = this._panel.querySelector("#routing-panel-expand");
+    this._startRow = this._panel.querySelector("#routing-start-row");
+    this._endRow = this._panel.querySelector("#routing-end-row");
     this._clearBtn = this._panel.querySelector("#routing-clear");
     this._status = this._panel.querySelector("#routing-status");
+    this._statusSpinner = this._panel.querySelector("#routing-status-spinner");
+    this._statusText = this._panel.querySelector("#routing-status-text");
     this._summary = this._panel.querySelector("#routing-summary");
     this._ltsBar = this._panel.querySelector("#routing-lts-bar");
     this._totalKmEl = this._panel.querySelector("#routing-total-km");
+    this._estimatedTimeEl = this._panel.querySelector("#routing-estimated-time");
     this._facilityBar = this._panel.querySelector("#routing-facility-bar");
     this._facilityLegend = this._panel.querySelector("#routing-facility-legend");
     this._elevationChart = this._panel.querySelector("#routing-elevation-chart");
-    this._barTooltip = this._panel.querySelector("#routing-bar-tooltip");
     this._runs = []; // current route's runs (buildRouteRuns) - feeds the 3 download buttons
 
-    this._pickStartBtn.addEventListener("click", () => this._startPicking("start"));
-    this._pickEndBtn.addEventListener("click", () => this._startPicking("end"));
-    this._findBtn.addEventListener("click", () => this._findRoute());
     this._clearBtn.addEventListener("click", () => this._clear());
+    this._closeBtn.addEventListener("click", () => this._close());
+    this._expandBtn.addEventListener("click", () => this._setExpanded(!this._panel.classList.contains("expanded")));
+    window.addEventListener("resize", () => {
+      if (this._panel.classList.contains("expanded")) this._positionExpandedPanel();
+    });
     this._panel.querySelector("#routing-download-geojson").addEventListener("click", () => {
       downloadTextFile("percorso.geojson", "application/geo+json", buildRouteGeoJson(this._runs));
     });
@@ -820,15 +1046,16 @@ class RoutingControl {
     this._panel.querySelector("#routing-download-kml").addEventListener("click", () => {
       downloadTextFile("percorso.kml", "application/vnd.google-earth.kml+xml", buildRouteKml(this._runs));
     });
-    document.addEventListener("click", (e) => {
-      if (!this._container.contains(e.target)) this._close();
-    });
+    // No document-level "click outside closes" listener - see the class
+    // comment above for why this panel stays open until its own toggle.
 
     return this._container;
   }
 
   onRemove() {
+    this._panel.remove(); // may be reparented to <body> right now (expanded mode) - remove it explicitly rather than assuming it's still inside this._container
     this._container.remove();
+    this._barTooltip.remove(); // appended to <body>, not this._container - see onAdd's comment
     routingControlInstance = null;
   }
 
@@ -841,52 +1068,121 @@ class RoutingControl {
     this._panel.classList.remove("hidden");
     this._button.classList.add("active");
     document.body.classList.add("routing-open");
+    routingPanelOpen = true;
+    this._updateCursor();
   }
 
   _close() {
+    // Collapse first if expanded - otherwise the panel stays reparented
+    // to <body> (see _setExpanded) and the NEXT _open() would render it
+    // there instead of back in its normal anchored corner slot.
+    if (this._panel.classList.contains("expanded")) this._setExpanded(false);
     this._panel.classList.add("hidden");
     this._button.classList.remove("active");
-    routingPickMode = null;
-    this._updateCursor();
     document.body.classList.remove("routing-open");
-  }
-
-  _startPicking(which) {
-    routingPickMode = which;
+    routingPanelOpen = false;
     this._updateCursor();
-    this._setStatus("");
   }
 
   _updateCursor() {
-    map.getCanvas().style.cursor = routingPickMode === "start" ? START_CURSOR : routingPickMode === "end" ? END_CURSOR : "";
+    const target = routingNextPickTarget();
+    map.getCanvas().style.cursor = target === "start" ? START_CURSOR : target === "end" ? END_CURSOR : "";
   }
 
-  // Called by the map's global "click" handler once it has consumed a
-  // pick-mode click - keeps marker/state bookkeeping in one place instead
-  // of duplicating it at the click-handler call site.
-  setPoint(which, lngLat) {
-    if (which === "start") {
-      routingStart = lngLat;
-      if (routingStartMarker) routingStartMarker.remove();
-      routingStartMarker = new maplibregl.Marker({ color: "#2E7D32" }).setLngLat(lngLat).addTo(map);
+  // Expanded mode reparents the panel to <body> (see the CSS comment on
+  // #routing-panel.expanded for why: escapes .maplibregl-ctrl's own
+  // `transform: translate(0)`, which would otherwise trap a fixed-
+  // position panel against the CONTROL's box instead of the real
+  // viewport - the same bug already found/fixed for the bar tooltip).
+  // Collapsing moves it straight back to its normal anchored slot inside
+  // the control.
+  _setExpanded(expanded) {
+    this._panel.classList.toggle("expanded", expanded);
+    this._expandBtn.classList.toggle("active", expanded);
+    if (expanded) {
+      document.body.appendChild(this._panel);
+      this._positionExpandedPanel();
     } else {
-      routingEnd = lngLat;
-      if (routingEndMarker) routingEndMarker.remove();
-      routingEndMarker = new maplibregl.Marker({ color: "#C62828" }).setLngLat(lngLat).addTo(map);
+      this._container.appendChild(this._panel);
+      this._panel.style.top = "";
+      this._panel.style.bottom = "";
     }
-    routingPickMode = null;
-    this._updateCursor();
-    this._setStatus("");
   }
 
-  _setStatus(text) {
-    this._status.textContent = text;
+  // Constrains the expanded panel between the REAL header/footer edges,
+  // measured live rather than assumed - both can wrap to a second line
+  // depending on language/viewport width, so a fixed CSS offset would be
+  // wrong for some of them. Re-run on window resize (see onAdd) since a
+  // resize can change whether they wrap.
+  _positionExpandedPanel() {
+    const headerBottom = document.getElementById("site-header").getBoundingClientRect().bottom;
+    const footerTop = document.getElementById("site-footer").getBoundingClientRect().top;
+    const margin = 12;
+    this._panel.style.top = `${headerBottom + margin}px`;
+    this._panel.style.bottom = `${window.innerHeight - footerTop + margin}px`;
+  }
+
+  // Called by the map's global "click" handler (a plain click while the
+  // panel is open and this point isn't set yet) and by each marker's own
+  // "dragend" - one path for both "place" and "adjust", so the route
+  // recomputes the same way either time. Draggable so a placed point can
+  // be nudged without starting over (setPoint always REPLACES any
+  // previous marker/listener for that slot rather than adding a second
+  // one, so a re-drag never accumulates duplicate handlers).
+  setPoint(which, lngLat) {
+    const isStart = which === "start";
+    const color = isStart ? "#2E7D32" : "#C62828";
+    const existingMarker = isStart ? routingStartMarker : routingEndMarker;
+    if (existingMarker) existingMarker.remove();
+
+    const marker = new maplibregl.Marker({ color, draggable: true }).setLngLat(lngLat).addTo(map);
+    marker.on("dragend", () => {
+      if (isStart) routingStart = marker.getLngLat(); else routingEnd = marker.getLngLat();
+      this._updatePointRows();
+      this._maybeAutoRoute();
+      // moveend-driven syncUrlState (see that function) doesn't fire here
+      // - dragging a marker doesn't move the CAMERA - so the URL's own
+      // sy/sx/ey/ex would otherwise go stale the moment a point is
+      // dragged, not just when it's first placed/cleared.
+      syncUrlState();
+    });
+
+    if (isStart) { routingStart = lngLat; routingStartMarker = marker; }
+    else { routingEnd = lngLat; routingEndMarker = marker; }
+
+    this._updateCursor();
+    this._updatePointRows();
+    this._setStatus("");
+    this._maybeAutoRoute();
+    syncUrlState(); // same reasoning as the dragend handler above - placing a point doesn't necessarily move the camera either
+  }
+
+  _updatePointRows() {
+    this._startRow.classList.toggle("is-set", !!routingStart);
+    this._endRow.classList.toggle("is-set", !!routingEnd);
+  }
+
+  // Auto-routes as soon as both points exist - after the initial click
+  // that completes the pair, and again after every marker drag ("così se
+  // lo sposta quando vuole" - no button re-click needed either time).
+  _maybeAutoRoute() {
+    if (routingStart && routingEnd) this._findRoute();
+  }
+
+  // `loading` shows a spinner next to the text - routing involves a
+  // network fetch of each candidate comune's routing graph plus an A*
+  // search, real enough time (especially the first fetch, or a widen
+  // retry pulling in more comuni) that a plain text line alone reads as
+  // "did my click even register?" without it.
+  _setStatus(text, loading = false) {
+    this._statusText.textContent = text;
+    this._statusSpinner.classList.toggle("hidden", !loading);
     this._status.classList.toggle("hidden", !text);
   }
 
   async _findRoute() {
     if (!routingStart || !routingEnd) return;
-    this._setStatus(t("routingCalculating"));
+    this._setStatus(t("routingCalculating"), true);
 
     const comuniIndexData = await ensureComuniIndexLoaded();
     if (!comuniIndexData) {
@@ -898,8 +1194,14 @@ class RoutingControl {
     // rectangle around start/end (e.g. via a third comune in between)
     // needs a wider candidate margin - bounded to a few attempts so a
     // genuinely out-of-coverage pair fails fast rather than pulling in
-    // half of Italy.
+    // half of Italy. findRoute() itself can also return a PARTIAL result
+    // (the destination is only reachable by crossing a non-cyclable gap -
+    // see that function's own comment) - keep widening in case a bigger
+    // margin turns it into a full route after all, but remember the
+    // widest-margin partial result seen so far as a fallback in case none
+    // ever does.
     const marginsDeg = [0.02, 0.08, 0.25];
+    let bestPartial = null;
     for (const marginDeg of marginsDeg) {
       const slugs = candidateComuniForRoute(routingStart, routingEnd, comuniIndexData, marginDeg);
       if (slugs.size === 0) continue;
@@ -908,13 +1210,27 @@ class RoutingControl {
       const usable = files.filter(Boolean);
       if (!usable.length) continue;
 
-      const { graph, coordByOsmId } = mergeRoutingGraphs(usable);
+      const cacheKey = usable.map((file) => file.slug).sort().join(",");
+      let merged = mergedGraphCache.get(cacheKey);
+      if (!merged) {
+        merged = mergeRoutingGraphs(usable);
+        mergedGraphCache.set(cacheKey, merged);
+      }
+      const { graph, coordByOsmId } = merged;
       const result = findRoute(routingStart, routingEnd, graph, coordByOsmId);
-      if (result) {
+      if (result && !result.partial) {
         this._applyRoute(result);
         this._setStatus("");
         return;
       }
+      if (result && result.partial) bestPartial = result;
+    }
+    if (bestPartial) {
+      this._applyRoute(bestPartial);
+      const lastCoord = bestPartial.feature.geometry.coordinates[bestPartial.feature.geometry.coordinates.length - 1];
+      const remainingKm = approxMetersBetween(lastCoord, [routingEnd.lng, routingEnd.lat]) / 1000;
+      this._setStatus(t("routingPartialRouteTemplate")(remainingKm.toFixed(1)));
+      return;
     }
     this._setStatus(t("routingNoRoute"));
   }
@@ -922,9 +1238,10 @@ class RoutingControl {
   async _loadRoutingFile(slug) {
     if (routingFileCache.has(slug)) return routingFileCache.get(slug);
     try {
-      const response = await fetch(new URL(`data/${slug}_routing.json`, window.location.href));
+      const response = await fetch(new URL(`data/${slug}_routing.bin`, window.location.href));
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
+      const buffer = await response.arrayBuffer();
+      const data = decodeRoutingGraphBinary(buffer);
       routingFileCache.set(slug, data);
       return data;
     } catch (error) {
@@ -940,10 +1257,36 @@ class RoutingControl {
     const featureCollection = routeRunsToFeatureCollection(this._runs);
     map.getSource("routing-path").setData(featureCollection);
 
-    const bounds = boundsForFeatures(featureCollection.features);
-    if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 60, maxZoom: MAX_MAP_ZOOM });
+    // A partial result's own last coordinate is NOT where the rider
+    // clicked (routingEndMarker stays there) - it's the closest point the
+    // cyclable network actually reaches. Mark it distinctly so that gap
+    // reads as "this is as far as you can bike", not as a second real
+    // destination. Cleared whenever a route is FULL (or on _clear()).
+    if (routingPartialEndMarker) { routingPartialEndMarker.remove(); routingPartialEndMarker = null; }
+    if (result.partial) {
+      const coords = result.feature.geometry.coordinates;
+      const lastCoord = coords[coords.length - 1];
+      routingPartialEndMarker = new maplibregl.Marker({ color: "#F9A825" })
+        .setLngLat(lastCoord)
+        .addTo(map);
+    }
+
+    // Frame the route only the FIRST time one appears - once the user is
+    // dragging a marker to adjust it (setPoint -> _maybeAutoRoute ->
+    // here, repeatedly), yanking the camera to fitBounds on every drag
+    // would fight the very interaction they're doing.
+    if (!routingHasEverRouted) {
+      const bounds = boundsForFeatures(featureCollection.features);
+      if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 60, maxZoom: MAX_MAP_ZOOM });
+      routingHasEverRouted = true;
+    }
 
     this._renderRouteSummary(this._runs);
+    // Hidden until _renderElevationProfile's async terrain sampling
+    // finishes (a few seconds) and fills it back in - a stale time from
+    // the PREVIOUS route (e.g. after a drag) would otherwise sit there
+    // looking current while the new one is still being computed.
+    this._estimatedTimeEl.classList.add("hidden");
     this._renderElevationProfile(result.feature);
   }
 
@@ -959,11 +1302,12 @@ class RoutingControl {
     this._ltsBar.innerHTML = "";
     for (const lts of Object.keys(kmByLts).sort()) {
       const km = kmByLts[lts];
+      const pct = (km / totalKm) * 100;
       const label = t("lts")[lts] || "";
       const descriptor = label.includes(" - ") ? label.split(" - ").slice(1).join(" - ") : label;
       this._appendBarSegment(
-        this._ltsBar, (km / totalKm) * 100, LTS_COLORS[lts] || LTS_FALLBACK_COLOR,
-        t("routeLtsSegmentTemplate")(km.toFixed(1), descriptor),
+        this._ltsBar, pct, LTS_COLORS[lts] || LTS_FALLBACK_COLOR,
+        t("routeLtsSegmentTemplate")(km.toFixed(1), Math.round(pct), descriptor),
       );
     }
 
@@ -982,9 +1326,10 @@ class RoutingControl {
     for (const { code, colorKey, labelKey } of FACILITY_ORDER) {
       const km = kmByFacility[code];
       if (!km) continue;
+      const pct = (km / totalKm) * 100;
       const label = t(labelKey);
       const color = FACILITY_BAR_COLORS[colorKey];
-      this._appendBarSegment(this._facilityBar, (km / totalKm) * 100, color, t("routeFacilitySegmentTemplate")(km.toFixed(1), label));
+      this._appendBarSegment(this._facilityBar, pct, color, t("routeFacilitySegmentTemplate")(km.toFixed(1), Math.round(pct), label));
 
       const legendRow = document.createElement("div");
       legendRow.className = "legend-item static";
@@ -1010,10 +1355,26 @@ class RoutingControl {
     this._moveBarTooltip(e);
   }
 
+  // position:fixed (viewport-relative, see the CSS) rather than
+  // positioned relative to the panel: the panel is narrow (260px) and
+  // scrolls its own content (#routing-panel's overflow-y:auto), so a
+  // tooltip positioned/clipped relative to it routinely got shoved off
+  // the panel's own right edge and became unreadable - found via real
+  // browser testing, not guessable from the CSS alone. Clamped to the
+  // viewport instead, so it's always fully visible regardless of where in
+  // the (possibly narrow, possibly scrolled) panel the segment sits.
   _moveBarTooltip(e) {
-    const panelRect = this._panel.getBoundingClientRect();
-    this._barTooltip.style.left = `${e.clientX - panelRect.left + 10}px`;
-    this._barTooltip.style.top = `${e.clientY - panelRect.top + 10}px`;
+    const tooltip = this._barTooltip;
+    tooltip.style.left = "0px";
+    tooltip.style.top = "0px";
+    const width = tooltip.offsetWidth;
+    const height = tooltip.offsetHeight;
+    const maxLeft = window.innerWidth - width - 8;
+    const maxTop = window.innerHeight - height - 8;
+    const left = Math.max(8, Math.min(e.clientX + 12, maxLeft));
+    const top = Math.max(8, Math.min(e.clientY + 12, maxTop));
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
   }
 
   _hideBarTooltip() {
@@ -1049,6 +1410,15 @@ class RoutingControl {
     if (!wasTerrainOn) map.setTerrain(null);
 
     this._drawElevationSvg(points);
+    this._renderEstimatedTime(points);
+  }
+
+  _renderEstimatedTime(points) {
+    const totalMinutes = estimateRouteTimeMinutes(points);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = Math.round(totalMinutes % 60);
+    this._estimatedTimeEl.textContent = t("routeEstimatedTimeTemplate")(hours, minutes);
+    this._estimatedTimeEl.classList.remove("hidden");
   }
 
   _interpolateMissingElevations(points) {
@@ -1118,16 +1488,20 @@ class RoutingControl {
   _clear() {
     routingStart = null;
     routingEnd = null;
-    routingPickMode = null;
+    routingHasEverRouted = false;
     this._updateCursor();
+    this._updatePointRows();
     if (routingStartMarker) { routingStartMarker.remove(); routingStartMarker = null; }
     if (routingEndMarker) { routingEndMarker.remove(); routingEndMarker = null; }
+    if (routingPartialEndMarker) { routingPartialEndMarker.remove(); routingPartialEndMarker = null; }
     if (map.getSource("routing-path")) map.getSource("routing-path").setData(EMPTY_FEATURE_COLLECTION);
     this._runs = [];
     this._summary.classList.add("hidden");
     this._elevationChart.innerHTML = "";
+    this._estimatedTimeEl.classList.add("hidden");
     this._hideBarTooltip();
     this._setStatus("");
+    syncUrlState(); // clears routingStart/routingEnd above - drop sy/sx/ey/ex from the URL now, not whenever the next moveend happens to fire
   }
 }
 
@@ -1139,6 +1513,7 @@ map.addControl(new GeocoderControl(), "top-right");
 map.addControl(new RoutingControl(), "top-right");
 map.addControl(new TerrainControl(), "top-right");
 map.addControl(new PrintControl(), "top-right");
+map.addControl(new ShareControl(), "top-right");
 map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
 
 // The print stylesheet (see @media print above) resizes #map/#map-container
@@ -1977,6 +2352,16 @@ updateZoomHint();
 // every move so the cursor updates correctly even if the user scroll-zooms
 // without moving the mouse off the street they're hovering.
 map.on("mousemove", (e) => {
+  // A pending routing pick (see routingNextPickTarget) always wins over
+  // the plain hover-pointer below - RoutingControl._updateCursor() sets
+  // this same pin cursor on open/setPoint/close, but this handler runs on
+  // every mouse move and would otherwise overwrite it right back to ""/
+  // "pointer" the instant the mouse moves off a clickable feature.
+  const pickTarget = routingNextPickTarget();
+  if (pickTarget) {
+    map.getCanvas().style.cursor = pickTarget === "start" ? START_CURSOR : END_CURSOR;
+    return;
+  }
   const overRoute = map.getLayer("routing-path-line")
     && map.queryRenderedFeatures(e.point, { layers: ["routing-path-line"] }).length > 0;
   const hovering = overRoute || (map.getZoom() >= MIN_CLICK_ZOOM
@@ -1984,10 +2369,16 @@ map.on("mousemove", (e) => {
   map.getCanvas().style.cursor = hovering ? "pointer" : "";
 });
 map.on("click", (e) => {
-  // A routing start/end pick takes over this click entirely - it must
-  // never fall through to the street-info popup below, at any zoom.
-  if (routingPickMode && routingControlInstance) {
-    routingControlInstance.setPoint(routingPickMode, e.lngLat);
+  // While the routing panel is open and start/end isn't fully set yet, a
+  // plain map click fills whichever is still missing - takes over the
+  // click entirely, never falls through to the street-info popup below.
+  // Once both are set, routingNextPickTarget() returns null and clicks
+  // fall through normally (e.g. to the route-line click branch just
+  // below, or a stray click does nothing - adjustments happen by
+  // dragging the existing markers instead).
+  const pickTarget = routingNextPickTarget();
+  if (pickTarget && routingControlInstance) {
+    routingControlInstance.setPoint(pickTarget, e.lngLat);
     return;
   }
   // The drawn route (when present) is the more specific thing being
@@ -2342,20 +2733,53 @@ updateGapToggleState(); // default view starts at zoom 5.2, well below threshold
 // replaceState (not pushState) so panning/zooming doesn't spam browser
 // history - only an explicit navigation (back button from another page)
 // should leave this view.
+// Shared by syncUrlState (writes it into the actual address bar) and
+// ShareControl's "Condividi" button (packs the same object into a
+// compact code instead - see encodeShareState near the top of the file).
+// Only the routing keys are conditional (sy/sx/ey/ex - omitted when no
+// route is active); everything else always has a value, matching what
+// the address bar has always carried.
+function currentUrlState() {
+  const center = map.getCenter();
+  const state = {
+    area,
+    z: map.getZoom().toFixed(2),
+    y: center.lat.toFixed(5),
+    x: center.lng.toFixed(5),
+    p: map.getPitch().toFixed(0),
+    b: map.getBearing().toFixed(0),
+    bg: currentBasemap,
+    lts: [...activeLts].sort().join(","),
+    t: terrainOn ? "1" : "0",
+    g: gapModeOn ? "1" : "0",
+    lang: currentLang,
+  };
+  if (routingStart && routingEnd) {
+    state.sy = routingStart.lat.toFixed(5);
+    state.sx = routingStart.lng.toFixed(5);
+    state.ey = routingEnd.lat.toFixed(5);
+    state.ex = routingEnd.lng.toFixed(5);
+  }
+  return state;
+}
+
+// Keeps the address bar mirroring everything that affects what's on
+// screen, so a copied/bookmarked link reopens to the same view. Uses
+// replaceState (not pushState) so panning/zooming doesn't spam browser
+// history - only an explicit navigation (back button from another page)
+// should leave this view.
 function syncUrlState() {
   const url = new URL(window.location.href);
-  const center = map.getCenter();
-  url.searchParams.set("area", area);
-  url.searchParams.set("zoom", map.getZoom().toFixed(2));
-  url.searchParams.set("lat", center.lat.toFixed(5));
-  url.searchParams.set("lon", center.lng.toFixed(5));
-  url.searchParams.set("pitch", map.getPitch().toFixed(0));
-  url.searchParams.set("bearing", map.getBearing().toFixed(0));
-  url.searchParams.set("bg", currentBasemap);
-  url.searchParams.set("lts", [...activeLts].sort().join(","));
-  url.searchParams.set("terrain", terrainOn ? "1" : "0");
-  url.searchParams.set("gap", gapModeOn ? "1" : "0");
-  url.searchParams.set("lang", currentLang);
+  for (const [key, value] of Object.entries(currentUrlState())) url.searchParams.set(key, value);
+  // Drop the old long-form keys (see paramFloat/paramFlag's own comment -
+  // still READ for backward compatibility) and the one-shot share code so
+  // neither lingers alongside the short form this function just wrote.
+  for (const staleKey of ["zoom", "lat", "lon", "pitch", "bearing", "terrain", "gap", "c"]) {
+    url.searchParams.delete(staleKey);
+  }
+  if (!routingStart || !routingEnd) {
+    for (const key of ["sy", "sx", "ey", "ex"]) url.searchParams.delete(key);
+  }
   history.replaceState(null, "", url);
 }
 
@@ -2397,5 +2821,34 @@ function clampToMaxBounds() {
   }
 }
 map.on("moveend", clampToMaxBounds);
+
+// Restores a route from a shared/bookmarked link (sy/sx/ey/ex - see
+// currentUrlState/syncUrlState). Deliberately placed HERE, at the very
+// end of the script, not right after RoutingControl is added further up
+// - setPoint() below calls syncUrlState() (see its own comment), which
+// reads `activeLts`, a `const` declared later in the file than
+// RoutingControl's own map.addControl() call; calling it that early threw
+// "Cannot access 'activeLts' before initialization" (found via a real
+// share-link round-trip, not guessable from reading either function in
+// isolation). setPoint() itself triggers the actual A* search once both
+// are set (_maybeAutoRoute), same as a real user click would; opens the
+// panel too, so the restored route (and its summary) is immediately
+// visible instead of only the drawn line.
+if (params.has("sy") && params.has("sx") && params.has("ey") && params.has("ex")) {
+  const restoreRouteFromUrl = () => {
+    routingControlInstance._open();
+    routingControlInstance.setPoint("start", { lng: parseFloat(params.get("sx")), lat: parseFloat(params.get("sy")) });
+    routingControlInstance.setPoint("end", { lng: parseFloat(params.get("ex")), lat: parseFloat(params.get("ey")) });
+  };
+  // setPoint -> _applyRoute needs the "routing-path" SOURCE, added by
+  // addDataLayers() on "style.load" - the style is still loading
+  // asynchronously at this point on a fresh page load (this whole script
+  // runs synchronously well before that fires), so calling setPoint this
+  // early threw "Cannot read properties of undefined (reading 'setData')"
+  // - same style-not-ready race already found/fixed for
+  // updateComuneOverlays, same fix here.
+  if (map.isStyleLoaded()) restoreRouteFromUrl();
+  else map.once("style.load", restoreRouteFromUrl);
+}
 
 syncUrlState();

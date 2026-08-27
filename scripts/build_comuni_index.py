@@ -4,7 +4,7 @@ for every comune that already has a <slug>_lts.pmtiles built - the lookup
 web/app.js uses at zoom >= COMUNE_SWAP_MIN_ZOOM to decide which per-comune
 pmtiles to add as sources once italia_lts.pmtiles (capped at maxzoom 11, see
 build_national_tiles.sh) runs out of detail. web/routing.js also reads this
-list (regardless of current zoom) to find which comuni's <slug>_routing.json
+list (regardless of current zoom) to find which comuni's <slug>_routing.bin
 to fetch for a given start/end pair - see has_routing below.
 
 istat->slug comes from data/_cache/comuni_progress.tsv, but that file only
@@ -76,7 +76,7 @@ def main() -> None:
         if slug is None:
             continue
         minx, miny, maxx, maxy = row.geometry.bounds
-        has_routing = os.path.exists(os.path.join(web_data_dir, f"{slug}_routing.json"))
+        has_routing = os.path.exists(os.path.join(web_data_dir, f"{slug}_routing.bin"))
         entries.append(
             {
                 "istat": row["istat"],
