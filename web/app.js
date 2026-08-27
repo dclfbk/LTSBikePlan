@@ -1854,7 +1854,7 @@ function renderFacilityLegend() {
   const legend = document.getElementById("facility-legend");
   legend.innerHTML = "";
   const rows = [
-    { icon: facilityDashIcon("6 3"), label: t("facilityStreet") },
+    { icon: facilityDashIcon("6 6"), label: t("facilityStreet") },
     { icon: facilityDashIcon("1000 0"), label: t("facilityCycleway") },
     { icon: facilityDashIcon("1.5 4.5"), label: t("facilityPath") },
   ];
@@ -1996,7 +1996,16 @@ const LTS_LINE_WIDTH = [
 // cartographic practice) - previously inverted, with the default street
 // case drawn solid and the cycleway case dashed.
 const FACILITY_CYCLEWAY_DASH = ["literal", [1, 0]];
-const FACILITY_STREET_DASH = ["literal", [2, 1]];
+// Gap widened from the original [2, 1] (reported by a real user testing
+// on their own monitor: at the thin on-map line-width typical street
+// segments actually render at - see LTS_LINE_WIDTH, often just ~1px at
+// z12 - a 1-unit gap is only ~1px too, thin enough that anti-aliasing
+// blurs it into looking almost solid, even though the SAME ratio reads
+// as clearly dashed in the legend's own much thicker fixed-size preview
+// (facilityDashIcon's "6 3", built at a 3px preview stroke-width - see
+// its own comment). Equal dash/gap makes the empty interval unmistakable
+// at any width instead of just scaling the existing ratio up.
+const FACILITY_STREET_DASH = ["literal", [2, 2]];
 const FACILITY_PATH_DASH = ["literal", [0.5, 1.5]];
 const FACILITY_CYCLEWAY_RULES = ["literal", ["s3", "s7", "s8"]];
 const FACILITY_PATH_RULES = ["literal", ["s1", "s2"]];
