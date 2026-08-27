@@ -233,6 +233,12 @@ function applyUiTranslations() {
   document.getElementById("privacy-toggle").textContent = t("privacyToggle");
   document.getElementById("privacy-heading").textContent = t("privacyHeading");
   document.getElementById("privacy-intro").textContent = t("privacyIntro");
+  document.getElementById("share-heading").textContent = t("shareModalHeading");
+  document.getElementById("share-url-label").textContent = t("shareUrlLabel");
+  document.getElementById("share-url-copy").textContent = t("shareCopyButton");
+  document.getElementById("share-embed-label").textContent = t("shareEmbedLabel");
+  document.getElementById("share-embed-copy").textContent = t("shareCopyButton");
+  document.getElementById("share-social-label").textContent = t("shareSocialLabel");
   document.getElementById("footer-credit").innerHTML = t("footerCredit");
   document.getElementById("footer-hosting-text").textContent = t("footerHosting");
 }
@@ -559,14 +565,88 @@ class PrintControl {
   }
 }
 
-// Copies a shareable link for the CURRENT view (camera/basemap/LTS
+// Builds the shareable link for the CURRENT view (camera/basemap/LTS
 // filters/language, plus the active route if one is set - same state
 // syncUrlState already keeps the address bar in sync with, via the
-// shared currentUrlState() helper) - but packed through
-// encodeShareState() into one compact ?c=... code instead of the full
-// query string, so what actually gets shared/pasted is short. See
-// encodeShareState's own comment (top of file) for why decoding it back
-// needs no server.
+// shared currentUrlState() helper) - packed through encodeShareState()
+// into one compact ?c=... code instead of the full query string, so
+// what actually gets shared/pasted is short. See encodeShareState's own
+// comment (top of file) for why decoding it back needs no server.
+function shareUrl() {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.searchParams.set("c", encodeShareState(currentUrlState()));
+  return url.toString();
+}
+
+function buildEmbedCode(url) {
+  return `<iframe src="${url}" width="600" height="450" style="border:0" loading="lazy" allowfullscreen></iframe>`;
+}
+
+// Plain URL-intent links - every one of these platforms accepts a share
+// popup pre-filled from just a URL (+ text), no server round-trip or
+// generated image needed: the shared card's preview picture comes from
+// this site's own static Open Graph tags (index.html's og:image), the
+// same for every link since this is a static site with no per-route
+// server-rendered previews. Mastodon has no such single endpoint - it's
+// federated, so which domain to open depends on which server the person
+// posting actually has an account on (see the mastodon click handler in
+// populateShareModal below).
+const SOCIAL_SHARE_URL_BUILDERS = {
+  facebook: (url) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+  linkedin: (url) => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
+  x: (url, text) => `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`,
+};
+
+// Fills in the share modal's fields fresh on every open (setupInfoPanel's
+// onOpen callback, see below) - the route/view can change between two
+// opens of the same session, so this can't just be computed once.
+function populateShareModal() {
+  const url = shareUrl();
+  const text = t("shareIntentText");
+  document.getElementById("share-url-input").value = url;
+  document.getElementById("share-embed-input").value = buildEmbedCode(url);
+  document.getElementById("share-social-facebook").href = SOCIAL_SHARE_URL_BUILDERS.facebook(url);
+  document.getElementById("share-social-linkedin").href = SOCIAL_SHARE_URL_BUILDERS.linkedin(url);
+  document.getElementById("share-social-x").href = SOCIAL_SHARE_URL_BUILDERS.x(url, text);
+  // Mastodon has no single domain to post through - ask which server the
+  // person actually has an account on, then use ITS OWN /share intent
+  // (a route Mastodon's own web UI ships on every standard instance),
+  // rather than depending on a third-party cross-instance redirector.
+  document.getElementById("share-social-mastodon").onclick = () => {
+    const instance = window.prompt(t("shareMastodonInstancePrompt"), "mastodon.social");
+    if (!instance) return;
+    const host = instance.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    if (!host) return;
+    window.open(`https://${host}/share?text=${encodeURIComponent(`${text} ${url}`)}`, "_blank", "noopener");
+  };
+}
+
+// Copies one readonly field's value, with a visible fallback either way:
+// the field is a real, selectable text input/textarea (not just a toast
+// that vanishes in 3s), so even where the Clipboard API is blocked
+// (permissions, insecure context, an older browser) the user can still
+// select-and-copy by hand instead of the button doing nothing - this is
+// what the previous copy-then-toast-only design was missing.
+async function copyShareField(inputEl, buttonEl) {
+  const originalLabel = buttonEl.textContent;
+  try {
+    await navigator.clipboard.writeText(inputEl.value);
+    buttonEl.textContent = t("shareCopied");
+    setTimeout(() => { buttonEl.textContent = originalLabel; }, 1500);
+  } catch (error) {
+    inputEl.focus();
+    inputEl.select();
+    if (inputEl.setSelectionRange) inputEl.setSelectionRange(0, inputEl.value.length);
+  }
+}
+document.getElementById("share-url-copy").addEventListener("click", () => {
+  copyShareField(document.getElementById("share-url-input"), document.getElementById("share-url-copy"));
+});
+document.getElementById("share-embed-copy").addEventListener("click", () => {
+  copyShareField(document.getElementById("share-embed-input"), document.getElementById("share-embed-copy"));
+});
+
 class ShareControl {
   onAdd() {
     this._container = document.createElement("div");
@@ -576,49 +656,15 @@ class ShareControl {
     this._button.type = "button";
     this._button.title = t("shareButton");
     this._button.textContent = "\u{1F517}"; // 🔗
-    this._button.addEventListener("click", () => this._share());
+    // Click handling lives in setupInfoPanel("share-toggle", "share-panel",
+    // ...) further down, same as About/FAQ/Privacy - #share-panel is a
+    // plain .info-panel modal, not something this control manages itself.
     this._container.appendChild(this._button);
     return this._container;
   }
 
   onRemove() {
     this._container.remove();
-    if (this._toast) this._toast.remove();
-  }
-
-  async _share() {
-    const url = new URL(window.location.href);
-    url.search = "";
-    url.searchParams.set("c", encodeShareState(currentUrlState()));
-
-    let copied = false;
-    try {
-      await navigator.clipboard.writeText(url.toString());
-      copied = true;
-    } catch (error) {
-      // Clipboard API can be blocked (permissions, insecure context, an
-      // older browser) - fall back to just showing the link itself so it
-      // can still be copied by hand, instead of failing with nothing.
-    }
-    this._showToast(copied ? t("shareCopied") : url.toString());
-  }
-
-  // A toast, not a MapLibre popup/native alert - position:fixed (see
-  // .share-toast, and RoutingControl's own bar-tooltip fix earlier for
-  // why fixed rather than anchored to a control that's itself nested
-  // inside .maplibregl-ctrl's own transform:translate(0)) so it's never
-  // clipped regardless of where this control sits in the stack.
-  _showToast(text) {
-    if (this._toast) this._toast.remove();
-    const toast = document.createElement("div");
-    toast.className = "share-toast";
-    toast.textContent = text;
-    document.body.appendChild(toast);
-    this._toast = toast;
-    setTimeout(() => {
-      toast.remove();
-      if (this._toast === toast) this._toast = null;
-    }, 3000);
   }
 }
 
@@ -1036,6 +1082,7 @@ class RoutingControl {
     this._expandBtn.addEventListener("click", () => this._setExpanded(!this._panel.classList.contains("expanded")));
     window.addEventListener("resize", () => {
       if (this._panel.classList.contains("expanded")) this._positionExpandedPanel();
+      else this._updateCompactPanelMaxHeight();
     });
     this._panel.querySelector("#routing-download-geojson").addEventListener("click", () => {
       downloadTextFile("percorso.geojson", "application/geo+json", buildRouteGeoJson(this._runs));
@@ -1070,6 +1117,29 @@ class RoutingControl {
     document.body.classList.add("routing-open");
     routingPanelOpen = true;
     this._updateCursor();
+    this._updateCompactPanelMaxHeight();
+  }
+
+  // Real max-height for the compact (anchored-to-the-button) panel,
+  // replacing the CSS calc(100vh - 90px) guess at #routing-panel's base
+  // rule - that value assumes the panel starts right at the top of the
+  // viewport, but it actually starts wherever MapLibre floats the control
+  // (below the real site header + the library's own 10px margin), so on
+  // any page with a header the CSS guess left the panel's bottom edge -
+  // and the download buttons inside it - below the visible viewport with
+  // nothing to scroll it into view (the panel's own overflow-y:auto only
+  // rescues content taller than ITS box, not the box itself sitting
+  // partly off-screen - this is exactly the bug already found and fixed
+  // for the mobile flyout below via a vh-fraction; this does the same job
+  // more precisely via a real measurement, and covers desktop too). A
+  // no-op while expanded - that state is sized by top/bottom instead, see
+  // _positionExpandedPanel.
+  _updateCompactPanelMaxHeight() {
+    if (this._panel.classList.contains("hidden") || this._panel.classList.contains("expanded")) return;
+    const panelTop = this._panel.getBoundingClientRect().top;
+    const footerTop = document.getElementById("site-footer").getBoundingClientRect().top;
+    const margin = 12;
+    this._panel.style.maxHeight = `${Math.max(150, footerTop - panelTop - margin)}px`;
   }
 
   _close() {
@@ -1282,6 +1352,7 @@ class RoutingControl {
     }
 
     this._renderRouteSummary(this._runs);
+    this._updateCompactPanelMaxHeight(); // the summary section (and its download buttons) just appeared/grew - recheck how much of it actually fits
     // Hidden until _renderElevationProfile's async terrain sampling
     // finishes (a few seconds) and fills it back in - a stale time from
     // the PREVIOUS route (e.g. after a drag) would otherwise sit there
@@ -2416,17 +2487,31 @@ document.getElementById("terrain-toggle").addEventListener("click", () => {
 });
 
 // Generic open/close wiring for header-triggered info panels (About,
-// FAQ, Privacy) - purely informational, so intentionally NOT part of the
-// URL-persisted view state (see syncUrlState below), unlike terrain/gap/
-// basemap. Returns setOpen so callers that need to switch between two
-// panels (the About->FAQ link right below) can drive both from outside.
-function setupInfoPanel(toggleId, panelId, closeId) {
+// FAQ, Cookie/Privacy, Share) - purely informational, so intentionally
+// NOT part of the URL-persisted view state (see syncUrlState below),
+// unlike terrain/gap/basemap. Returns setOpen so callers that need to
+// switch between two panels (the About->FAQ link right below) can drive
+// both from outside. All four share the same centred, screen-covering
+// .info-panel slot (styles.css) - only one should ever be open at once,
+// so opening any of them closes whichever other one was open. `open`
+// guards the mutual-close loop itself against re-entering (each closing
+// call passes open=false, which skips this branch), not just against
+// redundant no-op toggles.
+const infoPanelSetters = [];
+function setupInfoPanel(toggleId, panelId, closeId, onOpen) {
   const toggle = document.getElementById(toggleId);
   const panel = document.getElementById(panelId);
   function setOpen(open) {
     panel.classList.toggle("hidden", !open);
     toggle.classList.toggle("active", open);
+    if (open) {
+      for (const otherSetOpen of infoPanelSetters) {
+        if (otherSetOpen !== setOpen) otherSetOpen(false);
+      }
+      if (onOpen) onOpen();
+    }
   }
+  infoPanelSetters.push(setOpen);
   toggle.addEventListener("click", () => setOpen(panel.classList.contains("hidden")));
   if (closeId) document.getElementById(closeId).addEventListener("click", () => setOpen(false));
   return setOpen;
@@ -2434,6 +2519,9 @@ function setupInfoPanel(toggleId, panelId, closeId) {
 const setAboutOpen = setupInfoPanel("about-toggle", "about-panel", "about-close");
 const setFaqOpen = setupInfoPanel("faq-toggle", "faq-panel", "faq-close");
 setupInfoPanel("privacy-toggle", "privacy-panel", "privacy-close");
+// onOpen repopulates url/embed/social links fresh each time - see
+// populateShareModal's own comment for why this can't just run once.
+setupInfoPanel("share-toggle", "share-panel", "share-close", populateShareModal);
 
 // "Dai un'occhiata alle FAQ" link inside the About body (see aboutBody in
 // i18n.js) - event delegation on the parent, since #about-body's whole

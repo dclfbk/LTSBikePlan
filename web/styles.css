@@ -187,14 +187,6 @@ body { display: flex; flex-direction: column; }
   padding: 4px 8px; font-size: 12px; color: #333; white-space: nowrap;
 }
 #routing-bar-tooltip.hidden { display: none; }
-/* ShareControl's copy confirmation - same fixed-positioning reasoning as
-   #routing-bar-tooltip just above. */
-.share-toast {
-  position: fixed; top: 60px; right: 12px; z-index: 30;
-  background: #222; color: white; padding: 8px 14px; border-radius: 6px;
-  font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  max-width: min(80vw, 360px); word-break: break-all;
-}
 .nav-link {
   font: inherit; background: none; border: 1px solid #ccc; border-radius: 4px;
   padding: 4px 10px; cursor: pointer; color: #333;
@@ -355,7 +347,11 @@ body { display: flex; flex-direction: column; }
   z-index: 20;
   background: white; padding: 16px 20px; border-radius: 6px;
   font: 13px/1.5 system-ui, sans-serif; box-shadow: 0 2px 12px rgba(0,0,0,0.4);
-  width: calc(100vw - 32px); max-width: 480px; max-height: calc(100vh - 60px); overflow-y: auto;
+  /* At least 80% of the viewport width on any screen size, not capped
+     narrower - deliberately no max-width here (a cap smaller than 80vw on
+     a wide screen would silently break that "at least"). overflow-y
+     already scrolls whatever doesn't fit height-wise. */
+  width: 80vw; max-height: 90vh; overflow-y: auto;
   box-sizing: border-box;
 }
 .info-panel h2 { font-size: 15px; margin: 0 0 8px; }
@@ -368,6 +364,35 @@ body { display: flex; flex-direction: column; }
 }
 #about-subtitle { font-style: italic; color: #555; margin: 0 0 10px; }
 .ai-note { font-style: italic; font-size: 11px; color: #999; margin: 0 0 6px; text-align: left; }
+
+/* Share modal (#share-panel, a plain .info-panel like About/FAQ/Privacy
+   above - see ShareControl in app.js). Each row pairs a readonly text
+   field (selectable/copyable by hand even if the Clipboard API copy
+   button below fails - the whole reason for this modal is that the
+   previous silent-copy-only version "led nowhere" when that API was
+   blocked) with its own "Copia" button. */
+.share-section { margin: 12px 0; }
+.share-section label { display: block; font-size: 11px; color: #777; margin-bottom: 4px; }
+.share-input-row { display: flex; gap: 6px; align-items: stretch; }
+#share-url-input, #share-embed-input {
+  flex: 1 1 auto; min-width: 0; font: inherit; font-size: 12px; color: #333;
+  padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; background: #f7f7f7;
+}
+#share-embed-input { font-family: ui-monospace, monospace; font-size: 11px; resize: vertical; }
+.share-input-row button {
+  font: inherit; font-size: 12px; padding: 4px 10px; border: 1px solid #ccc; border-radius: 4px;
+  background: white; cursor: pointer; flex: 0 0 auto; white-space: nowrap;
+}
+.share-social { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Plain buttons/links, not brand icons - no icon-font/SVG-sprite
+   dependency exists anywhere else in this app (every other control icon
+   here is a plain emoji glyph), so a recognizable text label is the
+   lowest-effort choice consistent with that. */
+.share-social-link {
+  font: inherit; font-size: 12px; padding: 5px 12px; border: 1px solid #ccc; border-radius: 4px;
+  background: white; cursor: pointer; color: #333; text-decoration: none; display: inline-block;
+}
+.share-social-link:hover { background: #f0f0f0; }
 
 /* FAQ accordion: independent items (opening one doesn't close another) -
    the ::after +/− indicator is driven by .faq-item.open, toggled per

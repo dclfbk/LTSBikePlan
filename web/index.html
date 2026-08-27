@@ -134,6 +134,33 @@
   <h2 id="privacy-heading"></h2>
   <p id="privacy-intro"></p>
 </div>
+<div id="share-panel" class="info-panel hidden">
+  <button id="share-close" class="info-panel-close">&times;</button>
+  <h2 id="share-heading"></h2>
+  <div class="share-section">
+    <label id="share-url-label" for="share-url-input"></label>
+    <div class="share-input-row">
+      <input type="text" id="share-url-input" readonly />
+      <button type="button" id="share-url-copy"></button>
+    </div>
+  </div>
+  <div class="share-section">
+    <label id="share-embed-label" for="share-embed-input"></label>
+    <div class="share-input-row">
+      <textarea id="share-embed-input" readonly rows="2"></textarea>
+      <button type="button" id="share-embed-copy"></button>
+    </div>
+  </div>
+  <div class="share-section">
+    <label id="share-social-label"></label>
+    <div class="share-social">
+      <a id="share-social-facebook" class="share-social-link" target="_blank" rel="noopener">Facebook</a>
+      <a id="share-social-linkedin" class="share-social-link" target="_blank" rel="noopener">LinkedIn</a>
+      <a id="share-social-x" class="share-social-link" target="_blank" rel="noopener">X</a>
+      <button type="button" id="share-social-mastodon" class="share-social-link">Mastodon</button>
+    </div>
+  </div>
+</div>
 <script src="app.js"></script>
 </body>
 </html>
