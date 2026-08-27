@@ -384,15 +384,26 @@ body { display: flex; flex-direction: column; }
   background: white; cursor: pointer; flex: 0 0 auto; white-space: nowrap;
 }
 .share-social { display: flex; flex-wrap: wrap; gap: 8px; }
-/* Plain buttons/links, not brand icons - no icon-font/SVG-sprite
-   dependency exists anywhere else in this app (every other control icon
-   here is a plain emoji glyph), so a recognizable text label is the
-   lowest-effort choice consistent with that. */
+/* Round icon buttons, one brand logo each (inline SVG - see the markup
+   comment in index.html for where each path comes from). Fixed size
+   circle so all 5 line up evenly regardless of each logo's own aspect
+   ratio; the svg itself is unstyled (no fill/color set on the <svg> or
+   <path> tags), coloured per-brand below instead of one shared rule,
+   since each logo needs its own official colour to stay recognisable. */
 .share-social-link {
-  font: inherit; font-size: 12px; padding: 5px 12px; border: 1px solid #ccc; border-radius: 4px;
-  background: white; cursor: pointer; color: #333; text-decoration: none; display: inline-block;
+  width: 36px; height: 36px; padding: 0; border: 1px solid #ccc; border-radius: 50%;
+  background: white; cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 .share-social-link:hover { background: #f0f0f0; }
+.share-social-link svg { width: 20px; height: 20px; }
+#share-social-facebook svg { fill: #1877F2; }
+#share-social-x svg { fill: #000; }
+#share-social-whatsapp svg { fill: #25D366; }
+#share-social-mastodon svg { fill: #6364FF; }
+/* LinkedIn's svg is a filled rounded rect + a white glyph on top (its
+   own <path fill="#fff">, not affected by this), so only the rect needs
+   the brand colour here. */
+#share-social-linkedin svg rect { fill: #0A66C2; }
 
 /* FAQ accordion: independent items (opening one doesn't close another) -
    the ::after +/− indicator is driven by .faq-item.open, toggled per

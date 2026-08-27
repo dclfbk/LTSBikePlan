@@ -596,6 +596,10 @@ const SOCIAL_SHARE_URL_BUILDERS = {
   facebook: (url) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
   linkedin: (url) => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
   x: (url, text) => `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`,
+  // wa.me is WhatsApp's own link-based share intent - opens the app on
+  // mobile or WhatsApp Web on desktop with the message pre-filled, no
+  // phone number needed since there's no fixed recipient.
+  whatsapp: (url, text) => `https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`,
 };
 
 // Fills in the share modal's fields fresh on every open (setupInfoPanel's
@@ -609,6 +613,7 @@ function populateShareModal() {
   document.getElementById("share-social-facebook").href = SOCIAL_SHARE_URL_BUILDERS.facebook(url);
   document.getElementById("share-social-linkedin").href = SOCIAL_SHARE_URL_BUILDERS.linkedin(url);
   document.getElementById("share-social-x").href = SOCIAL_SHARE_URL_BUILDERS.x(url, text);
+  document.getElementById("share-social-whatsapp").href = SOCIAL_SHARE_URL_BUILDERS.whatsapp(url, text);
   // Mastodon has no single domain to post through - ask which server the
   // person actually has an account on, then use ITS OWN /share intent
   // (a route Mastodon's own web UI ships on every standard instance),
