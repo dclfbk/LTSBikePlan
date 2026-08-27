@@ -1841,6 +1841,17 @@ function removeComuneLayers(slug) {
 // comuniIndex has finished loading, or outside the "italia" view.
 function updateComuneOverlays() {
   if (area !== "italia" || !comuniIndex) return;
+  // map.addSource/addLayer throw "Style is not done loading" if called
+  // before the style has finished - normally not an issue (this only
+  // ever runs from a "moveend"-driven pan/zoom, by which point the style
+  // is long loaded), except for the very first call, triggered as soon as
+  // comuni_index.json's fetch resolves - which can race ahead of the
+  // map's own style load on a slow style/fast-cached-JSON load. Defer to
+  // the next style.load instead of throwing.
+  if (!map.isStyleLoaded()) {
+    map.once("style.load", updateComuneOverlays);
+    return;
+  }
 
   if (map.getZoom() < COMUNE_SWAP_MIN_ZOOM) {
     if (visibleComuneSlugs.size === 0) return;
