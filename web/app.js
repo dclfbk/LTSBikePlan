@@ -2388,62 +2388,59 @@ function removeComuneLayers(slug) {
 // comuniIndex has finished loading, or outside the "italia" view.
 function updateComuneOverlays() {
   if (area !== "italia" || !comuniIndex) return;
-  // map.addSource/addLayer throw "Style is not done loading" if called
-  // before the style has finished - normally not an issue (this only
-  // ever runs from a "moveend"-driven pan/zoom, by which point the style
-  // is long loaded), except for the very first call, triggered as soon as
-  // comuni_index.json's fetch resolves - which can race ahead of the
-  // map's own style load on a slow style/fast-cached-JSON load. Defer to
-  // "idle" instead of throwing - NOT "style.load": that event fires once,
-  // as soon as the style SPEC (sources/layers JSON, sprite, glyphs) is
-  // parsed, which is typically long done by the time this races ahead of
-  // it - isStyleLoaded() stays false for much longer than that, until
-  // every source's in-flight TILE requests finish too (confirmed live:
-  // ~10-12s here, dominated by the mapterhorn-dem terrain tiles the route
-  // elevation profile kicks off). Waiting on "style.load" in that case
-  // means waiting for an event that already fired and will never fire
-  // again this session (short of a basemap switch) - isStyleLoaded()
-  // eventually flips true on its own, but nothing was listening for that,
-  // so this permanently gave up and the per-comune swap never appeared
-  // (reported: no street tiles for Palermo at all, despite a moveend-
-  // triggering fitBounds from the auto-restored route in the same URL -
-  // that later moveend call hit this same still-false check and re-armed
-  // the same dead "style.load" listener instead of getting through).
-  // "idle" (no pending tiles anywhere, no camera transition) is the event
-  // that actually corresponds to what isStyleLoaded() is checking.
-  if (!map.isStyleLoaded()) {
-    map.once("idle", updateComuneOverlays);
-    return;
+
+  // map.addSource/addLayer/removeLayer/removeSource all throw "Style is
+  // not done loading" if called before the style's own spec (sources/
+  // layers JSON, sprite, glyphs - NOT tiles) has finished parsing -
+  // normally not an issue (this mostly runs from a "moveend"-driven pan/
+  // zoom, by which point that's long done), except for the very first
+  // call, triggered as soon as comuni_index.json's fetch resolves, which
+  // can race ahead of it. Retrying shortly after on exactly that error is
+  // simpler and faster than waiting for any specific "is it ready yet"
+  // event: `map.isStyleLoaded()` (this file used to gate on that) is the
+  // wrong signal for it - it also waits for every source's in-flight TILE
+  // requests, terrain DEM included, which measured 10-40s+ on a slow
+  // mapterhorn.com response (reported: no street tiles for Palermo for a
+  // long stretch after load, terrain-on urls hit this worst). The actual
+  // throw only needs the style spec itself, which is typically ready
+  // within a fraction of a second - this retry loop converges that fast
+  // instead, with zero dependency on how long unrelated tile loading
+  // takes. Retries indefinitely (no attempt cap): the same style-spec
+  // race that triggers the first retry is gone within a beat, so in
+  // practice this only ever loops a handful of times, right after load.
+  try {
+    if (map.getZoom() < COMUNE_SWAP_MIN_ZOOM) {
+      if (visibleComuneSlugs.size === 0) return;
+      for (const slug of visibleComuneSlugs) removeComuneLayers(slug);
+      visibleComuneSlugs = new Set();
+      return;
+    }
+
+    const bounds = map.getBounds();
+    const west = bounds.getWest();
+    const south = bounds.getSouth();
+    const east = bounds.getEast();
+    const north = bounds.getNorth();
+
+    const wanted = new Set();
+    for (const entry of comuniIndex) {
+      const [minLon, minLat, maxLon, maxLat] = entry.bbox;
+      if (maxLon >= west && minLon <= east && maxLat >= south && minLat <= north) wanted.add(entry.slug);
+    }
+
+    for (const slug of visibleComuneSlugs) if (!wanted.has(slug)) removeComuneLayers(slug);
+    for (const slug of wanted) if (!visibleComuneSlugs.has(slug)) addComuneLayers(slug);
+    visibleComuneSlugs = wanted;
+
+    // Newly added layers above already got today's LTS-class filter
+    // individually - this also re-syncs gap-mode visibility for them
+    // (addComuneLayers already sets it at creation time too, this just
+    // covers the layers that already existed before this call).
+    applyLtsFilter();
+  } catch (err) {
+    if (!/style is not done loading/i.test((err && err.message) || "")) throw err;
+    setTimeout(updateComuneOverlays, 150);
   }
-
-  if (map.getZoom() < COMUNE_SWAP_MIN_ZOOM) {
-    if (visibleComuneSlugs.size === 0) return;
-    for (const slug of visibleComuneSlugs) removeComuneLayers(slug);
-    visibleComuneSlugs = new Set();
-    return;
-  }
-
-  const bounds = map.getBounds();
-  const west = bounds.getWest();
-  const south = bounds.getSouth();
-  const east = bounds.getEast();
-  const north = bounds.getNorth();
-
-  const wanted = new Set();
-  for (const entry of comuniIndex) {
-    const [minLon, minLat, maxLon, maxLat] = entry.bbox;
-    if (maxLon >= west && minLon <= east && maxLat >= south && minLat <= north) wanted.add(entry.slug);
-  }
-
-  for (const slug of visibleComuneSlugs) if (!wanted.has(slug)) removeComuneLayers(slug);
-  for (const slug of wanted) if (!visibleComuneSlugs.has(slug)) addComuneLayers(slug);
-  visibleComuneSlugs = wanted;
-
-  // Newly added layers above already got today's LTS-class filter
-  // individually - this also re-syncs gap-mode visibility for them
-  // (addComuneLayers already sets it at creation time too, this just
-  // covers the layers that already existed before this call).
-  applyLtsFilter();
 }
 map.on("moveend", updateComuneOverlays);
 
