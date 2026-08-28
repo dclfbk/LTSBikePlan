@@ -155,6 +155,14 @@ function comuneGapLayerId(slug) { return `gap-edges-${slug}`; }
 // LTS 1/2 and drawn on top of it - see addDataLayers's own comment for
 // why. Deliberately not part of ltsLineLayerIds()/hit-testing.
 const LTS_PRIORITY_LAYER_ID = "lts-lines-priority";
+// Street level - individual crossings (the whole reason this layer
+// exists, see addDataLayers) are actually distinguishable on screen from
+// here on. Below it, streets are too close together at this scale for
+// which-one-is-on-top to read as anything but overall line density -
+// not worth doubling the paint cost of a big city's full network for
+// (reported: felt sluggish panning around Palermo, ~140k edges, two
+// thirds of them lts 1/2 and therefore in this layer too).
+const LTS_PRIORITY_MIN_ZOOM = 14;
 
 // Every place that used to hard-code "lts-lines"/"gap-edges" now needs
 // whichever of these is also currently active for the comuni in view -
@@ -2154,7 +2162,9 @@ function addDataLayers() {
   // MapLibre stacks it above - purely cosmetic, not part of
   // ltsLineLayerIds()/hit-testing, since "lts-lines" already covers the
   // same features for clicks/hover and duplicating that would just risk
-  // a second popup/hover state to keep in sync for no benefit.
+  // a second popup/hover state to keep in sync for no benefit. minzoom
+  // LTS_PRIORITY_MIN_ZOOM - see that const's own comment for why not
+  // every zoom gets this treatment.
   if (!map.getLayer(LTS_PRIORITY_LAYER_ID)) {
     map.addLayer(
       {
@@ -2162,7 +2172,7 @@ function addDataLayers() {
         type: "line",
         source: "lts",
         "source-layer": "lts",
-        minzoom: MIN_STREETS_ZOOM,
+        minzoom: LTS_PRIORITY_MIN_ZOOM,
         ...(area === "italia" ? { maxzoom: COMUNE_SWAP_MIN_ZOOM } : {}),
         layout: { "line-join": "round", "line-cap": "round" },
         paint: {
