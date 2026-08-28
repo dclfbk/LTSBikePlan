@@ -834,6 +834,14 @@ let routingStartMarker = null;
 let routingEndMarker = null;
 let routingPartialEndMarker = null; // marks where a PARTIAL route (findRoute's `partial: true`) actually ends - distinct from routingEndMarker, which stays at the point the rider asked for
 let routingHasEverRouted = false; // gates fitBounds to "first route only" - see _applyRoute
+// Survives a basemap switch (setStyle() drops the "routing-path" GeoJSON
+// source along with every other custom source/layer - see addDataLayers)
+// so the drawn route can be restored onto the freshly re-added source
+// instead of silently reverting to empty while the panel's own summary/
+// markers stay showing the route as if it were still there (reported: a
+// computed route disappearing "and that's not ok"). Updated in
+// RoutingControl._applyRoute, reset in _clear.
+let lastRouteFeatureCollection = { type: "FeatureCollection", features: [] };
 let routingControlInstance = null; // set by RoutingControl.onAdd, so the click handler can hand picked points back to the panel
 const routingFileCache = new Map(); // slug -> decodeRoutingGraphBinary() result for <slug>_routing.bin (never caches a failed fetch, so a transient network error can be retried)
 // sorted-slugs key -> mergeRoutingGraphs() result. Populating one ngraph.graph
@@ -1342,6 +1350,7 @@ class RoutingControl {
   _applyRoute(result) {
     this._runs = buildRouteRuns(result.segments, result.feature.geometry.coordinates);
     const featureCollection = routeRunsToFeatureCollection(this._runs);
+    lastRouteFeatureCollection = featureCollection;
     map.getSource("routing-path").setData(featureCollection);
 
     // A partial result's own last coordinate is NOT where the rider
@@ -1536,7 +1545,16 @@ class RoutingControl {
     const elevs = points.map((p) => p.elev);
     const minElev = Math.min(...elevs);
     const maxElev = Math.max(...elevs);
-    const range = Math.max(maxElev - minElev, 1);
+    // Floor of 20m, not 1: the y-axis always fills the chart's full
+    // height between minElev and maxElev, so on a genuinely flat route
+    // (a few metres of DEM sampling noise, not real elevation change) a
+    // 1m floor let that noise stretch to fill the whole chart - reading
+    // as a mountain profile for a street that's actually flat (reported:
+    // "spikes that shouldn't be there"). 20m keeps a real climb properly
+    // proportioned while making a flat/near-flat route draw close to a
+    // flat line instead of exaggerating noise - the actual min/max
+    // labels in the corners still show the real numbers regardless.
+    const range = Math.max(maxElev - minElev, 20);
     const maxKm = points[points.length - 1].km || 1;
 
     const xFor = (km) => padding + (km / maxKm) * (width - 2 * padding);
@@ -1582,6 +1600,7 @@ class RoutingControl {
     if (routingStartMarker) { routingStartMarker.remove(); routingStartMarker = null; }
     if (routingEndMarker) { routingEndMarker.remove(); routingEndMarker = null; }
     if (routingPartialEndMarker) { routingPartialEndMarker.remove(); routingPartialEndMarker = null; }
+    lastRouteFeatureCollection = EMPTY_FEATURE_COLLECTION;
     if (map.getSource("routing-path")) map.getSource("routing-path").setData(EMPTY_FEATURE_COLLECTION);
     this._runs = [];
     this._summary.classList.add("hidden");
@@ -2250,9 +2269,14 @@ function addDataLayers() {
 
   // The route drawn by RoutingControl (web/routing.js's findRoute) - own
   // GeoJSON source, same reason as gap-edge-selected-buffer above: it's
-  // computed fresh client-side per query, not part of any tileset.
+  // computed fresh client-side per query, not part of any tileset. Seeded
+  // from lastRouteFeatureCollection, not always-empty - a basemap switch
+  // (setStyle) drops this source like every other custom one, and without
+  // this a previously-computed route would revert to an empty line while
+  // the panel's summary/markers kept showing it as still there (see that
+  // variable's own comment).
   if (!map.getSource("routing-path")) {
-    map.addSource("routing-path", { type: "geojson", data: EMPTY_FEATURE_COLLECTION });
+    map.addSource("routing-path", { type: "geojson", data: lastRouteFeatureCollection });
   }
   if (!map.getLayer("routing-path-line")) {
     map.addLayer({
