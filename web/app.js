@@ -151,6 +151,10 @@ function ensureComuniIndexLoaded() {
 function comuneSourceId(slug) { return `lts-${slug}`; }
 function comuneLinesLayerId(slug) { return `lts-lines-${slug}`; }
 function comuneGapLayerId(slug) { return `gap-edges-${slug}`; }
+// Cosmetic-only twin of the national "lts-lines" layer, restricted to
+// LTS 1/2 and drawn on top of it - see addDataLayers's own comment for
+// why. Deliberately not part of ltsLineLayerIds()/hit-testing.
+const LTS_PRIORITY_LAYER_ID = "lts-lines-priority";
 
 // Every place that used to hard-code "lts-lines"/"gap-edges" now needs
 // whichever of these is also currently active for the comuni in view -
@@ -1821,6 +1825,12 @@ function currentLtsFilterExpression() {
 function applyLtsFilter() {
   const filter = currentLtsFilterExpression();
   for (const id of ltsLineLayerIds()) map.setFilter(id, filter);
+  // LTS_PRIORITY_LAYER_ID mirrors the same zoom/legend filter, further
+  // restricted to the two classes it exists to redraw on top - see its
+  // own comment in addDataLayers.
+  if (map.getLayer(LTS_PRIORITY_LAYER_ID)) {
+    map.setFilter(LTS_PRIORITY_LAYER_ID, ["all", filter, ["in", ["to-string", ["get", "lts"]], ["literal", ["1", "2"]]]]);
+  }
 }
 
 // Re-applies the zoom/legend filter and redraws the legend's disabled
@@ -1968,13 +1978,51 @@ let hasFitBoundsOnce = hasExplicitView;
 // good to bike"; thinner for the demanding ones so they recede visually.
 // "0" (not cyclable) is thinner still - it's backdrop, not a route choice,
 // so it should recede even behind LTS4. The trailing fallback (missing/
-// unexpected `lts`) matches "0"'s width for the same reason. Same zoom
-// range as before, per-class endpoints via a match expression nested
-// inside the interpolation stops.
+// unexpected `lts`) matches "0"'s width for the same reason.
+//
+// Flat, tier-specific widths from MIN_STREETS_ZOOM to COMUNE_SWAP_MIN_ZOOM,
+// then a smooth ramp to the realistic z18 proportions - deliberately
+// matching LTS_CLASS_MIN_ZOOM's own tiers (4-7 shows only LTS 1/2, 8-11
+// adds LTS3, 12+ is the real per-comune data): each tier gets its OWN
+// flat, exaggerated width rather than smoothly ramping toward the
+// realistic z12+ proportions across it. Reported: at the whole-Italy
+// overview the low-stress network is such a small fraction of total road
+// length that even a smooth ramp toward "realistic" left it imperceptible
+// for most of tiers 4-7/8-11 - a flat, deliberately non-proportionate
+// width per tier (standard cartographic generalisation for a
+// sparse-but-important feature class at small scale) keeps it visible
+// through the WHOLE tier, not just its tail end near z12. Tier 8-11 also
+// needs LTS1/2 to stay clearly ahead of LTS3 specifically, since that's
+// the zoom range where LTS3 first joins them on screen (see
+// LTS_CLASS_MIN_ZOOM) and could otherwise crowd them out by sheer
+// quantity. From COMUNE_SWAP_MIN_ZOOM on, back to the original smooth,
+// closer-to-real-proportions interpolation - individual streets are
+// legible on their own by then, no exaggeration needed.
+//
+// A single top-level `interpolate` on zoom, not a `step` wrapping a
+// nested `interpolate` - MapLibre rejects more than one zoom subexpression
+// per expression ("Only one zoom-based 'step' or 'interpolate'
+// subexpression may be used in an expression"), which made every
+// lts-lines/lts-lines-priority addLayer() throw and silently drop the
+// whole street layer (reported as "no data" for every comune, not just
+// one). The two flat tiers are faked inside the interpolation by
+// repeating each tier's value at a stop just below the next tier's
+// start, so the ramp stays flat within a tier and only slopes on the
+// real 12->18 segment.
 const LTS_LINE_WIDTH = [
   "interpolate", ["linear"], ["zoom"],
-  12, ["match", ["to-string", ["get", "lts"]], "1", 1.0, "2", 1.2, "3", 0.8, "4", 0.6, "0", 0.4, 0.4],
-  18, ["match", ["to-string", ["get", "lts"]], "1", 3.5, "2", 4.0, "3", 2.5, "4", 2.0, "0", 1.3, 1.3],
+  MIN_STREETS_ZOOM,
+  ["match", ["to-string", ["get", "lts"]], "1", 2.5, "2", 2.0, "3", 0.5, "4", 0.4, "0", 0.3, 0.3],
+  LTS_TIER3_MIN_ZOOM - 0.01,
+  ["match", ["to-string", ["get", "lts"]], "1", 2.5, "2", 2.0, "3", 0.5, "4", 0.4, "0", 0.3, 0.3],
+  LTS_TIER3_MIN_ZOOM,
+  ["match", ["to-string", ["get", "lts"]], "1", 1.8, "2", 1.5, "3", 0.6, "4", 0.5, "0", 0.4, 0.4],
+  COMUNE_SWAP_MIN_ZOOM - 0.01,
+  ["match", ["to-string", ["get", "lts"]], "1", 1.8, "2", 1.5, "3", 0.6, "4", 0.5, "0", 0.4, 0.4],
+  COMUNE_SWAP_MIN_ZOOM,
+  ["match", ["to-string", ["get", "lts"]], "1", 1.0, "2", 1.2, "3", 0.8, "4", 0.6, "0", 0.4, 0.4],
+  18,
+  ["match", ["to-string", ["get", "lts"]], "1", 3.5, "2", 4.0, "3", 2.5, "4", 2.0, "0", 1.3, 1.3],
 ];
 // Facility-type visual distinction - independent of the LTS colour/width
 // channel above (which stays purely about stress severity): solid = street
@@ -2087,6 +2135,35 @@ function addDataLayers() {
         // bend - reported as streets looking "too angular" at z11+. Round
         // joins/caps trace the same underlying geometry, just without the
         // spikes at each vertex.
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": buildLtsLineColorExpression(),
+          "line-width": LTS_LINE_WIDTH,
+          "line-dasharray": FACILITY_DASH_EXPRESSION,
+        },
+      },
+      firstSymbolLayerId,
+    );
+  }
+  // Redraws LTS 1/2 on top of the base "lts-lines" layer - a plain line
+  // layer has no per-feature sort-key (that's symbol-layer-only in
+  // MapLibre), so within ONE layer a crossing LTS3/4 street can still
+  // paint over a low-stress one drawn earlier in the tile's own feature
+  // order. This is a second, visually-identical layer restricted to
+  // lts 1/2 (see applyLtsFilter below), added AFTER "lts-lines" so
+  // MapLibre stacks it above - purely cosmetic, not part of
+  // ltsLineLayerIds()/hit-testing, since "lts-lines" already covers the
+  // same features for clicks/hover and duplicating that would just risk
+  // a second popup/hover state to keep in sync for no benefit.
+  if (!map.getLayer(LTS_PRIORITY_LAYER_ID)) {
+    map.addLayer(
+      {
+        id: LTS_PRIORITY_LAYER_ID,
+        type: "line",
+        source: "lts",
+        "source-layer": "lts",
+        minzoom: MIN_STREETS_ZOOM,
+        ...(area === "italia" ? { maxzoom: COMUNE_SWAP_MIN_ZOOM } : {}),
         layout: { "line-join": "round", "line-cap": "round" },
         paint: {
           "line-color": buildLtsLineColorExpression(),
