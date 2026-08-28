@@ -2394,9 +2394,25 @@ function updateComuneOverlays() {
   // is long loaded), except for the very first call, triggered as soon as
   // comuni_index.json's fetch resolves - which can race ahead of the
   // map's own style load on a slow style/fast-cached-JSON load. Defer to
-  // the next style.load instead of throwing.
+  // "idle" instead of throwing - NOT "style.load": that event fires once,
+  // as soon as the style SPEC (sources/layers JSON, sprite, glyphs) is
+  // parsed, which is typically long done by the time this races ahead of
+  // it - isStyleLoaded() stays false for much longer than that, until
+  // every source's in-flight TILE requests finish too (confirmed live:
+  // ~10-12s here, dominated by the mapterhorn-dem terrain tiles the route
+  // elevation profile kicks off). Waiting on "style.load" in that case
+  // means waiting for an event that already fired and will never fire
+  // again this session (short of a basemap switch) - isStyleLoaded()
+  // eventually flips true on its own, but nothing was listening for that,
+  // so this permanently gave up and the per-comune swap never appeared
+  // (reported: no street tiles for Palermo at all, despite a moveend-
+  // triggering fitBounds from the auto-restored route in the same URL -
+  // that later moveend call hit this same still-false check and re-armed
+  // the same dead "style.load" listener instead of getting through).
+  // "idle" (no pending tiles anywhere, no camera transition) is the event
+  // that actually corresponds to what isStyleLoaded() is checking.
   if (!map.isStyleLoaded()) {
-    map.once("style.load", updateComuneOverlays);
+    map.once("idle", updateComuneOverlays);
     return;
   }
 
