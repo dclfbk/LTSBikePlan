@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "code"))
@@ -37,6 +38,32 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import geopandas as gpd
 
 from ltsbikeplan.services.area_index_service import AreaResolver
+
+
+def _bbox_from_pmtiles(pmtiles_path: str) -> list[float] | None:
+    """Fallback bbox source for a comune missing from the boundary
+    topojson (confirmed live: Samone/Calceranica al Lago/Cavizzana in
+    Trentino, and 15 more nationally - osmit-estratti's own
+    limits_IT_municipalities.json carries a null `arcs`/geometry for
+    these ~18 comuni, not a decode bug on this project's side, so
+    re-running fetch/compute-lts for them changes nothing - that pipeline
+    never touches this boundary file at all, only the OSM road-network
+    extract). Reads the bounds pmtiles itself already stores in its
+    header (the same field web/app.js's own tiles.getHeader() reads
+    client-side to fitBounds a single-area page) via the `pmtiles` CLI's
+    --tilejson output - the actual cyclable-network extent, not the
+    administrative boundary, but close enough for comuni_index.json's
+    bbox-overlap check (see build_comuni_index.py's own comment on that
+    same tolerance).
+    """
+    try:
+        result = subprocess.run(
+            ["pmtiles", "show", "--tilejson", pmtiles_path],
+            capture_output=True, text=True, check=True,
+        )
+        return json.loads(result.stdout)["bounds"]
+    except (subprocess.CalledProcessError, FileNotFoundError, KeyError, json.JSONDecodeError):
+        return None
 
 
 def main() -> None:
@@ -90,14 +117,23 @@ def main() -> None:
             boundary_path = resolver.ensure_cached("comune")
             gdf = gpd.read_file(boundary_path).set_crs("EPSG:4326")
         row = gdf[gdf["istat"] == istat]
-        if row.empty:
-            print(f"WARNING: no boundary geometry for {slug} (istat={istat}) - skipping", file=sys.stderr)
-            continue
-        minx, miny, maxx, maxy = row.iloc[0].geometry.bounds
+        if not row.empty:
+            minx, miny, maxx, maxy = row.iloc[0].geometry.bounds
+            bbox = [round(minx, 5), round(miny, 5), round(maxx, 5), round(maxy, 5)]
+        else:
+            # Missing from the boundary topojson itself (null geometry
+            # upstream - see _bbox_from_pmtiles's own comment) - fall back
+            # to the pmtiles file's own bounds instead of dropping the
+            # comune from the index entirely.
+            bbox = _bbox_from_pmtiles(os.path.join(web_data_dir, f"{slug}_lts.pmtiles"))
+            if bbox is None:
+                print(f"WARNING: no boundary geometry AND pmtiles bounds unavailable for {slug} (istat={istat}) - skipping", file=sys.stderr)
+                continue
+            bbox = [round(v, 5) for v in bbox]
         new_entry = {
             "istat": istat,
             "slug": slug,
-            "bbox": [round(minx, 5), round(miny, 5), round(maxx, 5), round(maxy, 5)],
+            "bbox": bbox,
             "has_routing": has_routing,
         }
         entries.append(new_entry)

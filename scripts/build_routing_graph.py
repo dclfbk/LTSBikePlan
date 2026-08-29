@@ -67,6 +67,33 @@ def facility_code(highway, rule) -> int:
     return 0
 
 
+# Same 6 buckets as domain/lts_rules.py's BikePathAnalysis.slope_penalty
+# pd.cut labels, coded as a compact u8 for the binary export (see
+# encode_routing_graph_binary's layout comment) - keep in sync with
+# domain/routing_cost.py's FATIGUE_PENALTY, which is keyed by these same
+# label strings.
+_SLOPE_CLASS_CODE = {
+    "0-3: flat": 0,
+    "3-5: mild": 1,
+    "5-8: medium": 2,
+    "8-10: hard": 3,
+    "10-20: extreme": 4,
+    ">20: impossible": 5,
+}
+# 255 = unknown/no reliable slope_class (NaN, or an unrecognized label) -
+# NOT "flat" (code 0). domain/routing_cost.py's edge_cost only applies a
+# fatigue multiplier for a recognized code; this value deliberately never
+# matches one, so such an edge falls back to the neutral 1.0 multiplier,
+# same treatment as "no slope data at all" rather than "measured flat".
+UNKNOWN_SLOPE_CLASS_CODE = 255
+
+
+def slope_class_code(value) -> int:
+    if pd.isna(value):
+        return UNKNOWN_SLOPE_CLASS_CODE
+    return _SLOPE_CLASS_CODE.get(str(value), UNKNOWN_SLOPE_CLASS_CODE)
+
+
 def _first_if_list(value):
     # `name` is occasionally list-valued in this project's OSM data, same
     # as `osmid` (see services/osm_pbf_service.py's own isinstance(..., list)
@@ -89,11 +116,15 @@ def build_routing_graph(edges_gdf: gpd.GeoDataFrame, nodes_df: pd.DataFrame, slu
           "nodes": [[lon, lat], ...],       # index-aligned with node_osm_ids
           "node_osm_ids": [123456789, ...], # cross-file join key
           "names": ["Via Roma", ...],       # interned street names
-          "edges": [[u_idx, v_idx, lts, length_m, facility_code, name_idx], ...]
+          "edges": [[u_idx, v_idx, lts, length_m, facility_code, name_idx,
+                     slope_class_code], ...]
                                              # u_idx/v_idx are LOCAL to this
                                              # file's nodes; name_idx is
                                              # LOCAL to this file's names
-                                             # (-1 = unnamed)
+                                             # (-1 = unnamed); slope_class_code
+                                             # is UNKNOWN_SLOPE_CLASS_CODE
+                                             # (255) when there's no
+                                             # reliable slope reading
         }
     """
     node_xy = {int(osmid): (float(x), float(y)) for osmid, x, y in zip(nodes_df["osmid"], nodes_df["x"], nodes_df["y"])}
@@ -133,13 +164,15 @@ def build_routing_graph(edges_gdf: gpd.GeoDataFrame, nodes_df: pd.DataFrame, slu
     has_highway = "highway" in edges_gdf.columns
     has_rule = "rule" in edges_gdf.columns
     has_name = "name" in edges_gdf.columns
-    for (u, v, _key), length, lts, highway, rule, name in zip(
+    has_slope_class = "slope_class" in edges_gdf.columns
+    for (u, v, _key), length, lts, highway, rule, name, slope_class in zip(
         edges_gdf.index,
         edges_gdf["length"],
         edges_gdf["lts"],
         edges_gdf["highway"] if has_highway else [None] * len(edges_gdf),
         edges_gdf["rule"] if has_rule else [None] * len(edges_gdf),
         edges_gdf["name"] if has_name else [None] * len(edges_gdf),
+        edges_gdf["slope_class"] if has_slope_class else [None] * len(edges_gdf),
     ):
         if pd.isna(length):
             continue
@@ -163,7 +196,15 @@ def build_routing_graph(edges_gdf: gpd.GeoDataFrame, nodes_df: pd.DataFrame, slu
             continue
         edge_lts = _FALLBACK_LTS if pd.isna(lts) else int(lts)
         edges.append(
-            [u_idx, v_idx, edge_lts, round(float(length), 1), facility_code(highway, rule), name_index(name)]
+            [
+                u_idx,
+                v_idx,
+                edge_lts,
+                round(float(length), 1),
+                facility_code(highway, rule),
+                name_index(name),
+                slope_class_code(slope_class),
+            ]
         )
 
     istat = edges_gdf["istat_code"].iloc[0] if "istat_code" in edges_gdf.columns and len(edges_gdf) else None
@@ -215,10 +256,11 @@ def build_routing_graph(edges_gdf: gpd.GeoDataFrame, nodes_df: pd.DataFrame, slu
 #   [i32 x EC] edge name_idx   (signed - -1 means unnamed)
 #   [u8  x EC] edge lts
 #   [u8  x EC] edge facility_code
+#   [u8  x EC] edge slope_class_code (255 = unknown, see UNKNOWN_SLOPE_CLASS_CODE)
 #
 # Field ORDER is load-bearing, not cosmetic: every multi-byte (4/8-byte)
-# field comes before the two single-byte ones at the end. Uint8Array
-# construction has no alignment requirement at all, so putting both 1-byte
+# field comes before the three single-byte ones at the end. Uint8Array
+# construction has no alignment requirement at all, so putting all 1-byte
 # fields last means every section boundary in the whole body already
 # lands on a valid 4-byte (or 8-byte, for the f64 id array) boundary by
 # construction - NO padding is ever needed mid-body, only once, right
@@ -248,6 +290,7 @@ def encode_routing_graph_binary(result: dict) -> bytes:
     edge_name_idx = np.array([e[5] for e in edges], dtype="<i4")
     edge_lts = np.array([e[2] for e in edges], dtype="<u1")
     edge_facility = np.array([e[4] for e in edges], dtype="<u1")
+    edge_slope_class = np.array([e[6] for e in edges], dtype="<u1")
 
     header_len_prefix = struct.pack("<I", len(header))
     body_start = len(header_len_prefix) + len(header)
@@ -255,7 +298,18 @@ def encode_routing_graph_binary(result: dict) -> bytes:
 
     body = b"".join(
         arr.tobytes()
-        for arr in (node_lons, node_lats, node_osm_ids, edge_u, edge_v, edge_length, edge_name_idx, edge_lts, edge_facility)
+        for arr in (
+            node_lons,
+            node_lats,
+            node_osm_ids,
+            edge_u,
+            edge_v,
+            edge_length,
+            edge_name_idx,
+            edge_lts,
+            edge_facility,
+            edge_slope_class,
+        )
     )
     return header_len_prefix + header + padding + body
 

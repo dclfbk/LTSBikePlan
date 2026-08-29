@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "code"))
 
 try:
     from ltsbikeplan.domain.gap_analysis import HIGH_STRESS_LTS, LOW_STRESS_LTS
-    from ltsbikeplan.domain.routing_cost import LTS_PENALTY, edge_cost
+    from ltsbikeplan.domain.routing_cost import FATIGUE_PENALTY, LTS_PENALTY, MIN_RELIABLE_SLOPE_LENGTH_M, edge_cost
 
     GEO_DEPS_AVAILABLE = True
 except ImportError:  # pragma: no cover - geo deps optional in this env
@@ -35,6 +35,39 @@ class TestEdgeCost(unittest.TestCase):
         # domain/gap_analysis.py actually classifies must be covered here.
         for lts in LOW_STRESS_LTS | HIGH_STRESS_LTS:
             self.assertIn(lts, LTS_PENALTY)
+
+    def test_no_slope_class_matches_pre_fatigue_behaviour(self):
+        # Default (no slope_class passed) must be identical to edge_cost
+        # before FATIGUE_PENALTY existed - every test above relies on this.
+        for lts, penalty in LTS_PENALTY.items():
+            self.assertEqual(edge_cost(lts, 600.0), 600.0 * penalty)
+
+    def test_steeper_edge_never_cheaper_than_flatter_one_at_same_lts(self):
+        # The actual bug report this fixes: two LTS1 edges of the same
+        # length must NOT cost the same once one of them is steep - the
+        # flatter one should always win.
+        length = 600.0  # >= MIN_RELIABLE_SLOPE_LENGTH_M
+        costs = [edge_cost(1, length, slope_class) for slope_class in FATIGUE_PENALTY]
+        # FATIGUE_PENALTY's own insertion order is flat -> impossible.
+        self.assertEqual(costs, sorted(costs))
+        self.assertLess(edge_cost(1, length, "0-3: flat"), edge_cost(1, length, "8-10: hard"))
+
+    def test_short_edge_ignores_slope_class(self):
+        # Below MIN_RELIABLE_SLOPE_LENGTH_M the slope reading is DEM noise
+        # (see lts_rules.py's own reliability gate) - must not move cost.
+        short = MIN_RELIABLE_SLOPE_LENGTH_M - 1
+        self.assertEqual(edge_cost(1, short, "10-20: extreme"), edge_cost(1, short, None))
+
+    def test_unrecognized_slope_class_falls_back_to_neutral(self):
+        length = 600.0
+        self.assertEqual(edge_cost(1, length, "not-a-real-class"), edge_cost(1, length, None))
+
+    def test_every_fatigue_multiplier_is_at_least_one(self):
+        # web/routing.js's A* heuristic (_MIN_PENALTY) assumes fatigue can
+        # only make an edge MORE expensive, never cheaper - a value < 1.0
+        # here would silently break heuristic admissibility client-side.
+        for multiplier in FATIGUE_PENALTY.values():
+            self.assertGreaterEqual(multiplier, 1.0)
 
 
 if __name__ == "__main__":

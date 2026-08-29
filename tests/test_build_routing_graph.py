@@ -14,7 +14,7 @@ try:
     from shapely.geometry import LineString
 
     from ltsbikeplan.domain.crs import WORKING_CRS
-    from build_routing_graph import build_routing_graph, encode_routing_graph_binary
+    from build_routing_graph import UNKNOWN_SLOPE_CLASS_CODE, build_routing_graph, encode_routing_graph_binary
 
     GEO_DEPS_AVAILABLE = True
 except ImportError:  # pragma: no cover - geo deps optional in this env
@@ -48,6 +48,13 @@ def _edges_gdf():
             "highway": ["residential", "cycleway", "track", "residential", "motorway"],
             "rule": [None, None, None, None, None],
             "name": ["Via Roma", "Via Roma", float("nan"), "Via Garibaldi", "Autostrada Test"],
+            # edge0 flat, edge1 steep (the two that survive with a real
+            # slope_class - covers both a recognized code and the "0" code
+            # not being confused with "unknown"), edge2 NaN (the "no
+            # reliable slope reading" case - must NOT be coerced to flat).
+            # edge3/edge4 are dropped anyway (NaN length / LTS 0), values
+            # here are irrelevant.
+            "slope_class": ["0-3: flat", "8-10: hard", float("nan"), "5-8: medium", "10-20: extreme"],
             "geometry": [
                 LineString([(4300000, 2300000), (4300100, 2300000)]),
                 LineString([(4300100, 2300000), (4300200, 2300000)]),
@@ -86,10 +93,29 @@ class TestBuildRoutingGraph(unittest.TestCase):
             set(result.keys()), {"istat", "slug", "generated_at", "nodes", "node_osm_ids", "names", "edges"}
         )
 
-    def test_edge_tuple_has_six_elements(self):
+    def test_edge_tuple_has_seven_elements(self):
         result = build_routing_graph(_edges_gdf(), _nodes_df(), "testcomune")
         for edge in result["edges"]:
-            self.assertEqual(len(edge), 6)
+            self.assertEqual(len(edge), 7)
+
+    def test_slope_class_coded_per_edge(self):
+        # edge0 (10,20,0): "0-3: flat" -> code 0
+        # edge1 (20,30,0): "8-10: hard" -> code 3
+        # edge2 (30,40,0): NaN -> UNKNOWN_SLOPE_CLASS_CODE, NOT code 0 -
+        # missing data must not be silently treated as "flat".
+        result = build_routing_graph(_edges_gdf(), _nodes_df(), "testcomune")
+        self.assertEqual(result["edges"][0][6], 0)
+        self.assertEqual(result["edges"][1][6], 3)
+        self.assertEqual(result["edges"][2][6], UNKNOWN_SLOPE_CLASS_CODE)
+
+    def test_missing_slope_class_column_defaults_to_unknown(self):
+        # An older/partial `_all_lts.parquet` without a slope_class column
+        # at all must not crash - every edge falls back to "unknown", same
+        # as an explicit NaN.
+        edges_gdf = _edges_gdf().drop(columns=["slope_class"])
+        result = build_routing_graph(edges_gdf, _nodes_df(), "testcomune")
+        for edge in result["edges"]:
+            self.assertEqual(edge[6], UNKNOWN_SLOPE_CLASS_CODE)
 
     def test_facility_code_per_highway_type(self):
         result = build_routing_graph(_edges_gdf(), _nodes_df(), "testcomune")
@@ -216,13 +242,14 @@ def _decode_binary_pure_python(blob: bytes) -> dict:
     edge_name_idx = read("i", ec, 4)
     edge_lts = read("B", ec, 1)
     edge_facility = read("B", ec, 1)
+    edge_slope_class = read("B", ec, 1)
 
     return {
         "slug": header["slug"],
         "names": header["names"],
         "nodes": list(zip(node_lons, node_lats)),
         "node_osm_ids": list(node_osm_ids),
-        "edges": list(zip(edge_u, edge_v, edge_lts, edge_length, edge_facility, edge_name_idx)),
+        "edges": list(zip(edge_u, edge_v, edge_lts, edge_length, edge_facility, edge_name_idx, edge_slope_class)),
     }
 
 
@@ -243,9 +270,12 @@ class TestEncodeRoutingGraphBinary(unittest.TestCase):
             self.assertAlmostEqual(dec_lon, src_lon, places=5)
             self.assertAlmostEqual(dec_lat, src_lat, places=5)
         for dec_edge, src_edge in zip(decoded["edges"], result["edges"]):
-            dec_u, dec_v, dec_lts, dec_len, dec_fac, dec_name_idx = dec_edge
-            src_u, src_v, src_lts, src_len, src_fac, src_name_idx = src_edge
-            self.assertEqual((dec_u, dec_v, dec_lts, dec_fac, dec_name_idx), (src_u, src_v, src_lts, src_fac, src_name_idx))
+            dec_u, dec_v, dec_lts, dec_len, dec_fac, dec_name_idx, dec_slope = dec_edge
+            src_u, src_v, src_lts, src_len, src_fac, src_name_idx, src_slope = src_edge
+            self.assertEqual(
+                (dec_u, dec_v, dec_lts, dec_fac, dec_name_idx, dec_slope),
+                (src_u, src_v, src_lts, src_fac, src_name_idx, src_slope),
+            )
             self.assertAlmostEqual(dec_len, src_len, places=1)
 
     def test_empty_graph_encodes_and_decodes_without_error(self):

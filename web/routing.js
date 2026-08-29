@@ -24,15 +24,42 @@
 // when 0 silently fell back to the LTS-4 rate here too).
 const LTS_PENALTY = { 1: 1.0, 2: 1.3, 3: 2.5, 4: 6.0 };
 
-function edgeCost(lts, lengthM) {
-  return lengthM * (LTS_PENALTY[lts] ?? LTS_PENALTY[4]);
+// Mirrors domain/routing_cost.py's FATIGUE_PENALTY exactly - see that
+// table's own comment for why this is a SEPARATE multiplier from
+// LTS_PENALTY (stress vs physical effort are different axes; without
+// this, two same-LTS streets - one flat, one with a long climb too mild
+// to bump the LTS class - cost identically) and why it's symmetric
+// (unsigned slope magnitude, can't tell uphill from downhill). Indexed by
+// scripts/build_routing_graph.py's slope_class_code (0=flat..5=impossible);
+// code 255 (UNKNOWN_SLOPE_CLASS_CODE, no reliable reading) never indexes
+// into this array, see edgeCost below.
+const FATIGUE_PENALTY = [1.0, 1.05, 1.2, 1.5, 2.0, 2.0];
+const UNKNOWN_SLOPE_CLASS_CODE = 255;
+// Mirrors domain/routing_cost.py's MIN_RELIABLE_SLOPE_LENGTH_M - below
+// this length the DEM-derived slope reading is measurement noise, not a
+// real grade, so it must not move an edge's cost.
+const MIN_RELIABLE_SLOPE_LENGTH_M = 500;
+
+function edgeCost(lts, lengthM, slopeClassCode) {
+  const ltsMultiplier = LTS_PENALTY[lts] ?? LTS_PENALTY[4];
+  let fatigueMultiplier = 1.0;
+  if (
+    slopeClassCode !== undefined &&
+    slopeClassCode !== UNKNOWN_SLOPE_CLASS_CODE &&
+    lengthM >= MIN_RELIABLE_SLOPE_LENGTH_M
+  ) {
+    fatigueMultiplier = FATIGUE_PENALTY[slopeClassCode] ?? 1.0;
+  }
+  return lengthM * ltsMultiplier * fatigueMultiplier;
 }
 
 // The lowest possible penalty in the table (LTS 1) - scaling the
 // straight-line heuristic by this keeps A* admissible (it can never
 // overestimate the true remaining cost, since no real route is shorter
 // than a straight line, and no edge is ever cheaper per meter than the
-// lowest LTS class).
+// lowest LTS class). FATIGUE_PENALTY entries are all >= 1.0 (it only ever
+// makes an edge MORE expensive, never cheaper), so this bound stays valid
+// without folding fatigue into it too.
 const _MIN_PENALTY = Math.min(...Object.values(LTS_PENALTY));
 
 // Flat-earth approximation - fine at comune/adjacent-comune scale (a few
@@ -60,7 +87,8 @@ function approxMetersBetween(a, b) {
 //   [pad to next 8-byte boundary]
 //   [f32 x NC] node lon, [f32 x NC] node lat, [f64 x NC] node OSM id
 //   [u32 x EC] edge u_idx, [u32 x EC] edge v_idx, [f32 x EC] edge length_m,
-//   [i32 x EC] edge name_idx, [u8 x EC] edge lts, [u8 x EC] edge facility_code
+//   [i32 x EC] edge name_idx, [u8 x EC] edge lts, [u8 x EC] edge facility_code,
+//   [u8 x EC] edge slope_class_code (255 = unknown, see edgeCost)
 function decodeRoutingGraphBinary(buffer) {
   const view = new DataView(buffer);
   const headerLen = view.getUint32(0, true);
@@ -81,13 +109,27 @@ function decodeRoutingGraphBinary(buffer) {
   const edgeNameIdx = new Int32Array(buffer, offset, edgeCount); offset += edgeCount * 4;
   const edgeLts = new Uint8Array(buffer, offset, edgeCount); offset += edgeCount;
   const edgeFacility = new Uint8Array(buffer, offset, edgeCount); offset += edgeCount;
+  // A .bin built by a build_routing_graph.py from before this field
+  // existed is edgeCount bytes SHORTER than a current one expects here -
+  // scripts/build_italy_map_comuni_cron.sh regenerates one comune at a
+  // time, so an old file can still be served well after this code ships.
+  // Falling back to an all-UNKNOWN_SLOPE_CLASS_CODE array (rather than
+  // letting the out-of-bounds Uint8Array construction throw) keeps such a
+  // comune routable in the meantime - same "soft preference, degrades
+  // gracefully" spirit as the rest of this module - at the cost of no
+  // fatigue penalty for it until its own regeneration lands.
+  const hasSlopeClass = buffer.byteLength - offset >= edgeCount;
+  const edgeSlopeClass = hasSlopeClass
+    ? new Uint8Array(buffer, offset, edgeCount)
+    : new Uint8Array(edgeCount).fill(UNKNOWN_SLOPE_CLASS_CODE);
+  if (hasSlopeClass) offset += edgeCount;
 
   return {
     slug: header.slug,
     names: header.names,
     nodeCount, edgeCount,
     nodeLons, nodeLats, nodeOsmIds,
-    edgeU, edgeV, edgeLength, edgeNameIdx, edgeLts, edgeFacility,
+    edgeU, edgeV, edgeLength, edgeNameIdx, edgeLts, edgeFacility, edgeSlopeClass,
   };
 }
 
@@ -124,7 +166,7 @@ function mergeRoutingGraphs(routingFiles) {
   const coordByOsmId = new Map();
 
   for (const file of routingFiles) {
-    const { nodeCount, edgeCount, nodeLons, nodeLats, nodeOsmIds, edgeU, edgeV, edgeLength, edgeNameIdx, edgeLts, edgeFacility, names, slug } = file;
+    const { nodeCount, edgeCount, nodeLons, nodeLats, nodeOsmIds, edgeU, edgeV, edgeLength, edgeNameIdx, edgeLts, edgeFacility, edgeSlopeClass, names, slug } = file;
     for (let i = 0; i < nodeCount; i++) {
       const osmId = nodeOsmIds[i];
       const coord = [nodeLons[i], nodeLats[i]];
@@ -152,7 +194,7 @@ function mergeRoutingGraphs(routingFiles) {
       const name = nameIdx >= 0 ? names[nameIdx] : null;
       graph.addLink(
         nodeOsmIds[edgeU[i]], nodeOsmIds[edgeV[i]],
-        { lts: edgeLts[i], lengthM: edgeLength[i], facilityCode: edgeFacility[i], name, comuneSlug: slug },
+        { lts: edgeLts[i], lengthM: edgeLength[i], facilityCode: edgeFacility[i], slopeClass: edgeSlopeClass[i], name, comuneSlug: slug },
       );
     }
   }
@@ -171,7 +213,7 @@ function _bestLinkBetween(graph, fromId, toId) {
   let best = null;
   let bestCost = Infinity;
   const consider = (link) => {
-    const cost = edgeCost(link.data.lts, link.data.lengthM);
+    const cost = edgeCost(link.data.lts, link.data.lengthM, link.data.slopeClass);
     if (cost < bestCost) {
       bestCost = cost;
       best = link;
@@ -286,7 +328,7 @@ function findRoute(startLngLat, endLngLat, mergedGraph, coordByOsmId) {
 
   const pathFinder = ngraphPath.aStar(mergedGraph, {
     heuristic: (fromNode, toNode) => approxMetersBetween(fromNode.data, toNode.data) * _MIN_PENALTY,
-    distance: (fromNode, toNode, link) => edgeCost(link.data.lts, link.data.lengthM),
+    distance: (fromNode, toNode, link) => edgeCost(link.data.lts, link.data.lengthM, link.data.slopeClass),
   });
 
   const found = pathFinder.find(startId, endId);
