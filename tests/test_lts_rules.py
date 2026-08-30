@@ -149,6 +149,115 @@ class TestLtsRules(unittest.TestCase):
         self.assertEqual(len(allowed), 1)
         self.assertEqual(len(not_allowed), 0)
 
+    def test_mixed_traffic_tertiary_without_ref_treated_as_residential(self):
+        # The actual bug this fixes: Trento's real "Strada Imperiale" -
+        # tertiary, maxspeed 50, 2 lanes, no ref - is a quiet hillside
+        # connector, not a classified through-road. It must land on m9
+        # (LTS2), same as an identical residential street, not m10 (LTS3).
+        edges = pd.DataFrame(
+            {
+                "highway": ["tertiary"],
+                "maxspeed": [50],
+                "lanes": [2],
+                "oneway": [False],
+                "ref": [None],
+                "zone:maxspeed": [None],
+                "service": [None],
+            }
+        )
+        result = BikePathAnalysis.mixed_traffic(edges)
+        self.assertEqual(result.iloc[0]["rule"], "m9")
+        self.assertEqual(int(result.iloc[0]["lts"]), 2)
+
+    def test_mixed_traffic_tertiary_with_ref_stays_strict(self):
+        # Same highway/speed/lanes as above, but WITH a real route number -
+        # a genuinely classified road, must keep the stricter m10 (LTS3).
+        edges = pd.DataFrame(
+            {
+                "highway": ["tertiary"],
+                "maxspeed": [50],
+                "lanes": [2],
+                "oneway": [False],
+                "ref": ["SP17"],
+                "zone:maxspeed": [None],
+                "service": [None],
+            }
+        )
+        result = BikePathAnalysis.mixed_traffic(edges)
+        self.assertEqual(result.iloc[0]["rule"], "m10")
+        self.assertEqual(int(result.iloc[0]["lts"]), 3)
+
+    def test_mixed_traffic_primary_without_ref_stays_strict(self):
+        # The confirmed counter-case (Bolzano's SS12/SS508): `primary` is
+        # deliberately NOT in the ref-leniency set - even a `primary` way
+        # missing its `ref` (real gaps happen) must not be softened to
+        # residential-equivalent, unlike tertiary/unclassified/service.
+        edges = pd.DataFrame(
+            {
+                "highway": ["primary"],
+                "maxspeed": [50],
+                "lanes": [2],
+                "oneway": [False],
+                "ref": [None],
+                "zone:maxspeed": [None],
+                "service": [None],
+            }
+        )
+        result = BikePathAnalysis.mixed_traffic(edges)
+        self.assertEqual(result.iloc[0]["rule"], "m10")
+        self.assertEqual(int(result.iloc[0]["lts"]), 3)
+
+    def test_mixed_traffic_without_ref_column_at_all(self):
+        # An area whose extract has zero `ref` tags anywhere never
+        # materializes the column (same pyrosm behaviour as any other
+        # optional tag) - must not KeyError, and must behave the same as
+        # an explicit ref=None (leniency still applies).
+        edges = pd.DataFrame(
+            {
+                "highway": ["tertiary"],
+                "maxspeed": [50],
+                "lanes": [2],
+                "oneway": [False],
+                "zone:maxspeed": [None],
+                "service": [None],
+            }
+        )
+        result = BikePathAnalysis.mixed_traffic(edges)
+        self.assertEqual(result.iloc[0]["rule"], "m9")
+
+    def test_mixed_traffic_unclassified_and_service_also_get_ref_leniency(self):
+        edges = pd.DataFrame(
+            {
+                "highway": ["unclassified", "service"],
+                "maxspeed": [50, 50],
+                "lanes": [2, 2],
+                "oneway": [False, False],
+                "ref": [None, None],
+                "zone:maxspeed": [None, None],
+                "service": [None, None],
+            }
+        )
+        result = BikePathAnalysis.mixed_traffic(edges)
+        self.assertEqual(list(result["rule"]), ["m9", "m9"])
+
+    def test_mixed_traffic_blank_ref_string_treated_as_no_ref(self):
+        # A real case in noisy OSM data: ref present as an empty/whitespace
+        # string rather than genuinely absent - must not count as "has a
+        # real route number".
+        edges = pd.DataFrame(
+            {
+                "highway": ["tertiary"],
+                "maxspeed": [50],
+                "lanes": [2],
+                "oneway": [False],
+                "ref": ["  "],
+                "zone:maxspeed": [None],
+                "service": [None],
+            }
+        )
+        result = BikePathAnalysis.mixed_traffic(edges)
+        self.assertEqual(result.iloc[0]["rule"], "m9")
+
     def test_hard_sac_scale_path_is_reclassified_as_impassable(self):
         edges = pd.DataFrame(
             {

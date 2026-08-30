@@ -192,6 +192,7 @@ def run_compute_lts(data_dir: str, area: AreaSpec, include_report_exports: bool 
         "osmid",
         "lanes",
         "name",
+        "ref",
         "highway",
         "maxspeed",
         "geometry",

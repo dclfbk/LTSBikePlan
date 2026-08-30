@@ -33,6 +33,17 @@ EXTRA_NETWORK_ATTRIBUTES = [
     "motorroad",
     "sac_scale",
     "zone:maxspeed",
+    # A real state/provincial/regional road (SS/SP/SR in Italy, similar
+    # conventions elsewhere) reliably carries a `ref` regardless of its
+    # `highway` tag - domain/lts_rules.py::mixed_traffic uses this to tell
+    # a genuinely classified through-road apart from a `tertiary`/
+    # `unclassified`/`service` way that's really just a quiet local
+    # connector (common in Italian OSM tagging practice for rural access
+    # roads - `highway` alone doesn't reliably distinguish the two, but a
+    # missing `ref` does: confirmed on a real case, Trento's "Strada
+    # Imperiale" - tagged tertiary, no ref, genuinely quiet - versus a
+    # real SS/SP through-road at the same nominal speed/lane count).
+    "ref",
 ]
 
 # Columns BikePathAnalysis reads unconditionally (would KeyError, not just
@@ -85,6 +96,14 @@ REQUIRED_EDGE_COLUMNS = [
     # bicycle route relations, crashing the parquet/geojson export with
     # KeyError: 'name'.
     "name",
+    # Same reasoning as "name" above - compute_lts.py's export_columns
+    # also selects "ref" unconditionally now (domain/lts_rules.py::
+    # mixed_traffic reads it to tell a real classified road apart from a
+    # tertiary/unclassified/service way with no route number - see
+    # EXTRA_NETWORK_ATTRIBUTES' own comment). A comune with no numbered
+    # road anywhere in its extract would otherwise crash the export with
+    # KeyError: 'ref', the same class of bug "name" above already fixed.
+    "ref",
 ]
 
 

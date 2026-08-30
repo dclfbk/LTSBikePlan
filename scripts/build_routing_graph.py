@@ -94,6 +94,127 @@ def slope_class_code(value) -> int:
     return _SLOPE_CLASS_CODE.get(str(value), UNKNOWN_SLOPE_CLASS_CODE)
 
 
+# Upper bound (meters) of each bucket - "how long is the named street's
+# run at this exact LTS class" (see _compute_run_lengths/stress_run_code
+# below). Deliberately about STREET identity, not the specific route a
+# rider takes: a genuinely long, continuously busy corridor (e.g. a 3km
+# arterial that's LTS3 for its whole length) should cost more to be on
+# than a short LTS3 connector of the same class, even though today's
+# length-linear cost treats every LTS3 meter identically regardless of
+# how many consecutive meters of it there are. This is a proxy, not a
+# per-route measurement (see routing_cost.py's STRESS_RUN_PENALTY for the
+# full reasoning, including why this is a road property computed once at
+# export time rather than something the pathfinder tracks per-path).
+_STRESS_RUN_BUCKET_MAX_M = [200, 500, 1500, 3000]
+
+
+def stress_run_code(run_length_m: float) -> int:
+    for code, upper_bound in enumerate(_STRESS_RUN_BUCKET_MAX_M):
+        if run_length_m < upper_bound:
+            return code
+    return len(_STRESS_RUN_BUCKET_MAX_M)
+
+
+def _compute_run_lengths(edges_gdf: gpd.GeoDataFrame, fallback_lts: int) -> dict:
+    """Maps (name, resolved_lts) -> total length (m) of every SURVIVING,
+    NAMED edge (same length-not-NaN / lts!=0 filter build_routing_graph
+    applies below) sharing that name and LTS class. Unnamed edges are
+    deliberately left OUT of this dict entirely, not grouped under a
+    shared `None` key - pandas' groupby(dropna=False) would otherwise
+    lump every unnamed edge of a given LTS class across the WHOLE comune
+    into one giant fake "run" (thousands of unrelated service roads/
+    driveways summed together), which is worse than not knowing at all.
+    Callers must fall back to an edge's own length when its name is
+    missing (see the main loop below) - stress_run_code buckets that
+    single-edge length the same as any other, so an unnamed edge just
+    never benefits from (or suffers from) run aggregation.
+
+    Grouping by (name, lts) rather than name alone: a street changing LTS
+    partway along it (e.g. parking appears/disappears) is treated as the
+    point where one "run" ends and another begins - matches the
+    granularity LTS is already displayed/reasoned about at everywhere
+    else in this codebase (web/app.js's buildRouteRuns groups the same way).
+
+    Approximate by construction, not just in the bucket-rounding sense:
+    OSM names repeat across genuinely different physical streets often
+    enough in Italy ("Via Roma" in nearly every comune) that two
+    unconnected fragments sharing a name can get summed together as if
+    they were one continuous run. Accepted as the cost of a cheap,
+    already-available-data proxy rather than a real graph traversal to
+    find actual contiguous chains through intersections.
+    """
+    lts_resolved = edges_gdf["lts"].where(edges_gdf["lts"].notna(), fallback_lts).astype(int)
+    name_key = edges_gdf["name"].apply(_first_if_list) if "name" in edges_gdf.columns else pd.Series(None, index=edges_gdf.index)
+    named = edges_gdf["length"].notna() & (lts_resolved != 0) & name_key.notna() & (name_key != "")
+
+    grouped = pd.DataFrame(
+        {"name": name_key[named], "lts": lts_resolved[named], "length": edges_gdf["length"][named]}
+    )
+    return grouped.groupby(["name", "lts"])["length"].sum().to_dict()
+
+
+# Mirrors domain/lts_rules.py's BikePathAnalysis's own
+# _MODERATE_SURFACE_VALUES/_SEVERE_SURFACE_VALUES sets exactly - keep in
+# sync with domain/routing_cost.py's SURFACE_FATIGUE_PENALTY, which is
+# keyed by these same raw OSM surface tag strings.
+_MODERATE_SURFACE_VALUES = {
+    "compacted",
+    "fine_gravel",
+    "gravel",
+    "sett",
+    "cobblestone",
+    "unhewn_cobblestone",
+    "woodchips",
+    "unpaved",
+}
+_SEVERE_SURFACE_VALUES = {
+    "ground",
+    "dirt",
+    "earth",
+    "sand",
+    "mud",
+    "grass",
+    "pebblestone",
+    "ice",
+    "snow",
+}
+
+
+def surface_class_code(surface) -> int:
+    """0=none (paved, or no/unrecognized surface tag), 1=moderate,
+    2=severe. See domain/routing_cost.py's SURFACE_FATIGUE_PENALTY for
+    why this is a separate axis from LTS/slope fatigue - a rough surface
+    is physical effort, not traffic stress, and today's LTS-class surface
+    bump (BikePathAnalysis.surface_penalty) is gated behind a >=500m-per-
+    edge threshold that silently zeroes out a real, long-in-aggregate but
+    finely-segmented rough stretch (confirmed on Trento's Passo Cimirlo:
+    1.29km of cobblestone spread across 40 edges, median 29m each, not
+    one of them individually reaching 500m).
+    """
+    if surface in _SEVERE_SURFACE_VALUES:
+        return 2
+    if surface in _MODERATE_SURFACE_VALUES:
+        return 1
+    return 0
+
+
+def is_pedestrian(highway) -> int:
+    """1 if this edge is a pedestrian street (OSM highway=pedestrian) -
+    domain/lts_rules.py's BikePathAnalysis.biking_permitted doesn't
+    exclude these (cycling is allowed on a pedestrian street unless
+    explicitly tagged bicycle=no, same as real-world traffic law), and
+    mixed_traffic scores them LTS 1 (m13) since there's no motor traffic
+    to be stressed by - but LTS only measures traffic STRESS, not the
+    physical fact that a cyclist shares that space with pedestrians and
+    can't ride at cruising speed there. web/app.js's time-estimate model
+    reads this to cap speed on such a segment, independent of `lts`
+    (comfortable) and `facility_code` (still counted as a plain "street"
+    for the road-type breakdown - this flag is purpose-built for the
+    speed cap only, not a new display category).
+    """
+    return 1 if highway == "pedestrian" else 0
+
+
 def _first_if_list(value):
     # `name` is occasionally list-valued in this project's OSM data, same
     # as `osmid` (see services/osm_pbf_service.py's own isinstance(..., list)
@@ -117,7 +238,8 @@ def build_routing_graph(edges_gdf: gpd.GeoDataFrame, nodes_df: pd.DataFrame, slu
           "node_osm_ids": [123456789, ...], # cross-file join key
           "names": ["Via Roma", ...],       # interned street names
           "edges": [[u_idx, v_idx, lts, length_m, facility_code, name_idx,
-                     slope_class_code], ...]
+                     slope_class_code, is_pedestrian, stress_run_code,
+                     surface_class_code], ...]
                                              # u_idx/v_idx are LOCAL to this
                                              # file's nodes; name_idx is
                                              # LOCAL to this file's names
@@ -128,6 +250,7 @@ def build_routing_graph(edges_gdf: gpd.GeoDataFrame, nodes_df: pd.DataFrame, slu
         }
     """
     node_xy = {int(osmid): (float(x), float(y)) for osmid, x, y in zip(nodes_df["osmid"], nodes_df["x"], nodes_df["y"])}
+    run_length_by_key = _compute_run_lengths(edges_gdf, _FALLBACK_LTS)
 
     nodes: list[list[float]] = []
     node_osm_ids: list[int] = []
@@ -165,7 +288,8 @@ def build_routing_graph(edges_gdf: gpd.GeoDataFrame, nodes_df: pd.DataFrame, slu
     has_rule = "rule" in edges_gdf.columns
     has_name = "name" in edges_gdf.columns
     has_slope_class = "slope_class" in edges_gdf.columns
-    for (u, v, _key), length, lts, highway, rule, name, slope_class in zip(
+    has_surface = "surface" in edges_gdf.columns
+    for (u, v, _key), length, lts, highway, rule, name, slope_class, surface in zip(
         edges_gdf.index,
         edges_gdf["length"],
         edges_gdf["lts"],
@@ -173,6 +297,7 @@ def build_routing_graph(edges_gdf: gpd.GeoDataFrame, nodes_df: pd.DataFrame, slu
         edges_gdf["rule"] if has_rule else [None] * len(edges_gdf),
         edges_gdf["name"] if has_name else [None] * len(edges_gdf),
         edges_gdf["slope_class"] if has_slope_class else [None] * len(edges_gdf),
+        edges_gdf["surface"] if has_surface else [None] * len(edges_gdf),
     ):
         if pd.isna(length):
             continue
@@ -195,6 +320,11 @@ def build_routing_graph(edges_gdf: gpd.GeoDataFrame, nodes_df: pd.DataFrame, slu
         if u_idx is None or v_idx is None:
             continue
         edge_lts = _FALLBACK_LTS if pd.isna(lts) else int(lts)
+        name_key = _first_if_list(name)
+        if pd.isna(name_key) or name_key == "":
+            run_length_m = float(length)  # unnamed - can't aggregate, see _compute_run_lengths
+        else:
+            run_length_m = run_length_by_key[(name_key, edge_lts)]
         edges.append(
             [
                 u_idx,
@@ -204,6 +334,9 @@ def build_routing_graph(edges_gdf: gpd.GeoDataFrame, nodes_df: pd.DataFrame, slu
                 facility_code(highway, rule),
                 name_index(name),
                 slope_class_code(slope_class),
+                is_pedestrian(highway),
+                stress_run_code(run_length_m),
+                surface_class_code(surface),
             ]
         )
 
@@ -257,9 +390,12 @@ def build_routing_graph(edges_gdf: gpd.GeoDataFrame, nodes_df: pd.DataFrame, slu
 #   [u8  x EC] edge lts
 #   [u8  x EC] edge facility_code
 #   [u8  x EC] edge slope_class_code (255 = unknown, see UNKNOWN_SLOPE_CLASS_CODE)
+#   [u8  x EC] edge is_pedestrian (1 = OSM highway=pedestrian, see is_pedestrian())
+#   [u8  x EC] edge stress_run_code (bucketed named-street run length, see stress_run_code())
+#   [u8  x EC] edge surface_class_code (0=none, 1=moderate, 2=severe, see surface_class_code())
 #
 # Field ORDER is load-bearing, not cosmetic: every multi-byte (4/8-byte)
-# field comes before the three single-byte ones at the end. Uint8Array
+# field comes before the six single-byte ones at the end. Uint8Array
 # construction has no alignment requirement at all, so putting all 1-byte
 # fields last means every section boundary in the whole body already
 # lands on a valid 4-byte (or 8-byte, for the f64 id array) boundary by
@@ -291,6 +427,9 @@ def encode_routing_graph_binary(result: dict) -> bytes:
     edge_lts = np.array([e[2] for e in edges], dtype="<u1")
     edge_facility = np.array([e[4] for e in edges], dtype="<u1")
     edge_slope_class = np.array([e[6] for e in edges], dtype="<u1")
+    edge_is_pedestrian = np.array([e[7] for e in edges], dtype="<u1")
+    edge_stress_run = np.array([e[8] for e in edges], dtype="<u1")
+    edge_surface_class = np.array([e[9] for e in edges], dtype="<u1")
 
     header_len_prefix = struct.pack("<I", len(header))
     body_start = len(header_len_prefix) + len(header)
@@ -309,6 +448,9 @@ def encode_routing_graph_binary(result: dict) -> bytes:
             edge_lts,
             edge_facility,
             edge_slope_class,
+            edge_is_pedestrian,
+            edge_stress_run,
+            edge_surface_class,
         )
     )
     return header_len_prefix + header + padding + body

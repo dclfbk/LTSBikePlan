@@ -14,7 +14,14 @@ try:
     from shapely.geometry import LineString
 
     from ltsbikeplan.domain.crs import WORKING_CRS
-    from build_routing_graph import UNKNOWN_SLOPE_CLASS_CODE, build_routing_graph, encode_routing_graph_binary
+    from build_routing_graph import (
+        UNKNOWN_SLOPE_CLASS_CODE,
+        build_routing_graph,
+        encode_routing_graph_binary,
+        is_pedestrian,
+        stress_run_code,
+        surface_class_code,
+    )
 
     GEO_DEPS_AVAILABLE = True
 except ImportError:  # pragma: no cover - geo deps optional in this env
@@ -93,10 +100,154 @@ class TestBuildRoutingGraph(unittest.TestCase):
             set(result.keys()), {"istat", "slug", "generated_at", "nodes", "node_osm_ids", "names", "edges"}
         )
 
-    def test_edge_tuple_has_seven_elements(self):
+    def test_edge_tuple_has_ten_elements(self):
         result = build_routing_graph(_edges_gdf(), _nodes_df(), "testcomune")
         for edge in result["edges"]:
-            self.assertEqual(len(edge), 7)
+            self.assertEqual(len(edge), 10)
+
+    def test_surface_class_code_function(self):
+        self.assertEqual(surface_class_code("asphalt"), 0)
+        self.assertEqual(surface_class_code(None), 0)
+        self.assertEqual(surface_class_code("cobblestone"), 1)
+        self.assertEqual(surface_class_code("gravel"), 1)
+        self.assertEqual(surface_class_code("mud"), 2)
+        self.assertEqual(surface_class_code("ground"), 2)
+
+    def test_surface_class_coded_in_the_full_export(self):
+        # _edges_gdf() has no "surface" column at all - every surviving
+        # edge must default to 0 (no surface data, not a crash).
+        result = build_routing_graph(_edges_gdf(), _nodes_df(), "testcomune")
+        for edge in result["edges"]:
+            self.assertEqual(edge[9], 0)
+
+    def test_rough_surface_edge_coded_in_the_full_export(self):
+        index = pd.MultiIndex.from_tuples([(100, 200, 0), (300, 400, 0)], names=["u", "v", "key"])
+        edges_gdf = gpd.GeoDataFrame(
+            {
+                "length": [80.0, 80.0],
+                "lts": [1, 1],
+                "istat_code": ["022205"] * 2,
+                "highway": ["residential"] * 2,
+                "rule": [None] * 2,
+                "name": ["Via Cobblestone", "Via Mud"],
+                "surface": ["cobblestone", "mud"],
+                "geometry": [
+                    LineString([(4300000, 2300000), (4300080, 2300000)]),
+                    LineString([(4310000, 2300000), (4310080, 2300000)]),
+                ],
+            },
+            index=index,
+            crs=WORKING_CRS,
+        )
+        nodes_df = pd.DataFrame(
+            {"osmid": [100, 200, 300, 400], "x": [11.0, 11.001, 11.1, 11.101], "y": [46.0] * 4}
+        )
+        result = build_routing_graph(edges_gdf, nodes_df, "testcomune")
+        self.assertEqual(result["edges"][0][9], 1)
+        self.assertEqual(result["edges"][1][9], 2)
+
+    def test_stress_run_code_function(self):
+        self.assertEqual(stress_run_code(0.0), 0)
+        self.assertEqual(stress_run_code(199.9), 0)
+        self.assertEqual(stress_run_code(200.0), 1)
+        self.assertEqual(stress_run_code(499.9), 1)
+        self.assertEqual(stress_run_code(500.0), 2)
+        self.assertEqual(stress_run_code(1499.9), 2)
+        self.assertEqual(stress_run_code(1500.0), 3)
+        self.assertEqual(stress_run_code(2999.9), 3)
+        self.assertEqual(stress_run_code(3000.0), 4)
+        self.assertEqual(stress_run_code(50_000.0), 4)
+
+    def test_short_edges_on_a_shared_name_and_lts_are_summed_into_one_run(self):
+        # 5 edges of "Via Lunga", 400m each (2000m total, all LTS3) must
+        # each individually be coded by the TOTAL run length (bucket 3:
+        # 1500-3000m), not by their own 400m (which alone would be bucket 1).
+        nodes_seq = [10, 20, 30, 40, 50, 60]
+        index = pd.MultiIndex.from_tuples(
+            list(zip(nodes_seq[:-1], nodes_seq[1:], [0] * 5)), names=["u", "v", "key"]
+        )
+        edges_gdf = gpd.GeoDataFrame(
+            {
+                "length": [400.0] * 5,
+                "lts": [3] * 5,
+                "istat_code": ["022205"] * 5,
+                "highway": ["residential"] * 5,
+                "rule": [None] * 5,
+                "name": ["Via Lunga"] * 5,
+                "geometry": [LineString([(4300000 + i * 500, 2300000), (4300400 + i * 500, 2300000)]) for i in range(5)],
+            },
+            index=index,
+            crs=WORKING_CRS,
+        )
+        nodes_df = pd.DataFrame(
+            {"osmid": nodes_seq, "x": [11.0 + i * 0.001 for i in range(6)], "y": [46.0] * 6}
+        )
+        result = build_routing_graph(edges_gdf, nodes_df, "testcomune")
+        self.assertEqual(len(result["edges"]), 5)
+        for edge in result["edges"]:
+            self.assertEqual(edge[8], 3)
+
+    def test_two_unnamed_edges_are_not_summed_together(self):
+        # Two separate unnamed LTS3 edges (50m each) must NOT be treated
+        # as one 100m run - each is coded by its own length alone (bucket
+        # 0), the "can't aggregate without a name" fallback.
+        index = pd.MultiIndex.from_tuples([(100, 101, 0), (200, 201, 0)], names=["u", "v", "key"])
+        edges_gdf = gpd.GeoDataFrame(
+            {
+                "length": [50.0, 50.0],
+                "lts": [3, 3],
+                "istat_code": ["022205"] * 2,
+                "highway": ["residential"] * 2,
+                "rule": [None] * 2,
+                "name": [None, None],
+                "geometry": [
+                    LineString([(4300000, 2300000), (4300050, 2300000)]),
+                    LineString([(4310000, 2300000), (4310050, 2300000)]),
+                ],
+            },
+            index=index,
+            crs=WORKING_CRS,
+        )
+        nodes_df = pd.DataFrame({"osmid": [100, 101, 200, 201], "x": [11.0, 11.001, 11.1, 11.101], "y": [46.0] * 4})
+        result = build_routing_graph(edges_gdf, nodes_df, "testcomune")
+        for edge in result["edges"]:
+            self.assertEqual(edge[8], 0)
+
+    def test_is_pedestrian_coded_per_edge(self):
+        # None of _edges_gdf()'s surviving edges (residential/cycleway/
+        # track) are highway=pedestrian - all three must be 0.
+        result = build_routing_graph(_edges_gdf(), _nodes_df(), "testcomune")
+        for edge in result["edges"]:
+            self.assertEqual(edge[7], 0)
+
+    def test_is_pedestrian_function(self):
+        self.assertEqual(is_pedestrian("pedestrian"), 1)
+        self.assertEqual(is_pedestrian("residential"), 0)
+        self.assertEqual(is_pedestrian("footway"), 0)
+        self.assertEqual(is_pedestrian(None), 0)
+
+    def test_pedestrian_edge_coded_one_in_the_full_export(self):
+        # A real highway=pedestrian edge (still LTS-classified as 1, low
+        # stress from mixed_traffic's m13 rule - see is_pedestrian's own
+        # docstring on why that's not the same thing as "not slower") must
+        # come out coded 1 at the edge tuple's is_pedestrian position.
+        index = pd.MultiIndex.from_tuples([(100, 200, 0)], names=["u", "v", "key"])
+        edges_gdf = gpd.GeoDataFrame(
+            {
+                "length": [80.0],
+                "lts": [1],
+                "istat_code": ["022205"],
+                "highway": ["pedestrian"],
+                "rule": [None],
+                "name": ["Piazza Duomo"],
+                "geometry": [LineString([(4300000, 2300000), (4300080, 2300000)])],
+            },
+            index=index,
+            crs=WORKING_CRS,
+        )
+        nodes_df = pd.DataFrame({"osmid": [100, 200], "x": [11.0, 11.001], "y": [46.0, 46.001]})
+        result = build_routing_graph(edges_gdf, nodes_df, "testcomune")
+        self.assertEqual(result["edges"][0][7], 1)
 
     def test_slope_class_coded_per_edge(self):
         # edge0 (10,20,0): "0-3: flat" -> code 0
@@ -243,13 +394,29 @@ def _decode_binary_pure_python(blob: bytes) -> dict:
     edge_lts = read("B", ec, 1)
     edge_facility = read("B", ec, 1)
     edge_slope_class = read("B", ec, 1)
+    edge_is_pedestrian = read("B", ec, 1)
+    edge_stress_run = read("B", ec, 1)
+    edge_surface_class = read("B", ec, 1)
 
     return {
         "slug": header["slug"],
         "names": header["names"],
         "nodes": list(zip(node_lons, node_lats)),
         "node_osm_ids": list(node_osm_ids),
-        "edges": list(zip(edge_u, edge_v, edge_lts, edge_length, edge_facility, edge_name_idx, edge_slope_class)),
+        "edges": list(
+            zip(
+                edge_u,
+                edge_v,
+                edge_lts,
+                edge_length,
+                edge_facility,
+                edge_name_idx,
+                edge_slope_class,
+                edge_is_pedestrian,
+                edge_stress_run,
+                edge_surface_class,
+            )
+        ),
     }
 
 
@@ -270,11 +437,11 @@ class TestEncodeRoutingGraphBinary(unittest.TestCase):
             self.assertAlmostEqual(dec_lon, src_lon, places=5)
             self.assertAlmostEqual(dec_lat, src_lat, places=5)
         for dec_edge, src_edge in zip(decoded["edges"], result["edges"]):
-            dec_u, dec_v, dec_lts, dec_len, dec_fac, dec_name_idx, dec_slope = dec_edge
-            src_u, src_v, src_lts, src_len, src_fac, src_name_idx, src_slope = src_edge
+            dec_u, dec_v, dec_lts, dec_len, dec_fac, dec_name_idx, dec_slope, dec_ped, dec_run, dec_surf = dec_edge
+            src_u, src_v, src_lts, src_len, src_fac, src_name_idx, src_slope, src_ped, src_run, src_surf = src_edge
             self.assertEqual(
-                (dec_u, dec_v, dec_lts, dec_fac, dec_name_idx, dec_slope),
-                (src_u, src_v, src_lts, src_fac, src_name_idx, src_slope),
+                (dec_u, dec_v, dec_lts, dec_fac, dec_name_idx, dec_slope, dec_ped, dec_run, dec_surf),
+                (src_u, src_v, src_lts, src_fac, src_name_idx, src_slope, src_ped, src_run, src_surf),
             )
             self.assertAlmostEqual(dec_len, src_len, places=1)
 

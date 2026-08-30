@@ -31,7 +31,7 @@ Journal of Urban Technology, 1-42. https://doi.org/10.1080/10630732.2026.2639290
 | Core libs | `numpy`, `pandas`, `requests` |
 | Geo/network | `geopandas`, `osmnx`, `shapely`, `networkx`, `folium`, `rasterio` |
 | ML/analysis | `scikit-learn`, `matplotlib` |
-| Optional | `rpy2`, `richdem` |
+| Optional | `rpy2` (legacy "v1" slope strategy only) |
 | Testing | `unittest` |
 | CI | GitHub Actions |
 
@@ -82,7 +82,7 @@ For geospatial/full pipeline modules:
 pip install -r requirements-geo.lock.txt
 pip install -e .
 ```
-Deliberately `pip install -e .` here, not `pip install -e .[geo]`: the `geo` extra in `pyproject.toml` also lists `richdem` (the default "v3" slope strategy's preferred backend), which fails to *build* from source against modern CPython and separately forces a `numpy<2` downgrade that conflicts with the rest of this lock file - `pip install -e .[geo]` reliably fails on a clean install because of it. `requirements-geo.lock.txt` above already covers everything actually needed; `services/slope_service.py` falls back automatically (v3 → v2/GDAL → rasterio-simple) when richdem isn't importable, so skipping it doesn't lose functionality. Only install `richdem` by hand, into its own environment, if you specifically need that exact strategy.
+`pip install -e .` here (not `.[geo]`) just to install this package itself without pip re-resolving the `geo` extra's version ranges against the exact pins already installed from the lock file above; `richdem` isn't part of that extra any more (see `requirements-geo.lock.txt`'s own comment: `services/slope_strategies.py`'s slope computation no longer uses it, or GDAL, at all - point-sampling the DEM directly needs nothing beyond `rasterio`).
 
 ### Environment Variables
 - `LTSBP_DEM_PATH` - Path to a local DEM `.tif` file, used by `fetch` instead of the automatic Mapterhorn download (see below).

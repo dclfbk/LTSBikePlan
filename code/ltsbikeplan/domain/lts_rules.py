@@ -480,6 +480,32 @@ class BikePathAnalysis:
         conditions = []
         values = []
 
+        # A real state/provincial/regional road (Italy: SS/SP/SR, similar
+        # conventions elsewhere) reliably carries a `ref`, regardless of
+        # its `highway` tag - but `highway=tertiary`/`unclassified`/
+        # `service` is also routinely used in Italian OSM mapping practice
+        # for a quiet local connector that's functionally no different
+        # from a `residential` street (same real traffic, same speed/lane
+        # count), just tagged one notch up by convention. Below, only
+        # THESE three highway values get the ref-based leniency - not
+        # every non-residential class - because the confirmed real case
+        # this fixes (Trento's "Strada Imperiale"/Civezzano's "Strada alla
+        # Fersina": tertiary, no ref, genuinely a quiet hillside road) and
+        # its confirmed counter-case (Bolzano's "Strada Statale
+        # dell'Abetone e del Brennero"/"Via Sarentino": primary and
+        # unclassified segments of the SAME real state highways, WITH a
+        # ref) are both in this set. `primary`/`secondary`/`trunk` are
+        # deliberately excluded - those functional classes reliably mean a
+        # real through-road even on the rare way that's missing its `ref`.
+        has_ref = (
+            gdf_edges["ref"].notna() & (gdf_edges["ref"].astype(str).str.strip() != "")
+            if "ref" in gdf_edges.columns
+            else pd.Series(False, index=gdf_edges.index)
+        )
+        residential_equivalent = (gdf_edges["highway"] == "residential") | (
+            gdf_edges["highway"].isin(["tertiary", "unclassified", "service"]) & ~has_ref
+        )
+
         if "motor_vehicle" in gdf_edges.columns:
             conditions.append(gdf_edges["motor_vehicle"] == "no")
             values.append("m17")
@@ -503,11 +529,11 @@ class BikePathAnalysis:
             (gdf_edges["maxspeed_assumed"] <= 50) & (gdf_edges["highway"] == "service") & (gdf_edges["service"] == "parking_aisle"),
             (gdf_edges["maxspeed_assumed"] <= 50) & (gdf_edges["highway"] == "service") & (gdf_edges["service"] == "driveway"),
             (gdf_edges["maxspeed_assumed"] <= 35) & (gdf_edges["highway"] == "service"),
-            (gdf_edges["maxspeed_assumed"] <= 40) & (gdf_edges["lanes_assumed"] <= 3) & (gdf_edges["highway"] == "residential"),
+            (gdf_edges["maxspeed_assumed"] <= 40) & (gdf_edges["lanes_assumed"] <= 3) & residential_equivalent,
             (gdf_edges["maxspeed_assumed"] <= 40) & (gdf_edges["lanes_assumed"] <= 3),
             (gdf_edges["maxspeed_assumed"] <= 40) & (gdf_edges["lanes_assumed"] <= 5),
             (gdf_edges["maxspeed_assumed"] <= 40) & (gdf_edges["lanes_assumed"] > 5),
-            (gdf_edges["maxspeed_assumed"] <= 50) & (gdf_edges["lanes_assumed"] < 3) & (gdf_edges["highway"] == "residential"),
+            (gdf_edges["maxspeed_assumed"] <= 50) & (gdf_edges["lanes_assumed"] < 3) & residential_equivalent,
             (gdf_edges["maxspeed_assumed"] <= 50) & (gdf_edges["lanes_assumed"] <= 3),
             (gdf_edges["maxspeed_assumed"] <= 50) & (gdf_edges["lanes_assumed"] > 3),
             (gdf_edges["maxspeed_assumed"] > 50),

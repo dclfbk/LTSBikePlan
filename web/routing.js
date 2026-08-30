@@ -22,7 +22,14 @@
 // fallback below is only a defensive last resort, not a real routing
 // choice (see the Python module's own comment for the bug this used to be
 // when 0 silently fell back to the LTS-4 rate here too).
-const LTS_PENALTY = { 1: 1.0, 2: 1.3, 3: 2.5, 4: 6.0 };
+//
+// The gaps between classes (previously 1.0/1.3/2.5/6.0) were narrowed
+// after a real-world mismatch, validated on two independent real routes
+// against Valhalla's/OSRM's actual bicycle routing - see
+// domain/routing_cost.py's own LTS_PENALTY comment for the full story.
+// Narrowing this AND raising FATIGUE_PENALTY below together was what
+// actually matched real routers' choices; neither alone was enough.
+const LTS_PENALTY = { 1: 1.0, 2: 1.2, 3: 1.6, 4: 3.0 };
 
 // Mirrors domain/routing_cost.py's FATIGUE_PENALTY exactly - see that
 // table's own comment for why this is a SEPARATE multiplier from
@@ -32,34 +39,61 @@ const LTS_PENALTY = { 1: 1.0, 2: 1.3, 3: 2.5, 4: 6.0 };
 // (unsigned slope magnitude, can't tell uphill from downhill). Indexed by
 // scripts/build_routing_graph.py's slope_class_code (0=flat..5=impossible);
 // code 255 (UNKNOWN_SLOPE_CLASS_CODE, no reliable reading) never indexes
-// into this array, see edgeCost below.
-const FATIGUE_PENALTY = [1.0, 1.05, 1.2, 1.5, 2.0, 2.0];
+// into this array, see edgeCost below. Raised alongside LTS_PENALTY's own
+// narrowing above (previously 1.0/1.05/1.2/1.5/2.0/2.0) - validated
+// together, not independently (see LTS_PENALTY's comment).
+const FATIGUE_PENALTY = [1.0, 1.1, 1.6, 2.5, 4.0, 4.0];
 const UNKNOWN_SLOPE_CLASS_CODE = 255;
-// Mirrors domain/routing_cost.py's MIN_RELIABLE_SLOPE_LENGTH_M - below
-// this length the DEM-derived slope reading is measurement noise, not a
-// real grade, so it must not move an edge's cost.
-const MIN_RELIABLE_SLOPE_LENGTH_M = 500;
 
-function edgeCost(lts, lengthM, slopeClassCode) {
+// NOTE - deliberately does NOT gate this on edge length (an earlier
+// version required lengthM >= 500, mirroring lts_rules.py's own DEM-noise
+// threshold for its LTS-class bump). That was wrong here: checked against
+// a real steep road (Trento's Passo Cimirlo, ~500 edges), EVERY edge was
+// under 500m (median ~11m - mountain roads get chopped into many short
+// segments per curve), so the length gate silently zeroed out the fatigue
+// penalty for the entire climb. See domain/routing_cost.py's edge_cost
+// for the full reasoning on why a length gate is the wrong call for a
+// continuous, length-scaled cost (unlike lts_rules.py's discrete class
+// bump) - a wrongly-classified short edge can only ever miscount total
+// path cost by a few meters, self-limiting in a way a class jump isn't.
+
+// Mirrors domain/routing_cost.py's STRESS_RUN_PENALTY exactly - see that
+// table's own comment for the full reasoning (a third, independent axis:
+// how LONG a continuously-stressful named street is, not just how
+// stressful or how tiring). Indexed by scripts/build_routing_graph.py's
+// stress_run_code (0 = under 200m ... 4 = over 3000m). Only applied when
+// lts >= 2 - a long QUIET street is the whole point of this router, not
+// something to penalize.
+const STRESS_RUN_PENALTY = [1.0, 1.0, 1.15, 1.35, 1.6];
+
+// Mirrors domain/routing_cost.py's SURFACE_FATIGUE_PENALTY exactly - a
+// fourth, independent axis: surface roughness is physical effort, not
+// traffic stress, same reasoning as FATIGUE_PENALTY above. Indexed by
+// scripts/build_routing_graph.py's surface_class_code (0=none/paved,
+// 1=moderate, 2=severe).
+const SURFACE_FATIGUE_PENALTY = [1.0, 1.3, 1.8];
+
+function edgeCost(lts, lengthM, slopeClassCode, stressRunCode, surfaceClassCode) {
   const ltsMultiplier = LTS_PENALTY[lts] ?? LTS_PENALTY[4];
-  let fatigueMultiplier = 1.0;
-  if (
-    slopeClassCode !== undefined &&
-    slopeClassCode !== UNKNOWN_SLOPE_CLASS_CODE &&
-    lengthM >= MIN_RELIABLE_SLOPE_LENGTH_M
-  ) {
-    fatigueMultiplier = FATIGUE_PENALTY[slopeClassCode] ?? 1.0;
-  }
-  return lengthM * ltsMultiplier * fatigueMultiplier;
+  const fatigueMultiplier =
+    slopeClassCode !== undefined && slopeClassCode !== UNKNOWN_SLOPE_CLASS_CODE
+      ? FATIGUE_PENALTY[slopeClassCode] ?? 1.0
+      : 1.0;
+  const stressRunMultiplier =
+    stressRunCode !== undefined && lts >= 2 ? STRESS_RUN_PENALTY[stressRunCode] ?? 1.0 : 1.0;
+  const surfaceFatigueMultiplier =
+    surfaceClassCode !== undefined ? SURFACE_FATIGUE_PENALTY[surfaceClassCode] ?? 1.0 : 1.0;
+  return lengthM * ltsMultiplier * fatigueMultiplier * stressRunMultiplier * surfaceFatigueMultiplier;
 }
 
 // The lowest possible penalty in the table (LTS 1) - scaling the
 // straight-line heuristic by this keeps A* admissible (it can never
 // overestimate the true remaining cost, since no real route is shorter
 // than a straight line, and no edge is ever cheaper per meter than the
-// lowest LTS class). FATIGUE_PENALTY entries are all >= 1.0 (it only ever
-// makes an edge MORE expensive, never cheaper), so this bound stays valid
-// without folding fatigue into it too.
+// lowest LTS class). FATIGUE_PENALTY, STRESS_RUN_PENALTY and
+// SURFACE_FATIGUE_PENALTY entries are all >= 1.0 (each only ever makes an
+// edge MORE expensive, never cheaper), so this bound stays valid without
+// folding any of them into it too.
 const _MIN_PENALTY = Math.min(...Object.values(LTS_PENALTY));
 
 // Flat-earth approximation - fine at comune/adjacent-comune scale (a few
@@ -88,7 +122,10 @@ function approxMetersBetween(a, b) {
 //   [f32 x NC] node lon, [f32 x NC] node lat, [f64 x NC] node OSM id
 //   [u32 x EC] edge u_idx, [u32 x EC] edge v_idx, [f32 x EC] edge length_m,
 //   [i32 x EC] edge name_idx, [u8 x EC] edge lts, [u8 x EC] edge facility_code,
-//   [u8 x EC] edge slope_class_code (255 = unknown, see edgeCost)
+//   [u8 x EC] edge slope_class_code (255 = unknown, see edgeCost),
+//   [u8 x EC] edge is_pedestrian (1 = OSM highway=pedestrian, see estimateRouteTimeMinutes),
+//   [u8 x EC] edge stress_run_code (bucketed named-street run length, see edgeCost),
+//   [u8 x EC] edge surface_class_code (0=none, 1=moderate, 2=severe, see edgeCost)
 function decodeRoutingGraphBinary(buffer) {
   const view = new DataView(buffer);
   const headerLen = view.getUint32(0, true);
@@ -124,12 +161,41 @@ function decodeRoutingGraphBinary(buffer) {
     : new Uint8Array(edgeCount).fill(UNKNOWN_SLOPE_CLASS_CODE);
   if (hasSlopeClass) offset += edgeCount;
 
+  // Same old-file tolerance as edgeSlopeClass above, one field younger -
+  // a .bin from before is_pedestrian existed is missing this trailing
+  // array too. Falling back to all-zero (not pedestrian) rather than
+  // throwing keeps such a comune routable with just no pedestrian-speed
+  // cap applied yet, not a broken decode.
+  const hasIsPedestrian = buffer.byteLength - offset >= edgeCount;
+  const edgeIsPedestrian = hasIsPedestrian
+    ? new Uint8Array(buffer, offset, edgeCount)
+    : new Uint8Array(edgeCount); // defaults to all zeros
+  if (hasIsPedestrian) offset += edgeCount;
+
+  // Same old-file tolerance again, one field younger still - falls back
+  // to code 0 (the shortest bucket, i.e. no stress-run penalty) rather
+  // than throwing.
+  const hasStressRun = buffer.byteLength - offset >= edgeCount;
+  const edgeStressRun = hasStressRun
+    ? new Uint8Array(buffer, offset, edgeCount)
+    : new Uint8Array(edgeCount); // defaults to all zeros (bucket 0)
+  if (hasStressRun) offset += edgeCount;
+
+  // Same old-file tolerance again, one field younger still - falls back
+  // to code 0 (no surface penalty) rather than throwing.
+  const hasSurfaceClass = buffer.byteLength - offset >= edgeCount;
+  const edgeSurfaceClass = hasSurfaceClass
+    ? new Uint8Array(buffer, offset, edgeCount)
+    : new Uint8Array(edgeCount); // defaults to all zeros (code 0, no penalty)
+  if (hasSurfaceClass) offset += edgeCount;
+
   return {
     slug: header.slug,
     names: header.names,
     nodeCount, edgeCount,
     nodeLons, nodeLats, nodeOsmIds,
-    edgeU, edgeV, edgeLength, edgeNameIdx, edgeLts, edgeFacility, edgeSlopeClass,
+    edgeU, edgeV, edgeLength, edgeNameIdx, edgeLts, edgeFacility, edgeSlopeClass, edgeIsPedestrian, edgeStressRun,
+    edgeSurfaceClass,
   };
 }
 
@@ -166,7 +232,7 @@ function mergeRoutingGraphs(routingFiles) {
   const coordByOsmId = new Map();
 
   for (const file of routingFiles) {
-    const { nodeCount, edgeCount, nodeLons, nodeLats, nodeOsmIds, edgeU, edgeV, edgeLength, edgeNameIdx, edgeLts, edgeFacility, edgeSlopeClass, names, slug } = file;
+    const { nodeCount, edgeCount, nodeLons, nodeLats, nodeOsmIds, edgeU, edgeV, edgeLength, edgeNameIdx, edgeLts, edgeFacility, edgeSlopeClass, edgeIsPedestrian, edgeStressRun, edgeSurfaceClass, names, slug } = file;
     for (let i = 0; i < nodeCount; i++) {
       const osmId = nodeOsmIds[i];
       const coord = [nodeLons[i], nodeLats[i]];
@@ -194,7 +260,7 @@ function mergeRoutingGraphs(routingFiles) {
       const name = nameIdx >= 0 ? names[nameIdx] : null;
       graph.addLink(
         nodeOsmIds[edgeU[i]], nodeOsmIds[edgeV[i]],
-        { lts: edgeLts[i], lengthM: edgeLength[i], facilityCode: edgeFacility[i], slopeClass: edgeSlopeClass[i], name, comuneSlug: slug },
+        { lts: edgeLts[i], lengthM: edgeLength[i], facilityCode: edgeFacility[i], slopeClass: edgeSlopeClass[i], isPedestrian: edgeIsPedestrian[i], stressRunCode: edgeStressRun[i], surfaceClass: edgeSurfaceClass[i], name, comuneSlug: slug },
       );
     }
   }
@@ -213,7 +279,7 @@ function _bestLinkBetween(graph, fromId, toId) {
   let best = null;
   let bestCost = Infinity;
   const consider = (link) => {
-    const cost = edgeCost(link.data.lts, link.data.lengthM, link.data.slopeClass);
+    const cost = edgeCost(link.data.lts, link.data.lengthM, link.data.slopeClass, link.data.stressRunCode, link.data.surfaceClass);
     if (cost < bestCost) {
       bestCost = cost;
       best = link;
@@ -291,8 +357,33 @@ function _buildRouteResult(pathNodes, mergedGraph, partial) {
     const link = _bestLinkBetween(mergedGraph, pathNodes[i].id, pathNodes[i + 1].id);
     segments.push(
       link
-        ? { lts: link.data.lts, lengthM: link.data.lengthM, facilityCode: link.data.facilityCode, name: link.data.name, comuneSlug: link.data.comuneSlug }
-        : { lts: 4, lengthM: approxMetersBetween(coordinates[i], coordinates[i + 1]), facilityCode: 0, name: null, comuneSlug: null },
+        ? {
+            lts: link.data.lts,
+            lengthM: link.data.lengthM,
+            facilityCode: link.data.facilityCode,
+            isPedestrian: link.data.isPedestrian,
+            // slopeClass/stressRunCode/surfaceClass aren't shown anywhere
+            // in the UI - carried through only so web/app.js's own
+            // widen-and-retry (_findRoute) can recompute this route's
+            // real total edgeCost to compare against a wider margin's
+            // result, the same way A* itself weighed each edge.
+            slopeClass: link.data.slopeClass,
+            stressRunCode: link.data.stressRunCode,
+            surfaceClass: link.data.surfaceClass,
+            name: link.data.name,
+            comuneSlug: link.data.comuneSlug,
+          }
+        : {
+            lts: 4,
+            lengthM: approxMetersBetween(coordinates[i], coordinates[i + 1]),
+            facilityCode: 0,
+            isPedestrian: 0,
+            slopeClass: undefined,
+            stressRunCode: undefined,
+            surfaceClass: undefined,
+            name: null,
+            comuneSlug: null,
+          },
     );
   }
   return {
@@ -328,7 +419,7 @@ function findRoute(startLngLat, endLngLat, mergedGraph, coordByOsmId) {
 
   const pathFinder = ngraphPath.aStar(mergedGraph, {
     heuristic: (fromNode, toNode) => approxMetersBetween(fromNode.data, toNode.data) * _MIN_PENALTY,
-    distance: (fromNode, toNode, link) => edgeCost(link.data.lts, link.data.lengthM, link.data.slopeClass),
+    distance: (fromNode, toNode, link) => edgeCost(link.data.lts, link.data.lengthM, link.data.slopeClass, link.data.stressRunCode, link.data.surfaceClass),
   });
 
   const found = pathFinder.find(startId, endId);

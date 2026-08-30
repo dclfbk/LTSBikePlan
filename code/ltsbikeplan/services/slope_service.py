@@ -1,34 +1,24 @@
 from __future__ import annotations
 
-from .slope_strategies import SlopeCalculatorGDAL, SlopeCalculatorR, SlopeCalculatorRasterioSimple, SlopeCalculatorRichdem
+from .slope_strategies import SlopeCalculatorR, slope_from_dem
 
 
 class SlopeService:
+    """`strategy` only ever really forks into two paths now: "v1" (R/rpy2,
+    a separate implementation, see SlopeCalculatorR) and everything else.
+    "v2"/"v3" remain accepted values purely so an existing caller/config
+    passing one doesn't break - both resolve to the same slope_from_dem
+    (see that function's docstring: GDAL and richdem's own terrain-
+    analysis functions turned out to be computing the wrong thing, and
+    were replaced by direct DEM point-sampling for every non-R strategy,
+    so there's no real behavioural difference between "v2" and "v3" left
+    to dispatch on).
+    """
+
     def __init__(self, strategy: str = "v3"):
         self.strategy = strategy
 
     def apply(self, gdf_edges, dem_path: str):
         if self.strategy == "v1":
             return SlopeCalculatorR.calc_slope(gdf_edges, dem_path)
-        if self.strategy == "v2":
-            try:
-                return SlopeCalculatorGDAL.calc_slope(gdf_edges, dem_path)
-            except ModuleNotFoundError as exc:
-                if getattr(exc, "name", "") == "osgeo":
-                    print("GDAL (osgeo) not available, falling back to rasterio-simple slope strategy.")
-                    return SlopeCalculatorRasterioSimple.calc_slope(gdf_edges, dem_path)
-                raise
-        try:
-            return SlopeCalculatorRichdem.calc_slope(gdf_edges, dem_path)
-        except ModuleNotFoundError as exc:
-            missing = getattr(exc, "name", "")
-            if missing in {"richdem", "pkg_resources"}:
-                print("RichDEM not available, falling back to slope strategy v2 (GDAL).")
-                try:
-                    return SlopeCalculatorGDAL.calc_slope(gdf_edges, dem_path)
-                except ModuleNotFoundError as gdal_exc:
-                    if getattr(gdal_exc, "name", "") == "osgeo":
-                        print("GDAL (osgeo) not available, falling back to rasterio-simple slope strategy.")
-                        return SlopeCalculatorRasterioSimple.calc_slope(gdf_edges, dem_path)
-                    raise
-            raise
+        return slope_from_dem(gdf_edges, dem_path)

@@ -873,41 +873,97 @@ const START_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(pinSvg("#2E7D
 const END_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(pinSvg("#C62828"))}") 12 30, crosshair`;
 
 // Rough gradient-adjusted cycling speed model, for the estimated-time
-// line in the route summary (RoutingControl._renderElevationProfile,
+// lines in the route summary (RoutingControl._renderElevationProfile,
 // which already samples {km, elev} points along the route for the
-// altimetric chart - this reuses those, no extra data needed). Assumes a
-// muscular (non-electric) bike: flat-ground baseline CYCLING_FLAT_KMH,
-// slowed on climbs, sped up (capped) on descents, by the real gradient
-// between consecutive sampled points. Deliberately simple/transparent
-// over "accurate" - no wind, fitness level, stops or traffic lights - see
-// this formula documented in plain language in the routing panel's own
-// "Come funziona questo calcolo" disclaimer and in the FAQ (both must
-// stay in sync with this if the constants change).
-const CYCLING_FLAT_KMH = 18;
-const CYCLING_MIN_KMH = 4;
-const CYCLING_MAX_KMH = 40;
-const CYCLING_CLIMB_KMH_PER_PERCENT = 1.5;
-const CYCLING_DESCENT_KMH_PER_PERCENT = 1.2;
+// altimetric chart - this reuses those, no extra data needed): flat-
+// ground baseline flatKmh, slowed on climbs, sped up (capped) on
+// descents, by the real gradient between consecutive sampled points.
+// Deliberately simple/transparent over "accurate" - no wind, fitness
+// level, stops or traffic lights - see this formula documented in plain
+// language in the routing panel's own "Come funziona questo calcolo"
+// disclaimer and in the FAQ (both must stay in sync with this if the
+// constants change).
+//
+// Two profiles, shown side by side rather than picked by the user - the
+// difference between them is entirely in how much a climb slows the rider
+// down (climbKmhPerPercent), which is the whole point of showing both: an
+// e-bike's motor assists proportionally to pedaling effort, so a real
+// climb barely changes its cruising speed, while an unassisted rider
+// slows down a lot. A descent isn't assisted either way (gravity doesn't
+// care about a motor) - both profiles share the same descent behaviour
+// and top-speed cap.
+const BIKE_PROFILES = {
+  muscular: { flatKmh: 18, minKmh: 4, maxKmh: 40, climbKmhPerPercent: 1.5, descentKmhPerPercent: 1.2 },
+  electric: { flatKmh: 22, minKmh: 6, maxKmh: 40, climbKmhPerPercent: 0.6, descentKmhPerPercent: 1.2 },
+};
 
-function estimateCyclingSpeedKmh(slopePercent) {
+function estimateCyclingSpeedKmh(slopePercent, profile) {
   if (slopePercent >= 0) {
-    return Math.max(CYCLING_MIN_KMH, CYCLING_FLAT_KMH - slopePercent * CYCLING_CLIMB_KMH_PER_PERCENT);
+    return Math.max(profile.minKmh, profile.flatKmh - slopePercent * profile.climbKmhPerPercent);
   }
-  return Math.min(CYCLING_MAX_KMH, CYCLING_FLAT_KMH + Math.abs(slopePercent) * CYCLING_DESCENT_KMH_PER_PERCENT);
+  return Math.min(profile.maxKmh, profile.flatKmh + Math.abs(slopePercent) * profile.descentKmhPerPercent);
+}
+
+// A pedestrian street (OSM highway=pedestrian) is included in the routed
+// network - domain/lts_rules.py's biking_permitted doesn't exclude it,
+// cycling is legally allowed there unless explicitly tagged bicycle=no -
+// and scored LTS 1 (no motor traffic to be stressed by). But LTS measures
+// traffic STRESS, not physical speed: sharing that space with pedestrians
+// means a cyclist can't ride at cruising speed, on either bike. Applied
+// as a hard cap (not a multiplier like the climb/descent terms above)
+// because it's a space-sharing/safety constraint, not a fitness one - an
+// e-bike's motor doesn't let you go faster among pedestrians.
+const PEDESTRIAN_MAX_KMH = 10;
+
+// Finds which routing.js `run` (see buildRouteRuns in this same file -
+// cumulative startKm/endKm over the whole route) a given cumulative `km`
+// position falls into. Used to look up isPedestrian for one point-to-
+// point interval below via its midpoint - runs are typically much finer-
+// grained than the 100 elevation samples, so "which run is the interval's
+// midpoint in" is a reasonable approximation of "is this interval on a
+// pedestrian street", same spirit as the rest of this rough model.
+function _runAtKm(runs, km) {
+  return runs.find((run) => km >= run.startKm && km < run.endKm) || runs[runs.length - 1];
 }
 
 // `points`: [{km, elev}, ...], the same array _renderElevationProfile
-// builds for the chart. Returns total estimated minutes.
-function estimateRouteTimeMinutes(points) {
+// builds for the chart. `runs`: buildRouteRuns' output for the same
+// route, used only to detect a pedestrian-street interval (see
+// PEDESTRIAN_MAX_KMH) - optional, so callers without it (there are none
+// today, but keeps this function's contract honest) just skip the cap.
+// Returns total estimated minutes for the given BIKE_PROFILES entry.
+function estimateRouteTimeMinutes(points, profile, runs) {
   let totalHours = 0;
   for (let i = 0; i < points.length - 1; i++) {
     const distKm = points[i + 1].km - points[i].km;
     if (distKm <= 0) continue;
     const riseM = points[i + 1].elev - points[i].elev;
     const slopePercent = (riseM / (distKm * 1000)) * 100;
-    totalHours += distKm / estimateCyclingSpeedKmh(slopePercent);
+    let speedKmh = estimateCyclingSpeedKmh(slopePercent, profile);
+    if (runs && runs.length) {
+      const midKm = (points[i].km + points[i + 1].km) / 2;
+      if (_runAtKm(runs, midKm).isPedestrian) speedKmh = Math.min(speedKmh, PEDESTRIAN_MAX_KMH);
+    }
+    totalHours += distKm / speedKmh;
   }
   return totalHours * 60;
+}
+
+// Standard "nice tick spacing" pick (1/2/5 x a power of ten) for the
+// elevation chart's intermediate gridlines (RoutingControl._drawElevationSvg)
+// - aims for roughly 4 gridlines across whatever range is actually drawn,
+// landing on round numbers (20m, 50m, 100m, ...) instead of an arbitrary
+// fraction of the route's own min/max.
+function _niceElevationStep(range) {
+  const roughStep = range / 4;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const normalized = roughStep / magnitude;
+  let niceNormalized;
+  if (normalized < 1.5) niceNormalized = 1;
+  else if (normalized < 3.5) niceNormalized = 2;
+  else if (normalized < 7.5) niceNormalized = 5;
+  else niceNormalized = 10;
+  return niceNormalized * magnitude;
 }
 
 // Merges CONSECUTIVE segments (one per original graph edge, from
@@ -923,13 +979,15 @@ function buildRouteRuns(segments, coordinates) {
     const seg = segments[i];
     const last = runs[runs.length - 1];
     if (last && last.name === seg.name && last.lts === seg.lts
-        && last.facilityCode === seg.facilityCode && last.comuneSlug === seg.comuneSlug) {
+        && last.facilityCode === seg.facilityCode && last.comuneSlug === seg.comuneSlug
+        && last.isPedestrian === seg.isPedestrian) {
       last.coords.push(coordinates[i + 1]);
       last.lengthM += seg.lengthM;
     } else {
       runs.push({
         coords: [coordinates[i], coordinates[i + 1]],
         name: seg.name, lts: seg.lts, facilityCode: seg.facilityCode, comuneSlug: seg.comuneSlug,
+        isPedestrian: seg.isPedestrian,
         lengthM: seg.lengthM, startKm: cumKm,
       });
     }
@@ -937,6 +995,19 @@ function buildRouteRuns(segments, coordinates) {
     runs[runs.length - 1].endKm = cumKm;
   }
   return runs;
+}
+
+// Sums edgeCost (web/routing.js) over a findRoute() result's own segments
+// - the same per-edge cost A* minimized while searching, recomputed here
+// so RoutingControl._findRoute's widen-and-retry can compare two
+// candidate results (found against two different margins' comune sets)
+// on the metric that actually decided the search, not just on distance.
+function _totalRouteCost(segments) {
+  let total = 0;
+  for (const seg of segments) {
+    total += edgeCost(seg.lts, seg.lengthM, seg.slopeClass, seg.stressRunCode, seg.surfaceClass);
+  }
+  return total;
 }
 
 function routeRunsToFeatureCollection(runs) {
@@ -1295,10 +1366,27 @@ class RoutingControl {
     // margin turns it into a full route after all, but remember the
     // widest-margin partial result seen so far as a fallback in case none
     // ever does.
+    //
+    // Does NOT stop at the first margin that finds A full route - real
+    // case that exposed why: Trento -> Pergine Valsugana already finds a
+    // complete route at the tightest margin (a steep direct pass, fully
+    // inside Trento's own network), but the SECOND tier's one extra
+    // comune (Civezzano) reveals a meaningfully cheaper, flatter route
+    // through it - the tight margin's route was never wrong about being
+    // "a route", just not the CHEAPEST one, and this loop used to return
+    // the instant it found any full result at all. Comparing costs across
+    // margins fixes that, but only up through the second tier (0.08) -
+    // margin 0.25 alone can pull in dozens of comuni (see
+    // candidateComuniForRoute), so it's only worth that bandwidth when
+    // NOTHING routable was found yet, the original reason this loop
+    // widens at all, not just to keep fishing for a marginally cheaper
+    // option once something already works.
     const marginsDeg = [0.02, 0.08, 0.25];
     let bestPartial = null;
-    for (const marginDeg of marginsDeg) {
-      const slugs = candidateComuniForRoute(routingStart, routingEnd, comuniIndexData, marginDeg);
+    let bestResult = null;
+    let bestCost = Infinity;
+    for (let i = 0; i < marginsDeg.length; i++) {
+      const slugs = candidateComuniForRoute(routingStart, routingEnd, comuniIndexData, marginsDeg[i]);
       if (slugs.size === 0) continue;
 
       const files = await Promise.all([...slugs].map((slug) => this._loadRoutingFile(slug)));
@@ -1314,11 +1402,19 @@ class RoutingControl {
       const { graph, coordByOsmId } = merged;
       const result = findRoute(routingStart, routingEnd, graph, coordByOsmId);
       if (result && !result.partial) {
-        this._applyRoute(result);
-        this._setStatus("");
-        return;
+        const cost = _totalRouteCost(result.segments);
+        if (cost < bestCost) {
+          bestCost = cost;
+          bestResult = result;
+        }
+        if (i >= 1) break; // already compared at least two tiers - see comment above
       }
       if (result && result.partial) bestPartial = result;
+    }
+    if (bestResult) {
+      this._applyRoute(bestResult);
+      this._setStatus("");
+      return;
     }
     if (bestPartial) {
       this._applyRoute(bestPartial);
@@ -1384,7 +1480,7 @@ class RoutingControl {
     // the PREVIOUS route (e.g. after a drag) would otherwise sit there
     // looking current while the new one is still being computed.
     this._estimatedTimeEl.classList.add("hidden");
-    this._renderElevationProfile(result.feature);
+    this._renderElevationProfile(result.feature, this._runs);
   }
 
   _renderRouteSummary(runs) {
@@ -1484,7 +1580,7 @@ class RoutingControl {
   // draws a small SVG profile. Temporarily enables terrain if the user
   // hasn't turned "Terreno 3D" on, and restores whatever state it found -
   // no visible/lasting change for someone who never asked for 3D terrain.
-  async _renderElevationProfile(feature) {
+  async _renderElevationProfile(feature, runs) {
     this._elevationChart.innerHTML = "";
     const wasTerrainOn = terrainOn;
     if (!wasTerrainOn) map.setTerrain({ source: "mapterhorn-dem" });
@@ -1507,14 +1603,22 @@ class RoutingControl {
     if (!wasTerrainOn) map.setTerrain(null);
 
     this._drawElevationSvg(points);
-    this._renderEstimatedTime(points);
+    this._renderEstimatedTime(points, runs);
   }
 
-  _renderEstimatedTime(points) {
-    const totalMinutes = estimateRouteTimeMinutes(points);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = Math.round(totalMinutes % 60);
-    this._estimatedTimeEl.textContent = t("routeEstimatedTimeTemplate")(hours, minutes);
+  _renderEstimatedTime(points, runs) {
+    const rows = [
+      [t("routingBikeMuscularLabel"), BIKE_PROFILES.muscular],
+      [t("routingBikeElectricLabel"), BIKE_PROFILES.electric],
+    ]
+      .map(([label, profile]) => {
+        const totalMinutes = estimateRouteTimeMinutes(points, profile, runs);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = Math.round(totalMinutes % 60);
+        return `<div>${label}: ${t("routeEstimatedTimeTemplate")(hours, minutes)}</div>`;
+      })
+      .join("");
+    this._estimatedTimeEl.innerHTML = rows;
     this._estimatedTimeEl.classList.remove("hidden");
   }
 
@@ -1540,21 +1644,41 @@ class RoutingControl {
 
   _drawElevationSvg(points) {
     const width = 260;
-    const height = 70;
     const padding = 4;
     const elevs = points.map((p) => p.elev);
     const minElev = Math.min(...elevs);
     const maxElev = Math.max(...elevs);
-    // Floor of 20m, not 1: the y-axis always fills the chart's full
-    // height between minElev and maxElev, so on a genuinely flat route
-    // (a few metres of DEM sampling noise, not real elevation change) a
-    // 1m floor let that noise stretch to fill the whole chart - reading
-    // as a mountain profile for a street that's actually flat (reported:
-    // "spikes that shouldn't be there"). 20m keeps a real climb properly
-    // proportioned while making a flat/near-flat route draw close to a
-    // flat line instead of exaggerating noise - the actual min/max
-    // labels in the corners still show the real numbers regardless.
+
+    // A FIXED vertical scale (meters per pixel), not "stretch this
+    // route's own min/max to fill a fixed-height box" - the old approach
+    // drew a near-flat street and a real mountain climb as the identical
+    // dramatic-looking curve, because the y-axis was independently
+    // rescaled per route every time (reported: "the chart deforms, it
+    // doesn't look readable" - the shape carried no real information,
+    // only the small corner labels did). Chart height now varies with
+    // the route's real relief instead, clamped to a still-usable panel
+    // range: flat routes draw short/flat, real climbs draw taller, and
+    // the SAME meters-per-pixel applies to both, so shape is actually
+    // comparable and means something instead of always looking identical.
+    //
+    // METERS_PER_PIXEL=3 keeps a common in-region climb (a few hundred
+    // metres of relief) at a readable height without the panel growing
+    // absurdly tall; MIN/MAX_HEIGHT bound the rare extremes (a dead-flat
+    // street, a serious mountain pass) so the panel layout stays sane -
+    // routes past MAX_HEIGHT's real scale still draw taller-is-more, just
+    // not perfectly to scale against a moderate climb (an acceptable,
+    // much smaller version of the original problem, only at the extreme
+    // tail instead of on every single route).
+    const METERS_PER_PIXEL = 3;
+    const MIN_HEIGHT = 40;
+    const MAX_HEIGHT = 160;
+    // Same 20m noise floor as before, now feeding the height calculation
+    // itself rather than just the y-axis range - a few metres of DEM
+    // sampling jitter on an actually-flat street must draw as the same
+    // short, calm chart every other flat street gets, not stretch a
+    // taller box to show off noise that isn't real elevation change.
     const range = Math.max(maxElev - minElev, 20);
+    const height = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, range / METERS_PER_PIXEL));
     const maxKm = points[points.length - 1].km || 1;
 
     const xFor = (km) => padding + (km / maxKm) * (width - 2 * padding);
@@ -1563,9 +1687,24 @@ class RoutingControl {
     const linePoints = points.map((p) => `${xFor(p.km).toFixed(1)},${yFor(p.elev).toFixed(1)}`).join(" ");
     const areaPoints = `${xFor(0).toFixed(1)},${(height - padding).toFixed(1)} ${linePoints} ${xFor(maxKm).toFixed(1)},${(height - padding).toFixed(1)}`;
 
+    // A couple of intermediate gridlines (not just the two corner labels)
+    // so the scale is readable without hovering - "rounded" step chosen
+    // from the drawn range (not the raw min/max) so labels land on the
+    // same numbers the chart is actually drawn to.
+    const gridStep = _niceElevationStep(range);
+    const gridLines = [];
+    for (let elev = Math.ceil(minElev / gridStep) * gridStep; elev < maxElev; elev += gridStep) {
+      const y = yFor(elev).toFixed(1);
+      gridLines.push(
+        `<line x1="${padding}" y1="${y}" x2="${width - padding}" y2="${y}" stroke="#52514e" stroke-opacity="0.15" stroke-width="1"></line>`,
+        `<text x="${width - padding}" y="${(Number(y) - 2).toFixed(1)}" font-size="8" fill="#52514e" text-anchor="end">${Math.round(elev)} m</text>`,
+      );
+    }
+
     this._elevationChart.innerHTML = `
-      <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+      <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
         <polygon points="${areaPoints}" fill="#52514e" fill-opacity="0.15"></polygon>
+        ${gridLines.join("")}
         <polyline points="${linePoints}" fill="none" stroke="#52514e" stroke-width="2"></polyline>
         <text x="${padding}" y="10" font-size="9" fill="#52514e">${Math.round(maxElev)} m</text>
         <text x="${padding}" y="${height - 2}" font-size="9" fill="#52514e">${Math.round(minElev)} m</text>
