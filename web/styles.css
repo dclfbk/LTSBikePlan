@@ -182,6 +182,18 @@ body { display: flex; flex-direction: column; }
   background: white; cursor: pointer; flex: 1 1 auto;
   width: auto; height: auto; display: inline-block; /* override maplibre-gl.css - see the comment above .routing-field button */
 }
+/* Same download pattern as .routing-download-buttons, one per stacked
+   bar/the elevation chart - deliberately smaller/lighter (no border,
+   underlined text) since these are secondary exports next to a visual
+   the user is already looking at, not the main "download the whole
+   route" action lower in the panel. Right-aligned so it reads as
+   "actions for the thing just above" rather than its own separate row. */
+.routing-mini-download { display: flex; gap: 8px; justify-content: flex-end; margin: 2px 0 6px; }
+.routing-mini-download button {
+  font: inherit; font-size: 10px; padding: 0; border: none; background: none;
+  color: #3B4A7A; text-decoration: underline; cursor: pointer;
+  width: auto; height: auto; display: inline-block; /* override maplibre-gl.css - see the comment above .routing-field button */
+}
 /* position:fixed (viewport-relative), NOT absolute relative to the panel
    - see RoutingControl._moveBarTooltip's own comment for why: the panel
    is narrow and scrolls its own content, which was clipping/hiding this

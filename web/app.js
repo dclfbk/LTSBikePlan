@@ -966,6 +966,29 @@ function _niceElevationStep(range) {
   return niceNormalized * magnitude;
 }
 
+// A small median filter over the sampled elevation points - removes an
+// ISOLATED DEM-sampling spike (a single sample reading wildly off from
+// its neighbours, e.g. a raster-tile-boundary artefact) without smoothing
+// away a real, multi-sample-wide hill. Reported live after the fixed
+// real-world vertical scale (RoutingControl._drawElevationSvg) shipped:
+// a flat street's chart is now genuinely short, so a single noisy sample
+// that used to be lost inside a tall, auto-stretched box now visibly
+// dominates a short one ("picchi enormi" - the noise didn't get worse,
+// the chart just stopped hiding it). Window of 5 (2 samples each side)
+// is a median, not a mean/average - a median shrugs off one or two wild
+// outliers entirely rather than blending their error into every nearby
+// point the way an average would.
+function _smoothElevations(points, windowSize = 5) {
+  const elevs = points.map((p) => p.elev);
+  const half = Math.floor(windowSize / 2);
+  return points.map((p, i) => {
+    const start = Math.max(0, i - half);
+    const end = Math.min(elevs.length, i + half + 1);
+    const window = elevs.slice(start, end).slice().sort((a, b) => a - b);
+    return { km: p.km, elev: window[Math.floor(window.length / 2)] };
+  });
+}
+
 // Merges CONSECUTIVE segments (one per original graph edge, from
 // findRoute's `segments` return) sharing the same (name, lts,
 // facilityCode, comuneSlug) into "runs" - the single shared data
@@ -1035,6 +1058,68 @@ function downloadTextFile(filename, mimeType, content) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+// RFC 4180 quoting - a label containing a comma/quote/newline (a stray
+// one is plausible in an OSM street name) would otherwise silently shift
+// every column after it.
+function _csvEscape(value) {
+  const s = String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Feeds the elevation chart's own "CSV" download button - the exact
+// {km, elev} series the chart itself is drawn from (post-interpolation,
+// post-smoothing - see _smoothElevations), not raw terrain samples.
+function _buildElevationCsv(points) {
+  const rows = points.map((p) => `${p.km.toFixed(3)},${Math.round(p.elev)}`);
+  return ["km,elevazione_m", ...rows].join("\n");
+}
+
+// Shared by both stacked bars' own "CSV" download button. `breakdown`:
+// [{label, km}, ...] - already in the same order the bar itself draws
+// its segments, so the CSV's row order matches what's on screen.
+function _buildBreakdownCsv(breakdown, totalKm) {
+  const rows = breakdown.map(({ label, km }) => `${_csvEscape(label)},${km.toFixed(3)},${((km / totalKm) * 100).toFixed(1)}`);
+  return ["categoria,km,percentuale", ...rows].join("\n");
+}
+
+// Shared by both stacked bars' own "SVG" download button - the on-screen
+// bar is a row of plain colored <div>s with no inherent vector form, so
+// this redraws it as one instead of trying to serialize DOM/CSS. Includes
+// a text legend below (label + km + %) so the exported file is self-
+// explanatory on its own - colored rectangles with no legend would lose
+// their meaning the moment they leave this panel's tooltips behind.
+// `breakdown`: [{label, km, color}, ...], already in on-screen order.
+function _buildBreakdownSvg(breakdown, totalKm) {
+  const width = 260;
+  const barHeight = 18;
+  const rowHeight = 14;
+  const padding = 4;
+  const height = barHeight + padding * 2 + breakdown.length * rowHeight + padding;
+
+  let x = padding;
+  const barWidth = width - 2 * padding;
+  const rects = breakdown
+    .map(({ km, color }) => {
+      const w = (km / totalKm) * barWidth;
+      const rect = `<rect x="${x.toFixed(1)}" y="${padding}" width="${w.toFixed(1)}" height="${barHeight}" fill="${color}"></rect>`;
+      x += w;
+      return rect;
+    })
+    .join("");
+
+  const legend = breakdown
+    .map(({ label, km, color }, i) => {
+      const y = padding + barHeight + padding + i * rowHeight + rowHeight - 4;
+      const pct = ((km / totalKm) * 100).toFixed(1);
+      return `
+        <rect x="${padding}" y="${(y - 9).toFixed(1)}" width="10" height="10" fill="${color}"></rect>
+        <text x="${padding + 14}" y="${y.toFixed(1)}" font-size="10" fill="#333">${_xmlEscape(label)} - ${km.toFixed(1)} km (${pct}%)</text>`;
+    })
+    .join("");
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${rects}${legend}</svg>`;
 }
 
 function buildRouteGeoJson(runs) {
@@ -1126,12 +1211,24 @@ class RoutingControl {
       </details>
       <div id="routing-summary" class="hidden">
         <div id="routing-lts-bar" class="routing-stacked-bar"></div>
+        <div class="routing-mini-download">
+          <button type="button" id="routing-download-lts-svg">${t("routeDownloadSvg")}</button>
+          <button type="button" id="routing-download-lts-csv">${t("routeDownloadCsvData")}</button>
+        </div>
         <div id="routing-total-km" class="routing-total-km"></div>
         <div id="routing-estimated-time" class="routing-caption hidden"></div>
         <div id="routing-facility-bar" class="routing-stacked-bar"></div>
         <div id="routing-facility-legend" class="routing-facility-legend"></div>
+        <div class="routing-mini-download">
+          <button type="button" id="routing-download-facility-svg">${t("routeDownloadSvg")}</button>
+          <button type="button" id="routing-download-facility-csv">${t("routeDownloadCsvData")}</button>
+        </div>
         <div class="routing-caption">${t("routeElevationHeading")}</div>
         <div id="routing-elevation-chart" class="routing-elevation-chart"></div>
+        <div class="routing-mini-download">
+          <button type="button" id="routing-download-elevation-svg">${t("routeDownloadSvg")}</button>
+          <button type="button" id="routing-download-elevation-csv">${t("routeDownloadCsvData")}</button>
+        </div>
         <div class="routing-caption">${t("routeDownloadHeading")}</div>
         <div class="routing-download-buttons">
           <button type="button" id="routing-download-geojson">${t("routeDownloadGeoJson")}</button>
@@ -1188,6 +1285,24 @@ class RoutingControl {
     });
     this._panel.querySelector("#routing-download-kml").addEventListener("click", () => {
       downloadTextFile("percorso.kml", "application/vnd.google-earth.kml+xml", buildRouteKml(this._runs));
+    });
+    this._panel.querySelector("#routing-download-lts-svg").addEventListener("click", () => {
+      downloadTextFile("lts.svg", "image/svg+xml", _buildBreakdownSvg(this._ltsBreakdown, this._totalKm));
+    });
+    this._panel.querySelector("#routing-download-lts-csv").addEventListener("click", () => {
+      downloadTextFile("lts.csv", "text/csv", _buildBreakdownCsv(this._ltsBreakdown, this._totalKm));
+    });
+    this._panel.querySelector("#routing-download-facility-svg").addEventListener("click", () => {
+      downloadTextFile("tipo-strada.svg", "image/svg+xml", _buildBreakdownSvg(this._facilityBreakdown, this._totalKm));
+    });
+    this._panel.querySelector("#routing-download-facility-csv").addEventListener("click", () => {
+      downloadTextFile("tipo-strada.csv", "text/csv", _buildBreakdownCsv(this._facilityBreakdown, this._totalKm));
+    });
+    this._panel.querySelector("#routing-download-elevation-svg").addEventListener("click", () => {
+      downloadTextFile("altimetria.svg", "image/svg+xml", this._elevationChart.querySelector("svg").outerHTML);
+    });
+    this._panel.querySelector("#routing-download-elevation-csv").addEventListener("click", () => {
+      downloadTextFile("altimetria.csv", "text/csv", _buildElevationCsv(this._elevationPoints));
     });
     // No document-level "click outside closes" listener - see the class
     // comment above for why this panel stays open until its own toggle.
@@ -1485,6 +1600,7 @@ class RoutingControl {
 
   _renderRouteSummary(runs) {
     const totalKm = runs.reduce((sum, r) => sum + r.lengthM, 0) / 1000;
+    this._totalKm = totalKm; // feeds both stacked bars' own download buttons
     this._summary.classList.remove("hidden");
     this._totalKmEl.textContent = `${t("routeTotalKm")}: ${totalKm.toFixed(1)} km`;
 
@@ -1493,15 +1609,15 @@ class RoutingControl {
     const kmByLts = {};
     for (const run of runs) kmByLts[run.lts] = (kmByLts[run.lts] || 0) + run.lengthM / 1000;
     this._ltsBar.innerHTML = "";
+    this._ltsBreakdown = []; // [{label, km, color}] - built alongside the bar, reused by its own SVG/CSV download buttons
     for (const lts of Object.keys(kmByLts).sort()) {
       const km = kmByLts[lts];
       const pct = (km / totalKm) * 100;
       const label = t("lts")[lts] || "";
       const descriptor = label.includes(" - ") ? label.split(" - ").slice(1).join(" - ") : label;
-      this._appendBarSegment(
-        this._ltsBar, pct, LTS_COLORS[lts] || LTS_FALLBACK_COLOR,
-        t("routeLtsSegmentTemplate")(km.toFixed(1), Math.round(pct), descriptor),
-      );
+      const color = LTS_COLORS[lts] || LTS_FALLBACK_COLOR;
+      this._appendBarSegment(this._ltsBar, pct, color, t("routeLtsSegmentTemplate")(km.toFixed(1), Math.round(pct), descriptor));
+      this._ltsBreakdown.push({ label: descriptor, km, color });
     }
 
     // Road-type mix bar - same 3-way split/order as renderFacilityLegend
@@ -1516,6 +1632,7 @@ class RoutingControl {
     for (const run of runs) kmByFacility[run.facilityCode] = (kmByFacility[run.facilityCode] || 0) + run.lengthM / 1000;
     this._facilityBar.innerHTML = "";
     this._facilityLegend.innerHTML = "";
+    this._facilityBreakdown = []; // same shape as _ltsBreakdown above
     for (const { code, colorKey, labelKey } of FACILITY_ORDER) {
       const km = kmByFacility[code];
       if (!km) continue;
@@ -1523,6 +1640,7 @@ class RoutingControl {
       const label = t(labelKey);
       const color = FACILITY_BAR_COLORS[colorKey];
       this._appendBarSegment(this._facilityBar, pct, color, t("routeFacilitySegmentTemplate")(km.toFixed(1), Math.round(pct), label));
+      this._facilityBreakdown.push({ label, km, color });
 
       const legendRow = document.createElement("div");
       legendRow.className = "legend-item static";
@@ -1599,11 +1717,13 @@ class RoutingControl {
       points.push({ km, elev: map.queryTerrainElevation(along) });
     }
     this._interpolateMissingElevations(points);
+    const smoothed = _smoothElevations(points);
 
     if (!wasTerrainOn) map.setTerrain(null);
 
-    this._drawElevationSvg(points);
-    this._renderEstimatedTime(points, runs);
+    this._elevationPoints = smoothed; // feeds the chart's own CSV download button
+    this._drawElevationSvg(smoothed);
+    this._renderEstimatedTime(smoothed, runs);
   }
 
   _renderEstimatedTime(points, runs) {
@@ -1701,8 +1821,23 @@ class RoutingControl {
       );
     }
 
+    // width:100% (CSS) lets the chart fill whatever the panel gives it
+    // (narrow by default, up to 480px expanded) - that's meant to adapt.
+    // But an <svg> with only its WIDTH set via CSS and no CSS height
+    // falls back to sizing height from its own intrinsic width/height
+    // ATTRIBUTE ratio (same rule as <img>) - which would silently scale
+    // height right along with width, so the panel expanding to ~2x width
+    // would also draw this chart ~2x taller, quietly changing the real
+    // meters-per-pixel scale the whole point of this rewrite was to fix
+    // (reported live: "expanded window doesn't adapt" - the symptom of
+    // exactly this coupling, not literally a failure to resize). The
+    // inline `style` height below overrides that fallback, fixing height
+    // in real pixels regardless of width; preserveAspectRatio="none"
+    // then maps the viewBox independently onto whatever width/height the
+    // box ends up being, instead of letterboxing to preserve a ratio
+    // that no longer matches.
     this._elevationChart.innerHTML = `
-      <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="height:${height}px">
         <polygon points="${areaPoints}" fill="#52514e" fill-opacity="0.15"></polygon>
         ${gridLines.join("")}
         <polyline points="${linePoints}" fill="none" stroke="#52514e" stroke-width="2"></polyline>
