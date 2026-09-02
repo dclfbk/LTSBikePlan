@@ -2006,30 +2006,40 @@ document.querySelectorAll('input[name="basemap"]').forEach((radio) => {
 // I18N[currentLang].lts, so a language switch doesn't need to touch the
 // colours at all.
 //
-// Traffic-light style green/green/orange/red, matching the reference
-// legend the map is meant to echo. Checked against simulated
-// deuteranopia/protanopia rather than assumed safe: a fully-saturated
-// orange+red pair (e.g. #E07C1C/#E4322F) collapses under red-green CVD -
-// LTS3 vs LTS4 drops to a simulated RGB distance of ~33-43, because orange
-// and red are hue-neighbours that both project onto the same remaining
-// blue-yellow axis. Darkening/desaturating both a step (LTS3 #C4681A,
-// LTS4 #B7231F) recovers most of that separation (~48-55 simulated) while
-// still clearing 3:1 contrast on white for all four classes. It's not as
-// safe as the blue/violet scheme this replaced, but it's a floor-band
-// pass rather than a fail, and the map has a second, colour-independent
-// channel for the same distinction: the face icons' mouth shape
-// (LTS_FACE_MOUTHS further down) still reads 1-4 correctly with no colour
-// vision at all.
+// Traffic-light style green/yellow-green/orange/red, matching the reference
+// legend the map is meant to echo. Validated with the dataviz skill's
+// validate_palette.js (OKLab Delta E under Machado-Oliveira-Fernandes
+// 2009 deutan/protan simulation, --pairs all - a map puts every LTS class
+// next to every other one on real streets, not just legend-adjacent
+// pairs) rather than assumed safe. The previous green/green/orange/red
+// version (#056F00/#2EA64D/#C4681A/#B7231F) FAILED that check outright:
+// LTS2 vs LTS3 dropped to Delta E 4.8 under deuteranopia (below the 6.0
+// floor), and LTS3 vs LTS4 sat at 13.6 even under NORMAL vision (below
+// the 15.0 floor - orange and red were too similar for every reader, not
+// just CVD ones). Shifting LTS2 to a yellow-green and LTS1/LTS3 a step
+// darker/warmer (LTS4 untouched) clears both: worst deutan pair 7.2,
+// worst normal-vision pair 16.0. Still only a floor-band pass on the CVD
+// check (6-8), not the 8+ target - legal here specifically because the
+// map has a second, colour-independent channel for the same distinction:
+// the face icons' mouth shape (LTS_FACE_MOUTHS further down) still reads
+// 1-4 correctly with no colour vision at all. LTS2's own contrast against
+// white also drops to ~2.25:1 (was >=3:1) - accepted for the same reason,
+// and it's still the lightest/most-recessive line on the map by design
+// (lowest-stress = least visually alarming), not a class that needs to
+// jump out.
 const LTS_COLORS = {
-  "1": "#056F00", "2": "#2EA64D", "3": "#C4681A", "4": "#B7231F", "0": "#6B6B6B",
+  "1": "#146C36", "2": "#A6B32C", "3": "#CC7722", "4": "#B7231F", "0": "#6B6B6B",
 };
 // Dark-basemap variants for the on-map line layer only (legend/popup/PDF
 // swatches always show the LTS_COLORS above, regardless of basemap - see
-// buildLtsLineColorExpression). All four of 1/3/4 dip under 3:1 contrast
-// against the dark map style's ~#3B3B3B background and need lightening;
-// "2" already clears it unswapped.
-const LTS1_DARK_COLOR = "#1C7B14";
-const LTS3_DARK_COLOR = "#E08A3E";
+// buildLtsLineColorExpression). LTS_COLORS' own "1" and "3" dip under 3:1
+// contrast against the dark map style's ~#3B3B3B background and need
+// lightening; "2" (the new yellow-green - see LTS_COLORS' own comment)
+// clears >=4.8:1 unswapped, same as before it was still just "already
+// clears it unswapped". "4" is unchanged from the previous palette, so
+// keeps its existing lightened variant.
+const LTS1_DARK_COLOR = "#5B9872";
+const LTS3_DARK_COLOR = "#D6924E";
 const LTS4_DARK_COLOR = "#E86A64";
 const LTS_FALLBACK_COLOR = "#BDBDBD";
 
