@@ -1,5 +1,34 @@
+/* Self-hosted (web/assets/fonts/, see that dir's own comment) rather than
+   Google Fonts' CDN - one less third-party request, and consistent with
+   vendoring the JS libraries locally (web/assets/vendor/). Atkinson
+   Hyperlegible Next (Braille Institute, OFL-licensed) - designed for
+   legibility/low-vision readers, chosen deliberately over a purely
+   aesthetic UI font for that reason. Variable font (single file, weight
+   axis 200-800) covers both the normal text and the 600/bold weights
+   used elsewhere in this file without a second request. Latin subset
+   only (U+0000-00FF + a few extras incl. the œ ligature) - covers
+   it/en/de/fr, the site's only languages; system-ui is still the
+   fallback while this loads or if it fails. */
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("assets/fonts/atkinson-hyperlegible-next-latin-wght-normal.woff2") format("woff2-variations");
+}
+
 html, body { height: 100%; margin: 0; }
 body { display: flex; flex-direction: column; }
+
+/* Global weight scale (this variable font's whole point is not being
+   stuck with the browser's bold-or-not binary): 700 for the one page
+   title, 600 for buttons and section headings, 400 (the `font:`
+   shorthand's own implicit default, already true almost everywhere else
+   in this file without a rule of its own) for body text/legend/popups.
+   Explicit here rather than left to the UA stylesheet's own h1/h2/h3
+   bold default, which would land on 700 for every heading, not the 600
+   this app actually wants for anything that isn't the title. */
+h1 { font-weight: 700; }
 
 /* Z-index layers: map (auto, bottom) < #panel (5) < #geocoder-panel (6,
    a map-corner flyout that can visually overlap #panel on narrow
@@ -15,7 +44,7 @@ body { display: flex; flex-direction: column; }
   gap: 4px 16px; padding: 6px 16px;
   background: white; box-shadow: 0 -1px 4px rgba(0,0,0,0.15);
   position: relative; z-index: 10;
-  font: 12px/1.4 system-ui, sans-serif; color: #555;
+  font: 12px/1.4 "Atkinson Hyperlegible Next", system-ui, sans-serif; color: #555;
 }
 #footer-credit { white-space: nowrap; }
 #footer-credit a { color: inherit; text-decoration: underline; }
@@ -29,11 +58,11 @@ body { display: flex; flex-direction: column; }
   gap: 6px 16px; padding: 10px 16px;
   background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
   position: relative; z-index: 10;
-  font: 13px/1.4 system-ui, sans-serif;
+  font: 13px/1.4 "Atkinson Hyperlegible Next", system-ui, sans-serif;
 }
 #header-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
 #site-logo { width: 26px; height: 26px; flex: none; }
-#site-title { font-size: 18px; margin: 0; white-space: nowrap; }
+#site-title { font-size: 18px; margin: 0; white-space: nowrap; font-weight: 700; }
 #site-tagline { font-size: 13px; color: #555; }
 #area-badge { font-size: 13px; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #header-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -113,6 +142,7 @@ body { display: flex; flex-direction: column; }
 .routing-panel-close {
   border: none; background: none; font-size: 16px; cursor: pointer; color: #777; line-height: 1;
   width: auto; height: auto; padding: 0; display: inline-block; /* override maplibre-gl.css, see the note further down */
+  font-weight: 600;
 }
 #routing-panel-expand.active { color: #3B4A7A; }
 .routing-hint { margin: 0; font-size: 11px; color: #777; }
@@ -143,6 +173,7 @@ body { display: flex; flex-direction: column; }
   font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px;
   background: white; cursor: pointer; white-space: nowrap; flex: 0 0 auto;
   width: auto; height: auto; display: inline-block;
+  font-weight: 600;
 }
 #routing-status { font-size: 12px; color: #555; display: flex; align-items: center; gap: 8px; }
 #routing-status.hidden { display: none; }
@@ -165,7 +196,7 @@ body { display: flex; flex-direction: column; }
 }
 .routing-bar-segment { cursor: default; }
 .routing-bar-segment + .routing-bar-segment { margin-left: 2px; }
-.routing-total-km { font-size: 13px; font-weight: bold; color: #333; }
+.routing-total-km { font-size: 13px; font-weight: 600; color: #333; }
 .routing-caption { font-size: 11px; color: #777; }
 .routing-facility-legend { display: flex; flex-wrap: wrap; gap: 2px 10px; }
 .routing-facility-legend .legend-item.static { padding: 0; font-size: 12px; }
@@ -181,6 +212,7 @@ body { display: flex; flex-direction: column; }
   font: inherit; font-size: 11px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px;
   background: white; cursor: pointer; flex: 1 1 auto;
   width: auto; height: auto; display: inline-block; /* override maplibre-gl.css - see the comment above .routing-field button */
+  font-weight: 600;
 }
 /* Same download pattern as .routing-download-buttons, one per stacked
    bar/the elevation chart - deliberately smaller/lighter (no border,
@@ -193,6 +225,7 @@ body { display: flex; flex-direction: column; }
   font: inherit; font-size: 10px; padding: 0; border: none; background: none;
   color: #3B4A7A; text-decoration: underline; cursor: pointer;
   width: auto; height: auto; display: inline-block; /* override maplibre-gl.css - see the comment above .routing-field button */
+  font-weight: 600;
 }
 /* position:fixed (viewport-relative), NOT absolute relative to the panel
    - see RoutingControl._moveBarTooltip's own comment for why: the panel
@@ -208,6 +241,7 @@ body { display: flex; flex-direction: column; }
   font: inherit; background: none; border: 1px solid #ccc; border-radius: 4px;
   padding: 4px 10px; cursor: pointer; color: #333;
   text-decoration: none; display: inline-block;
+  font-weight: 600;
 }
 .nav-link:hover { background: #f0f0f0; }
 .nav-link.active { background: #3B4A7A; color: white; border-color: #3B4A7A; }
@@ -215,7 +249,7 @@ body { display: flex; flex-direction: column; }
 #panel {
   position: absolute; top: 10px; left: 10px; z-index: 5;
   background: white; padding: 10px 14px; border-radius: 6px;
-  font: 13px/1.4 system-ui, sans-serif; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  font: 13px/1.4 "Atkinson Hyperlegible Next", system-ui, sans-serif; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
   max-width: 220px;
 }
 /* Collapse header for #panel - a "Legenda" label/toggle shown on every
@@ -267,8 +301,8 @@ body { display: flex; flex-direction: column; }
    own styles, only the active (terrain-on) state needs a custom rule. */
 #terrain-toggle.active { background: #3B4A7A; }
 
-.lts-popup { font: 13px/1.5 system-ui, sans-serif; }
-.lts-popup h3 { font-size: 14px; margin: 0 0 6px; }
+.lts-popup { font: 13px/1.5 "Atkinson Hyperlegible Next", system-ui, sans-serif; }
+.lts-popup h3 { font-size: 14px; margin: 0 0 6px; font-weight: 400; }
 .lts-popup details { margin-top: 6px; }
 .lts-popup summary { cursor: pointer; color: #3B4A7A; }
 .priority-note { font-size: 11px; color: #7B2CBF; margin: 4px 0 0; }
@@ -287,7 +321,7 @@ body { display: flex; flex-direction: column; }
   z-index: 8;
   background: white; padding: 10px 16px; border-radius: 6px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-  font: 13px/1.4 system-ui, sans-serif;
+  font: 13px/1.4 "Atkinson Hyperlegible Next", system-ui, sans-serif;
   display: flex; align-items: center; gap: 10px;
   max-width: min(90vw, 380px);
 }
@@ -312,7 +346,7 @@ body { display: flex; flex-direction: column; }
   z-index: 8;
   background: white; padding: 10px 16px; border-radius: 6px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-  font: 13px/1.4 system-ui, sans-serif; font-weight: 600; color: #222;
+  font: 13px/1.4 "Atkinson Hyperlegible Next", system-ui, sans-serif; font-weight: 600; color: #222;
   max-width: min(90vw, 380px); text-align: center;
 }
 #zoom-hint.hidden { display: none; }
@@ -320,7 +354,7 @@ body { display: flex; flex-direction: column; }
 /* Back inside #panel, under the basemap switcher - a plain full-width
    button like the original, not the header nav-link style tried in
    between (moved there and back per feedback). */
-#gap-toggle { margin-top: 8px; width: 100%; }
+#gap-toggle { margin-top: 8px; width: 100%; font-weight: 600; }
 #gap-toggle.active { background: #3B4A7A; color: white; border-color: #3B4A7A; }
 #gap-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -339,7 +373,7 @@ body { display: flex; flex-direction: column; }
   transition: max-height 0.3s ease;
 }
 #gap-panel.open { max-height: 480px; overflow-y: auto; }
-#gap-panel h2 { font-size: 14px; margin: 0 0 6px; }
+#gap-panel h2 { font-size: 14px; margin: 0 0 6px; font-weight: 600; }
 #gap-hint { font-size: 11px; color: #777; margin: 0 0 8px; }
 .gap-item {
   margin: 4px 0; cursor: pointer; border-radius: 3px; padding: 3px 2px;
@@ -355,6 +389,7 @@ body { display: flex; flex-direction: column; }
 #gap-pager button {
   font: inherit; padding: 2px 8px; cursor: pointer;
   border: 1px solid #ccc; border-radius: 4px; background: white;
+  font-weight: 600;
 }
 #gap-pager button:disabled { opacity: 0.4; cursor: not-allowed; }
 #gap-pager-label { font-size: 11px; color: #777; }
@@ -363,7 +398,7 @@ body { display: flex; flex-direction: column; }
   position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
   z-index: 20;
   background: white; padding: 16px 20px; border-radius: 6px;
-  font: 13px/1.5 system-ui, sans-serif; box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  font: 13px/1.5 "Atkinson Hyperlegible Next", system-ui, sans-serif; box-shadow: 0 2px 12px rgba(0,0,0,0.4);
   /* At least 80% of the viewport width on any screen size, not capped
      narrower - deliberately no max-width here (a cap smaller than 80vw on
      a wide screen would silently break that "at least"). overflow-y
@@ -371,13 +406,14 @@ body { display: flex; flex-direction: column; }
   width: 80vw; max-height: 90vh; overflow-y: auto;
   box-sizing: border-box;
 }
-.info-panel h2 { font-size: 15px; margin: 0 0 8px; }
-.info-panel h3 { font-size: 13px; margin: 14px 0 4px; color: #222; }
+.info-panel h2 { font-size: 15px; margin: 0 0 8px; font-weight: 600; }
+.info-panel h3 { font-size: 13px; margin: 14px 0 4px; color: #222; font-weight: 600; }
 .info-panel p { margin: 6px 0; }
 .info-panel a { color: #3B4A7A; }
 .info-panel-close {
   position: absolute; top: 6px; right: 8px; border: none; background: none;
   font-size: 16px; cursor: pointer; color: #777; line-height: 1;
+  font-weight: 600;
 }
 #about-subtitle { font-style: italic; color: #555; margin: 0 0 10px; }
 .ai-note { font-style: italic; font-size: 11px; color: #999; margin: 0 0 6px; text-align: left; }
@@ -399,6 +435,7 @@ body { display: flex; flex-direction: column; }
 .share-input-row button {
   font: inherit; font-size: 12px; padding: 4px 10px; border: 1px solid #ccc; border-radius: 4px;
   background: white; cursor: pointer; flex: 0 0 auto; white-space: nowrap;
+  font-weight: 600;
 }
 .share-social { display: flex; flex-wrap: wrap; gap: 8px; }
 /* Round icon buttons, one brand logo each (inline SVG - see the markup
@@ -441,6 +478,7 @@ body { display: flex; flex-direction: column; }
   display: block; margin-top: 8px; font: inherit; font-size: 11px;
   color: #999; background: none; border: none; padding: 0;
   cursor: pointer; text-decoration: underline;
+  font-weight: 600;
 }
 .faq-close-answer:hover { color: #3B4A7A; }
 

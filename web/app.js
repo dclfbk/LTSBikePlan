@@ -123,6 +123,67 @@ let comuniIndex = null;
 let visibleComuneSlugs = new Set();
 let comuniIndexPromise = null;
 
+// Turf, jsPDF and ngraph.graph/ngraph.path are vendored (web/assets/vendor/) but
+// NOT loaded in index.html's <head> - each is only needed by one specific
+// feature (gap-buffer/elevation geometry, PDF export, the router), so most
+// visits never touch any of them. Injects the <script> tag on first actual
+// use instead, caching the load promise per URL so a second caller (or a
+// second feature needing the same library) reuses the same in-flight/
+// settled load rather than injecting the tag twice.
+const scriptLoadPromises = new Map();
+function loadScriptOnce(src) {
+  if (!scriptLoadPromises.has(src)) {
+    scriptLoadPromises.set(src, new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = () => resolve();
+      script.onerror = () => {
+        scriptLoadPromises.delete(src);
+        reject(new Error(`Failed to load script: ${src}`));
+      };
+      document.head.appendChild(script);
+    }));
+  }
+  return scriptLoadPromises.get(src);
+}
+function ensureTurfLoaded() {
+  return window.turf ? Promise.resolve() : loadScriptOnce("assets/vendor/turf-7.4.0.min.js");
+}
+function ensureJspdfLoaded() {
+  return window.jspdf ? Promise.resolve() : loadScriptOnce("assets/vendor/jspdf-4.2.1.umd.min.js");
+}
+function ensureNgraphLoaded() {
+  if (window.createGraph && window.ngraphPath) return Promise.resolve();
+  return Promise.all([
+    loadScriptOnce("assets/vendor/ngraph.graph-20.1.2.umd.js"),
+    loadScriptOnce("assets/vendor/ngraph.path-1.6.1.umd.js"),
+  ]);
+}
+
+// FAQ question/answer pairs live in web/faq.json, not i18n.js - plain
+// content (no code, no i18n keys), editable on its own without touching
+// JS/HTML. Italian only for now, same as the comment on I18N.it's About
+// text explains. Fetched once and cached, same promise-caching shape as
+// ensureComuniIndexLoaded below.
+let faqItems = null;
+let faqItemsPromise = null;
+function ensureFaqLoaded() {
+  if (faqItems) return Promise.resolve(faqItems);
+  if (!faqItemsPromise) {
+    faqItemsPromise = fetch(new URL("faq.json", window.location.href))
+      .then((response) => response.json())
+      .then((data) => {
+        faqItems = data;
+        return data;
+      })
+      .catch(() => {
+        faqItemsPromise = null;
+        return [];
+      });
+  }
+  return faqItemsPromise;
+}
+
 // Fetches web/data/comuni_index.json once, however it's first needed - by
 // updateComuneOverlays' z12+ pmtiles swap (italia view only, see below) or
 // by RoutingControl (any view - a route can need cross-comune coverage
@@ -257,12 +318,14 @@ function applyUiTranslations() {
 
 // Independent accordion items (opening one doesn't close another) -
 // re-rendered on every applyUiTranslations() call, same as about-body,
-// so a language switch shows that language's questions (currently
-// Italian-only content, falls back via t()'s own I18N.it fallback).
+// so a language switch re-runs this too. Renders whatever's in the
+// faqItems cache (empty on the very first call, before web/faq.json's
+// fetch resolves - ensureFaqLoaded().then(renderFaq) below re-renders
+// once it's actually in).
 function renderFaq() {
   const list = document.getElementById("faq-list");
   list.innerHTML = "";
-  for (const item of t("faqItems") || []) {
+  for (const item of faqItems || []) {
     const wrapper = document.createElement("div");
     wrapper.className = "faq-item";
     const question = document.createElement("button");
@@ -479,7 +542,8 @@ function currentAreaLabel() {
   return best ? best.slug.replace(/_/g, " ") : "Italia";
 }
 
-function exportMapToPdf() {
+async function exportMapToPdf() {
+  await ensureJspdfLoaded();
   const canvas = map.getCanvas();
   const imgData = canvas.toDataURL("image/png");
   const orientation = canvas.width >= canvas.height ? "l" : "p";
@@ -1465,7 +1529,7 @@ class RoutingControl {
     if (!routingStart || !routingEnd) return;
     this._setStatus(t("routingCalculating"), true);
 
-    const comuniIndexData = await ensureComuniIndexLoaded();
+    const [comuniIndexData] = await Promise.all([ensureComuniIndexLoaded(), ensureNgraphLoaded()]);
     if (!comuniIndexData) {
       this._setStatus(t("routingNoCoverage"));
       return;
@@ -1706,6 +1770,7 @@ class RoutingControl {
     // Gives the DEM tiles for the just-fitBounds'd viewport a chance to
     // load - queryTerrainElevation returns null for an unloaded tile.
     await new Promise((resolve) => map.once("idle", resolve));
+    await ensureTurfLoaded();
 
     const line = turf.lineString(feature.geometry.coordinates);
     const totalKm = turf.length(line, { units: "kilometers" });
@@ -1909,6 +1974,7 @@ window.addEventListener("afterprint", () => map.resize());
 
 document.querySelector(`input[name="basemap"][value="${currentBasemap}"]`).checked = true;
 applyUiTranslations();
+ensureFaqLoaded().then(renderFaq);
 
 document.getElementById("lang-select").addEventListener("change", (e) => {
   currentLang = e.target.value;
@@ -3165,9 +3231,10 @@ function selectionBufferGeoJSON(features) {
   return turf.buffer(lines, GAP_SELECTION_BUFFER_METERS, { units: "meters" });
 }
 
-function applyGapHighlight() {
+async function applyGapHighlight() {
   const source = map.getSource("gap-edge-selected-buffer");
   if (!source) return;
+  if (selectedGapFeatures && selectedGapFeatures.length) await ensureTurfLoaded();
   source.setData(selectionBufferGeoJSON(selectedGapFeatures));
 }
 

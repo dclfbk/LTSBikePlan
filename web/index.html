@@ -30,23 +30,27 @@
 <meta name="twitter:title" content="Stress in bici" />
 <meta name="twitter:description" content="Stress in bici è una mappa delle strade italiane vista dalla prospettiva di chi le percorre in bicicletta: ogni tratto riceve un valore di stress da 1 a 4. An LTS-based cycling stress map of Italian roads." />
 <meta name="twitter:image" content="https://stressinbici.it/social-preview.png" />
-<link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet" />
-<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
-<script src="https://unpkg.com/pmtiles@3/dist/pmtiles.js"></script>
-<!-- Only used for turf.buffer() on the selected street from the priority
-     list (see focusGapIntervention) - a real geographic buffer needs actual
-     geodesic math, not something worth hand-rolling. -->
-<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
-<!-- Only used to build the downloadable PDF (see PrintControl in app.js) -
-     a real PDF file, not the browser print dialog: exposes window.jspdf.jsPDF. -->
-<script src="https://unpkg.com/jspdf@2/dist/jspdf.umd.min.js"></script>
-<!-- Client-side A* pathfinding for the LTS-preferring router (see
-     web/routing.js / RoutingControl in app.js) - globals: createGraph
-     (ngraph.graph), ngraphPath (ngraph.path). -->
-<script src="https://unpkg.com/ngraph.graph@20/dist/ngraph.graph.umd.js"></script>
-<script src="https://unpkg.com/ngraph.path@1/dist/ngraph.path.umd.js"></script>
-<script src="routing.js"></script>
-<script src="i18n.js"></script>
+<!-- Vendored locally at a pinned exact version rather than CDN "@major"
+     floating tags (see web/assets/vendor/README.md) - unpkg's `@5`/`@6`/etc.
+     resolve to whatever the latest matching release is AT REQUEST TIME,
+     so the app could silently start running a different minor/patch
+     version than what was tested. `defer` on every script here (all
+     plain globals, no ES modules anywhere in this app - see routing.js's
+     own comment) lets the browser parse the rest of the document while
+     these download, instead of blocking on each one in turn; execution
+     still runs in this same document order, right before
+     DOMContentLoaded, so app.js can still rely on maplibregl/pmtiles/
+     routing.js's globals/i18n.js's t() all being ready. -->
+<link href="assets/vendor/maplibre-gl-5.24.0.css" rel="stylesheet" />
+<script src="assets/vendor/maplibre-gl-5.24.0.js" defer></script>
+<script src="assets/vendor/pmtiles-4.5.0.js" defer></script>
+<!-- Turf, jsPDF and ngraph.graph/ngraph.path are NOT loaded here - each is
+     only needed by one specific feature (gap-buffer/elevation geometry,
+     PDF export, and the router respectively), so most visits never touch
+     any of them. They're fetched on demand instead, from web/assets/vendor/, via
+     ensureTurfLoaded/ensureJspdfLoaded/ensureNgraphLoaded in app.js. -->
+<script src="routing.js" defer></script>
+<script src="i18n.js" defer></script>
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -177,6 +181,6 @@
     </div>
   </div>
 </div>
-<script src="app.js"></script>
+<script src="app.js" defer></script>
 </body>
 </html>
