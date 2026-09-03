@@ -136,6 +136,7 @@ h1 { font-weight: 700; }
 }
 #routing-panel.hidden { display: none; }
 #routing-toggle.active { background: #3B4A7A; color: white; }
+#routing-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
 .routing-panel-header { display: flex; align-items: center; justify-content: space-between; }
 .routing-panel-title { font-size: 13px; font-weight: 600; color: #222; }
 .routing-panel-header-buttons { display: flex; gap: 4px; }

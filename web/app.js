@@ -15,6 +15,20 @@
 // margin rather than depending on the boundary being exact.
 const MIN_CLICK_ZOOM = 13;
 
+// Below this zoom, the routing tool is disabled (see RoutingControl's own
+// zoom-state handling further down) - client-side routing has to merge
+// and search every candidate comune's graph between start and end (see
+// routing.js), and at whole-Italy/regional zoom a careless pick of two
+// far-apart points can turn into a multi-minute computation on the
+// user's own device (see routingSlowWarning* in i18n.js for the
+// still-slow-but-allowed case this doesn't fully replace). 9 is roughly
+// "a wide metro area/small province" - narrow enough to keep candidate
+// comuni few, wide enough that a real in-town or cross-town route is
+// never blocked by it. Also the zoom this app starts prefetching
+// web/data/comuni_index.json at, in preparation - see that fetch's own
+// comment.
+const MIN_ROUTING_ZOOM = 9;
+
 // Below this zoom, the lts-lines/gap-edges layers are hidden entirely (see
 // MIN_STREETS_ZOOM on their `minzoom`, and #zoom-hint's show/hide further
 // below) - skipping the layer entirely below this zoom means MapLibre
@@ -185,10 +199,13 @@ function ensureFaqLoaded() {
 }
 
 // Fetches web/data/comuni_index.json once, however it's first needed - by
-// updateComuneOverlays' z12+ pmtiles swap (italia view only, see below) or
-// by RoutingControl (any view - a route can need cross-comune coverage
-// info regardless of which page loaded it). Concurrent/repeat callers
-// share the same in-flight promise instead of re-fetching.
+// prefetchComuniIndexForRouting once zoom reaches MIN_ROUTING_ZOOM (any
+// area - a route can need cross-comune coverage info regardless of which
+// page loaded it), which also covers updateComuneOverlays' own z12+
+// pmtiles swap (italia view only, see below) since MIN_ROUTING_ZOOM < 12
+// - or, failing that prefetch for whatever reason, by RoutingControl's
+// own unconditional call once a route is actually requested. Concurrent/
+// repeat callers share the same in-flight promise instead of re-fetching.
 function ensureComuniIndexLoaded() {
   if (comuniIndex) return Promise.resolve(comuniIndex);
   if (!comuniIndexPromise) {
@@ -239,11 +256,9 @@ function gapEdgeLayerIds() {
   return ["gap-edges", ...[...visibleComuneSlugs].map(comuneGapLayerId)];
 }
 
-if (area === "italia") {
-  ensureComuniIndexLoaded().then((data) => {
-    if (data) updateComuneOverlays();
-  });
-}
+// comuni_index.json is no longer eagerly fetched here - see
+// prefetchComuniIndexForRouting further down (needs `map`, defined
+// below), which fetches it once zoom reaches MIN_ROUTING_ZOOM instead.
 
 const BASE_STYLES = {
   light: "https://styles.maptoolkit.org/light.json",
@@ -2487,13 +2502,21 @@ const GAP_EDGE_FILTER = [
   ["!=", ["to-string", ["get", "has_parallel_cycleway"]], "true"],
 ];
 
-// Selection outline for a street focused from the priority list - yellow
-// rather than the same purple already used for every "Tratti da
-// valutare" edge (GAP_EDGE_WIDTH's colour above), so the one currently
-// selected street reads unambiguously against every other purple-dashed
-// street already on screen.
+// Selection outline for a street focused from the priority list - a dark
+// casing under a yellow line (see addDataLayers' gap-edge-selected-case/
+// gap-edge-selected layers), the same "selected route" technique most
+// map apps use. Yellow rather than the purple already used for every
+// "Tratti da valutare" edge (GAP_EDGE_WIDTH's colour above), so the one
+// currently selected street reads unambiguously against every other
+// purple street already on screen - and the dark casing is what keeps
+// that yellow legible against all 4 basemaps (light/summer/cycling/
+// dark) and against LTS2 (already yellow-green in the current palette),
+// not just this one. Replaced a thin (1.5px) dashed buffer-polygon
+// outline that tested as too subtle to notice (reported live).
 const GAP_SELECTION_COLOR = "#FFD60A";
-const GAP_SELECTION_BUFFER_METERS = 3;
+const GAP_SELECTION_CASE_COLOR = "#1A1A1A";
+const GAP_SELECTION_WIDTH = 5;
+const GAP_SELECTION_CASE_WIDTH = 9;
 const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
 
 // Re-adds everything this page draws on top of the base style. Called
@@ -2618,34 +2641,43 @@ function addDataLayers() {
   }
 
   // Selection outline for a street focused from the "Tratti da valutare"
-  // list (see focusGapIntervention/applyGapHighlight): a real geographic
-  // buffer polygon (GAP_SELECTION_BUFFER_METERS, via turf.buffer on the
-  // selected street's own GeoJSON geometry - see applyGapHighlight),
-  // drawn as an outline only. A `line` layer never fills its geometry,
-  // so "transparent fill" falls out of using one at all rather than
-  // needing an explicit fill-opacity:0 on a separate fill layer.
-  // Own GeoJSON source (not the "lts" vector tile source used
-  // elsewhere): the buffer polygon is computed fresh client-side per
-  // selection, not something baked into the tileset.
-  if (!map.getSource("gap-edge-selected-buffer")) {
-    map.addSource("gap-edge-selected-buffer", { type: "geojson", data: EMPTY_FEATURE_COLLECTION });
+  // list (see focusGapIntervention/applyGapHighlight) - drawn directly on
+  // the selected street's own line geometry (see selectionLineGeoJSON),
+  // not a buffer polygon around it: a dark casing layer first, then a
+  // narrower yellow line on top, MapLibre stacking later-added layers
+  // above earlier ones. Own GeoJSON source (not the "lts" vector tile
+  // source used elsewhere): computed fresh client-side per selection,
+  // not something baked into the tileset.
+  if (!map.getSource("gap-edge-selected")) {
+    map.addSource("gap-edge-selected", { type: "geojson", data: EMPTY_FEATURE_COLLECTION });
   }
-  if (!map.getLayer("gap-edge-selected-buffer")) {
+  if (!map.getLayer("gap-edge-selected-case")) {
     map.addLayer({
-      id: "gap-edge-selected-buffer",
+      id: "gap-edge-selected-case",
       type: "line",
-      source: "gap-edge-selected-buffer",
-      layout: { visibility: gapModeOn ? "visible" : "none" },
+      source: "gap-edge-selected",
+      layout: { visibility: gapModeOn ? "visible" : "none", "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": GAP_SELECTION_CASE_COLOR,
+        "line-width": GAP_SELECTION_CASE_WIDTH,
+      },
+    });
+  }
+  if (!map.getLayer("gap-edge-selected")) {
+    map.addLayer({
+      id: "gap-edge-selected",
+      type: "line",
+      source: "gap-edge-selected",
+      layout: { visibility: gapModeOn ? "visible" : "none", "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": GAP_SELECTION_COLOR,
-        "line-width": 1.5,
-        "line-dasharray": [2, 2],
+        "line-width": GAP_SELECTION_WIDTH,
       },
     });
   }
 
   // The route drawn by RoutingControl (web/routing.js's findRoute) - own
-  // GeoJSON source, same reason as gap-edge-selected-buffer above: it's
+  // GeoJSON source, same reason as gap-edge-selected above: it's
   // computed fresh client-side per query, not part of any tileset. Seeded
   // from lastRouteFeatureCollection, not always-empty - a basemap switch
   // (setStyle) drops this source like every other custom one, and without
@@ -3253,29 +3285,25 @@ function renderGapInterventions() {
 let selectedGapName = null;
 let selectedGapFeatures = null;
 
-// A real geographic buffer (turf.buffer, GAP_SELECTION_BUFFER_METERS)
-// around the selected street's own geometry - not a stylistic wider
-// line, an actual polygon at a fixed real-world distance regardless of
-// zoom. Buffers each fragment separately rather than merging them first:
-// a street is usually split into several OSM way fragments (same
-// reasoning as dedupeFeatures/computeGapInterventions above), and their
-// individual buffers overlap seamlessly wherever the fragments are
-// adjacent, so the visual result is the same as buffering one merged
-// line without needing a turf.union pass first.
-function selectionBufferGeoJSON(features) {
+// Plain FeatureCollection of the selected street's own line geometry -
+// no buffering (a turf.buffer polygon used to sit here; dropped because
+// its thin dashed outline tested as too subtle to notice, and because a
+// street split into several OSM way fragments buffered each one
+// separately, which showed as a lumpy/beaded outline at fragment joins -
+// see GAP_SELECTION_COLOR's own comment for what replaced it). No turf
+// dependency either, since there's no geometry math left to do here.
+function selectionLineGeoJSON(features) {
   if (!features || !features.length) return EMPTY_FEATURE_COLLECTION;
-  const lines = {
+  return {
     type: "FeatureCollection",
     features: features.map((f) => ({ type: "Feature", properties: {}, geometry: f.geometry })),
   };
-  return turf.buffer(lines, GAP_SELECTION_BUFFER_METERS, { units: "meters" });
 }
 
-async function applyGapHighlight() {
-  const source = map.getSource("gap-edge-selected-buffer");
+function applyGapHighlight() {
+  const source = map.getSource("gap-edge-selected");
   if (!source) return;
-  if (selectedGapFeatures && selectedGapFeatures.length) await ensureTurfLoaded();
-  source.setData(selectionBufferGeoJSON(selectedGapFeatures));
+  source.setData(selectionLineGeoJSON(selectedGapFeatures));
 }
 
 function focusGapIntervention(item) {
@@ -3297,8 +3325,8 @@ function setGapMode(on) {
   for (const id of gapEdgeLayerIds()) {
     map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
   }
-  if (map.getLayer("gap-edge-selected-buffer")) {
-    map.setLayoutProperty("gap-edge-selected-buffer", "visibility", on ? "visible" : "none");
+  for (const id of ["gap-edge-selected-case", "gap-edge-selected"]) {
+    if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
   }
   if (on) {
     gapListPage = 1;
@@ -3332,6 +3360,39 @@ function updateGapToggleState() {
 }
 map.on("zoom", updateGapToggleState);
 updateGapToggleState(); // default view starts at zoom 5.2, well below threshold
+
+// comuni_index.json prefetch (MIN_ROUTING_ZOOM, see that constant's own
+// comment) - same "bind on zoom, call once for the initial camera" shape
+// as updateGapToggleState just above. ensureComuniIndexLoaded is its own
+// single point of dedupe (one shared in-flight promise, a cached
+// resolved value after), so calling it on every zoom tick above the
+// threshold costs nothing once the first real fetch has landed.
+function prefetchComuniIndexForRouting() {
+  if (map.getZoom() < MIN_ROUTING_ZOOM) return;
+  ensureComuniIndexLoaded().then((data) => {
+    if (data) updateComuneOverlays();
+  });
+}
+map.on("zoom", prefetchComuniIndexForRouting);
+prefetchComuniIndexForRouting(); // covers a deep link that starts at/above zoom 9
+
+// Routing toggle: disabled below MIN_ROUTING_ZOOM (see that constant's
+// own comment) - same disabled+title pattern as updateGapToggleState
+// above. Also force-closes the panel if it was already open and the
+// user zoomed back out past the threshold, not just the trigger button:
+// the feature itself is meant to be unavailable below this zoom, not
+// merely unreachable to newly open (its own × close button stays
+// unaffected either way, so a route already being viewed is never
+// trapped on screen by this).
+function updateRoutingToggleState() {
+  const disabled = map.getZoom() < MIN_ROUTING_ZOOM;
+  const toggle = document.getElementById("routing-toggle");
+  toggle.disabled = disabled;
+  toggle.title = disabled ? t("routingZoomHint") : "";
+  if (disabled && routingPanelOpen) routingControlInstance._close();
+}
+map.on("zoom", updateRoutingToggleState);
+updateRoutingToggleState(); // default view starts at zoom 5.2, well below threshold
 
 // --- URL state -------------------------------------------------------
 

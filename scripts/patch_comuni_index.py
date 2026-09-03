@@ -119,7 +119,11 @@ def main() -> None:
         row = gdf[gdf["istat"] == istat]
         if not row.empty:
             minx, miny, maxx, maxy = row.iloc[0].geometry.bounds
-            bbox = [round(minx, 5), round(miny, 5), round(maxx, 5), round(maxy, 5)]
+            # 4 decimals (~11m), not 5 (~1m) - see build_comuni_index.py's
+            # matching comment: this bbox only ever feeds a client-side
+            # viewport-overlap check that already tolerates far more
+            # slack than that.
+            bbox = [round(minx, 4), round(miny, 4), round(maxx, 4), round(maxy, 4)]
         else:
             # Missing from the boundary topojson itself (null geometry
             # upstream - see _bbox_from_pmtiles's own comment) - fall back
@@ -129,7 +133,7 @@ def main() -> None:
             if bbox is None:
                 print(f"WARNING: no boundary geometry AND pmtiles bounds unavailable for {slug} (istat={istat}) - skipping", file=sys.stderr)
                 continue
-            bbox = [round(v, 5) for v in bbox]
+            bbox = [round(v, 4) for v in bbox]
         new_entry = {
             "istat": istat,
             "slug": slug,
@@ -140,10 +144,23 @@ def main() -> None:
         entry_by_istat[istat] = new_entry
         added += 1
 
+    # Re-round every entry (not just ones touched this run) to 4 decimals
+    # - a full build_comuni_index.py rebuild already writes at this
+    # precision, but a comune patched by an older version of this script
+    # (or never touched since before this change) could still carry a
+    # stale 5-decimal bbox otherwise; this keeps the whole file at one
+    # consistent precision regardless of which script/version last wrote
+    # each entry.
+    for entry in entries:
+        entry["bbox"] = [round(v, 4) for v in entry["bbox"]]
+
     entries.sort(key=lambda e: e["istat"])
     os.makedirs(web_data_dir, exist_ok=True)
     with open(index_path, "w") as file_handle:
-        json.dump(entries, file_handle, ensure_ascii=False)
+        # Compact separators (no space after `,`/`:`) - fetched by the
+        # browser, never hand-read, see build_comuni_index.py's own
+        # comment for the measured size this and the rounding above save.
+        json.dump(entries, file_handle, ensure_ascii=False, separators=(",", ":"))
 
     print(f"Wrote {index_path}: {added} comuni added, {updated} had has_routing flipped.")
 
