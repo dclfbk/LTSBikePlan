@@ -141,6 +141,7 @@ const state = {
   regioni: [],
   province: [],
   comuni: [],
+  clusters: [],
   currentRegione: null,
   currentProvincia: null,
   currentComuneIstat: null,
@@ -158,11 +159,17 @@ Promise.all([
   loadJson("../data/italia_regione_stats.json"),
   loadJson("../data/italia_provincia_stats.json"),
   loadJson("../data/italia_comuni_stats.json"),
+  // Best-effort: the clusters section is a nice-to-have on the Italia
+  // root view, not core navigation - if this file hasn't been generated
+  // yet (scripts/build_comuni_clusters.py) the rest of the page should
+  // still work, just without that one section.
+  loadJson("../data/italia_comuni_clusters.json").catch(() => []),
 ])
-  .then(([regioni, province, comuni]) => {
+  .then(([regioni, province, comuni, clusters]) => {
     state.regioni = regioni;
     state.province = province;
     state.comuni = comuni;
+    state.clusters = clusters;
     init();
   })
   .catch((error) => {
@@ -182,8 +189,102 @@ function init() {
   setupSearch();
   setupCompareTray();
   setupShareBar();
+  const setAboutOpen = setupInfoPanel("about-toggle", "about-panel", "about-close");
+  const setFaqOpen = setupInfoPanel("faq-toggle", "faq-panel", "faq-close");
+  setupInfoPanel("privacy-toggle", "privacy-panel", "privacy-close");
+  setupInfoPanel("credits-toggle", "credits-panel", "credits-close");
+  // "Dai un'occhiata alle FAQ" links inside aboutBody (i18n.js) - event
+  // delegation since #about-body's innerHTML is replaced wholesale on
+  // every applyStaticTranslations() call (language switch).
+  document.getElementById("about-body").addEventListener("click", (e) => {
+    if (!e.target.classList.contains("open-faq-link")) return;
+    e.preventDefault();
+    setAboutOpen(false);
+    setFaqOpen(true);
+  });
   restoreStateFromUrl();
   render();
+}
+
+// Same open/close wiring as the main site (web/app.js) - About, FAQ,
+// Cookie/Privacy and Ringraziamenti/Credits all share the same centred
+// .info-panel slot, so opening one closes whichever other one was open.
+const infoPanelSetters = [];
+function setupInfoPanel(toggleId, panelId, closeId) {
+  const toggle = document.getElementById(toggleId);
+  const panel = document.getElementById(panelId);
+  function setOpen(open) {
+    panel.classList.toggle("hidden", !open);
+    toggle.classList.toggle("active", open);
+    if (open) {
+      for (const otherSetOpen of infoPanelSetters) {
+        if (otherSetOpen !== setOpen) otherSetOpen(false);
+      }
+    }
+  }
+  infoPanelSetters.push(setOpen);
+  toggle.addEventListener("click", () => setOpen(panel.classList.contains("hidden")));
+  if (closeId) document.getElementById(closeId).addEventListener("click", () => setOpen(false));
+  return setOpen;
+}
+
+// Same faq.json (one level up from stats/) and cache-once shape as
+// web/app.js's ensureFaqLoaded - the FAQ content itself isn't stats-page
+// specific, so it isn't duplicated.
+let faqItems = null;
+let faqItemsPromise = null;
+function ensureFaqLoaded() {
+  if (faqItems) return Promise.resolve(faqItems);
+  if (!faqItemsPromise) {
+    faqItemsPromise = fetch(new URL("../faq.json", window.location.href))
+      .then((response) => response.json())
+      .then((data) => {
+        faqItems = data;
+        return data;
+      })
+      .catch(() => {
+        faqItemsPromise = null;
+        return [];
+      });
+  }
+  return faqItemsPromise;
+}
+ensureFaqLoaded().then(renderFaq);
+
+function renderFaq() {
+  const list = document.getElementById("faq-list");
+  if (!list) return;
+  list.innerHTML = "";
+  for (const item of faqItems || []) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "faq-item";
+    const question = document.createElement("button");
+    question.type = "button";
+    question.className = "faq-question";
+    question.textContent = item.q;
+    const answer = document.createElement("div");
+    answer.className = "faq-answer hidden";
+    answer.innerHTML = item.a;
+
+    const closeLink = document.createElement("button");
+    closeLink.type = "button";
+    closeLink.className = "faq-close-answer";
+    closeLink.textContent = t("faqCloseAndScrollUp");
+    closeLink.addEventListener("click", () => {
+      wrapper.classList.remove("open");
+      answer.classList.add("hidden");
+      document.getElementById("faq-panel").scrollTo({ top: 0, behavior: "smooth" });
+    });
+    answer.appendChild(closeLink);
+
+    question.addEventListener("click", () => {
+      const isOpen = wrapper.classList.toggle("open");
+      answer.classList.toggle("hidden", !isOpen);
+      if (isOpen) wrapper.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    wrapper.append(question, answer);
+    list.appendChild(wrapper);
+  }
 }
 
 // Deep-linking: a shared stats.js URL carries regione/provincia/comune
@@ -238,6 +339,33 @@ function applyStaticTranslations() {
   document.getElementById("page-subtitle").textContent = t("statsPageSubtitle");
   document.getElementById("comune-search").placeholder = t("statsSearchPlaceholder");
   renderCoverageNote();
+
+  document.getElementById("about-toggle").textContent = t("aboutToggle");
+  document.getElementById("about-heading").textContent = t("aboutHeading");
+  document.getElementById("about-subtitle").textContent = t("aboutSubtitle");
+  // aboutBody/faqItems[].a/creditsBody/footerCredit are the only innerHTML
+  // assignments here - authored, static content from i18n.js, not user-
+  // or API-derived, so there's nothing to sanitize against.
+  document.getElementById("about-body").innerHTML = t("aboutBody");
+  document.getElementById("faq-toggle").textContent = t("faqToggle");
+  document.getElementById("faq-heading").textContent = t("faqHeading");
+  renderFaq();
+  // Italian is the original text; every other language is an AI
+  // translation of it - disclosed here rather than left implicit (see
+  // web/app.js's applyUiTranslations for the same note on the main site).
+  const aiNote = lang === "it" ? "" : t("aiTranslationNote") || "";
+  document.getElementById("about-ai-note").textContent = aiNote;
+  document.getElementById("about-ai-note").classList.toggle("hidden", !aiNote);
+  document.getElementById("faq-ai-note").textContent = aiNote;
+  document.getElementById("faq-ai-note").classList.toggle("hidden", !aiNote);
+  document.getElementById("privacy-toggle").textContent = t("privacyToggle");
+  document.getElementById("privacy-heading").textContent = t("privacyHeading");
+  document.getElementById("privacy-intro").textContent = t("privacyIntro");
+  document.getElementById("credits-toggle").textContent = t("creditsToggle");
+  document.getElementById("credits-heading").textContent = t("creditsHeading");
+  document.getElementById("credits-body").innerHTML = t("creditsBody");
+  document.getElementById("credits-ai-note").textContent = aiNote;
+  document.getElementById("credits-ai-note").classList.toggle("hidden", !aiNote);
 }
 
 function renderCoverageNote() {
@@ -270,6 +398,125 @@ function getChart(containerId) {
 window.addEventListener("resize", () => {
   for (const inst of chartInstances.values()) inst.resize();
 });
+
+// --- Shared chart extras: fullscreen, download, optional dataZoom --------
+//
+// Every chart on this page goes through applyChartOption() instead of
+// calling chart.setOption() directly, so the toolbox (fullscreen +
+// "download as image", the latter a built-in echarts feature) is
+// available everywhere without repeating this block at each of the
+// dozen-plus call sites. dataZoom (a vertical slider on the category
+// axis) is opt-in per call - only the ranked-bar-style charts whose
+// item count scales with the drill-down level (a comune-level view can
+// have hundreds of rows) need it; a handful of comparison bars or a
+// single-category stacked bar don't.
+//
+// Straight-line-only SVG path (M/L commands, no arcs) for the fullscreen
+// icon - four corner brackets - since zrender's path parser is pickier
+// about arc syntax than a browser's own SVG renderer.
+const CHART_FULLSCREEN_ICON =
+  "path://M4,4 L4,10 M4,4 L10,4 M20,4 L20,10 M20,4 L14,4 M4,20 L4,14 M4,20 L10,20 M20,20 L20,14 M20,20 L14,20";
+
+function chartToolboxOption() {
+  return {
+    right: 8,
+    top: 4,
+    itemSize: 14,
+    feature: {
+      saveAsImage: { title: t("statsChartDownload") },
+      myFullscreen: {
+        show: true,
+        title: t("statsChartFullscreen"),
+        icon: CHART_FULLSCREEN_ICON,
+        onclick(ecModel, api) {
+          toggleChartFullscreen(api.getDom().id);
+        },
+      },
+    },
+  };
+}
+
+// Sets the CSS custom properties the .chart-fullscreen rule reads for
+// its (!important) top/left/right/bottom, leaving room for the sticky
+// header and the floating share-bar rather than covering them. Custom
+// properties, not plain inline style properties, because echarts
+// reasserts an inline `position: relative` on this same element on
+// every chart.resize() call (not just at init) - a plain inline
+// position/top/etc would get silently stomped moments after we set it.
+function positionFullscreenChart(el) {
+  const gap = 16;
+  const header = document.getElementById("site-header");
+  const shareBar = document.getElementById("share-bar");
+  const headerRect = header.getBoundingClientRect();
+  const narrow = window.matchMedia("(max-width: 700px)").matches;
+  const shareBarRect = shareBar.getBoundingClientRect();
+  el.style.setProperty("--fs-top", `${headerRect.bottom + gap}px`);
+  el.style.setProperty("--fs-left", `${gap}px`);
+  if (narrow) {
+    // Share-bar drops to a bottom row on narrow screens (see the
+    // @media rule above) - reserve space below instead of on the right.
+    el.style.setProperty("--fs-right", `${gap}px`);
+    el.style.setProperty("--fs-bottom", `${window.innerHeight - shareBarRect.top + gap}px`);
+  } else {
+    el.style.setProperty("--fs-right", `${window.innerWidth - shareBarRect.left + gap}px`);
+    el.style.setProperty("--fs-bottom", `${gap}px`);
+  }
+}
+
+function fullscreenResizeHandler() {
+  const el = document.querySelector(".chart-fullscreen");
+  if (!el) return;
+  positionFullscreenChart(el);
+  const chart = chartInstances.get(el.id);
+  if (chart) chart.resize();
+}
+
+function toggleChartFullscreen(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const entering = !el.classList.contains("chart-fullscreen");
+  el.classList.toggle("chart-fullscreen", entering);
+  document.body.classList.toggle("has-fullscreen-chart", entering);
+  document.documentElement.classList.toggle("has-fullscreen-chart", entering);
+  if (entering) {
+    positionFullscreenChart(el);
+    window.addEventListener("resize", fullscreenResizeHandler);
+  } else {
+    window.removeEventListener("resize", fullscreenResizeHandler);
+  }
+  const chart = chartInstances.get(containerId);
+  // Container size changes with the class toggle - echarts needs an
+  // explicit resize() once that's actually taken effect, not before.
+  // (chart.resize() also re-asserts inline position:relative on `el` -
+  // harmless now, since the fullscreen rule's position:fixed is
+  // !important and always wins regardless of what echarts sets inline.)
+  setTimeout(() => chart && chart.resize(), 60);
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const el = document.querySelector(".chart-fullscreen");
+  if (el) toggleChartFullscreen(el.id);
+});
+
+// dataZoom's default `end` shows every item at once, which is exactly
+// the "molto pieni" (too full) problem for a comune-level view with
+// hundreds of rows - defaults instead to whatever fraction shows about
+// VISIBLE_BY_DEFAULT items, so a long list opens already scrollable/
+// zoomable instead of squished.
+const DATAZOOM_VISIBLE_BY_DEFAULT = 18;
+
+function applyChartOption(chart, option, { dataZoom = false } = {}) {
+  const merged = { ...option, toolbox: chartToolboxOption() };
+  if (dataZoom) {
+    const categoryCount = (option.yAxis && option.yAxis.data && option.yAxis.data.length) || 0;
+    const end = categoryCount > DATAZOOM_VISIBLE_BY_DEFAULT ? (DATAZOOM_VISIBLE_BY_DEFAULT / categoryCount) * 100 : 100;
+    merged.dataZoom = [
+      { type: "slider", yAxisIndex: 0, width: 10, right: 8, top: 28, bottom: 8, start: 0, end, showDetail: false },
+      { type: "inside", yAxisIndex: 0, start: 0, end },
+    ];
+  }
+  chart.setOption(merged, true);
+}
 
 // --- Navigation / breadcrumb --------------------------------------------
 
@@ -347,7 +594,125 @@ function render() {
     renderLevelView(root, items, "provincia", t("statsProvinceOfTemplate")(state.currentRegione));
     return;
   }
+  renderClustersSection(root);
   renderLevelView(root, state.regioni, "regione", t("statsRootTitle"));
+}
+
+// --- Peer-comuni clusters (Italia root view only) --------------------
+//
+// scripts/build_comuni_clusters.py groups comuni into 5 size-based peer
+// groups (k-means on log-population/log-superficie) so "best/worst by
+// low_stress_share" is a comparison between genuinely similar comuni
+// instead of a single national ranking Roma would trivially dominate or
+// vanish into. Purely presentational here - all the grouping/ranking
+// already happened in Python; this just renders what's in the file.
+function renderClustersSection(root) {
+  if (!state.clusters.length) return;
+
+  const section = document.createElement("div");
+  section.className = "card-panel";
+  section.innerHTML = `
+    <h2>${t("statsClustersTitle")}</h2>
+    <p class="chart-note">${t("statsClustersNoteTemplate")(state.clusters.length)}</p>
+    <div id="clusters-grid" class="charts-grid"></div>
+  `;
+  root.appendChild(section);
+
+  const grid = section.querySelector("#clusters-grid");
+  const CLUSTER_PAGE_SIZE = 3;
+  state.clusters.forEach((cluster) => {
+    const card = document.createElement("div");
+    card.className = "card-panel";
+    card.innerHTML = `
+      <h2>${cluster.label}</h2>
+      <p class="chart-note">
+        ${t("statsClusterRangeTemplate")(fmtInt(cluster.popolazione_p25), fmtInt(cluster.popolazione_p75), cluster.superficie_p25, cluster.superficie_p75)}
+        · ${t("statsClusterCountTemplate")(fmtInt(cluster.comuni_count))}
+      </p>
+      <div class="cluster-lists">
+        <div>
+          <h3>${t("statsClusterBestLabel")}</h3>
+          <ol class="cluster-list" data-kind="top"></ol>
+        </div>
+        <div>
+          <h3>${t("statsClusterWorstLabel")}</h3>
+          <ol class="cluster-list" data-kind="bottom"></ol>
+        </div>
+      </div>
+      <div class="cluster-pager">
+        <button type="button" data-dir="-1" title="${t("statsClusterPagerPrev")}">${SORT_ARROW_UP}</button>
+        <button type="button" data-dir="1" title="${t("statsClusterPagerNext")}">${SORT_ARROW_DOWN}</button>
+      </div>
+    `;
+    grid.appendChild(card);
+
+    // Both columns page together (one shared offset), in blocks of
+    // CLUSTER_PAGE_SIZE, further into the same top/bottom-sorted lists
+    // build_comuni_clusters.py already exports (up to TOP_N members deep
+    // on each side) - not just the fixed top-3/bottom-3 shown before.
+    const topList = card.querySelector('[data-kind="top"]');
+    const bottomList = card.querySelector('[data-kind="bottom"]');
+    const upBtn = card.querySelector('.cluster-pager button[data-dir="-1"]');
+    const downBtn = card.querySelector('.cluster-pager button[data-dir="1"]');
+    const maxOffset = Math.max(0, cluster.top.length - CLUSTER_PAGE_SIZE);
+    let offset = 0;
+    function renderPage() {
+      renderClusterList(topList, cluster.top.slice(offset, offset + CLUSTER_PAGE_SIZE), true, offset, cluster.comuni_count);
+      renderClusterList(bottomList, cluster.bottom.slice(offset, offset + CLUSTER_PAGE_SIZE), false, offset, cluster.comuni_count);
+      upBtn.disabled = offset <= 0;
+      downBtn.disabled = offset >= maxOffset;
+    }
+    upBtn.addEventListener("click", () => {
+      offset = Math.max(0, offset - CLUSTER_PAGE_SIZE);
+      renderPage();
+    });
+    downBtn.addEventListener("click", () => {
+      offset = Math.min(maxOffset, offset + CLUSTER_PAGE_SIZE);
+      renderPage();
+    });
+    renderPage();
+  });
+}
+
+function renderClusterList(listEl, items, isBest, offset, comuniCount) {
+  listEl.innerHTML = items
+    .map((item, i) => {
+      // The "top" list is already sorted best-first, so its position in
+      // the array IS its classification rank (1st, 2nd, ...). "bottom" is
+      // the tail of that same ranking reversed (worst-first for display),
+      // so its true rank counts down from comuni_count instead - showing
+      // "1, 2, 3..." there would read as if the worst comune were #1
+      // (best), when it's actually dead last.
+      const rank = isBest ? offset + i + 1 : comuniCount - offset - i;
+      const trophy = isBest && rank === 1 ? `<span title="${t("statsClusterTrophyTitle")}">🏆</span> ` : "";
+      // Two comuni can both round to "92%" (fmtPercent has no decimals) -
+      // the precise value only shows on hover (native title tooltip, no
+      // extra UI needed) so it's there when someone wonders why a tied-
+      // looking #1 and #2 aren't in the order they expected.
+      const preciseShare = item.low_stress_share != null ? `${(item.low_stress_share * 100).toFixed(3)}%` : "-";
+      return `<li>
+        <span class="cluster-item-rank">${rank}</span>
+        <span class="cluster-item-name">${trophy}${item.comune}</span>
+        <span class="cluster-item-meta">
+          <span class="cluster-item-provincia" data-idx="${i}">${item.provincia}</span> · <span title="${preciseShare}">${fmtPercent(item.low_stress_share)}</span>
+        </span>
+      </li>`;
+    })
+    .join("");
+  listEl.querySelectorAll("li").forEach((li, i) => {
+    li.addEventListener("click", () => goComune(items[i].istat_code));
+  });
+  // Own click handler + stopPropagation so clicking the provincia name
+  // opens that provincia's view instead of (or as well as) the comune's -
+  // the two need to lead somewhere different, not just the same comune
+  // detail the rest of the row already opens.
+  listEl.querySelectorAll(".cluster-item-provincia").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const item = items[Number(el.dataset.idx)];
+      goProvincia(item.regione, item.provincia);
+    });
+  });
 }
 
 function itemName(row, level) {
@@ -359,44 +724,94 @@ function itemKey(row, level) {
 
 // --- Level view: charts + table ------------------------------------------
 
+// Each of the 5 ranked-bar-style charts sorts independently now (the
+// user didn't want one control driving all of them in lockstep) by
+// either its own value metric or alphabetically, each with its own
+// ascending/descending flip-flop rather than a separate button per
+// direction. valueOf is the metric that chart's bars actually encode;
+// defaultDir is whichever direction that chart originally always used
+// (kept as the starting point so nothing visually changes until the
+// user actually touches a toggle) - e.g. the LTS-stack and excluded-km
+// charts default to descending (biggest network first) while share/
+// density/per-capita default to ascending (echarts renders yAxis
+// category index 0 at the bottom, so ascending puts the "best" value
+// at the top of the bar list).
+const RANKED_CHART_CONFIGS = {
+  "chart-ranked": { valueOf: (r) => r.low_stress_share ?? 0, defaultDir: 1, draw: () => drawRankedBar(sortItems, sortLevel) },
+  "chart-lts-stack": { valueOf: (r) => r.total_km ?? 0, defaultDir: -1, draw: () => drawLtsStack(sortItems, sortLevel) },
+  "chart-excluded": { valueOf: (r) => nonCyclableKm(r), defaultDir: -1, draw: () => drawExcludedStack(sortItems, sortLevel) },
+  "chart-density": { valueOf: (r) => density(r), defaultDir: 1, draw: () => drawDensity(sortItems, sortLevel) },
+  "chart-per-capita": { valueOf: (r) => perCapita(r), defaultDir: 1, draw: () => drawPerCapita(sortItems, sortLevel) },
+};
+let chartSortState = {};
+// The items/level the toggles above close over - set once per
+// renderLevelView call, read by RANKED_CHART_CONFIGS' draw() thunks so
+// a single chart's toggle can redraw just that chart without needing
+// its own copy of the current items/level.
+let sortItems = [];
+let sortLevel = null;
+
+// Chart height used to grow unbounded with item count
+// (Math.max(220, items.length*22)) - fine for ~20 regioni, unusable for
+// a large provincia's ~150+ comuni (the "molto pieni" the user flagged).
+// Capped now that the ranked charts carry their own dataZoom slider
+// (applyChartOption's `dataZoom: true`) to scroll/zoom within a fixed
+// height instead of the page just growing forever.
+function rankedChartHeight(itemCount) {
+  return Math.min(Math.max(220, itemCount * 22), 480);
+}
+
 function renderLevelView(root, items, level, title) {
   if (!items.length) {
     root.innerHTML += `<p>${t("statsNoDataForSelection")}</p>`;
     return;
   }
+  // Fresh defaults on every new drill-down level, not carried over from
+  // whatever the user last set on a different regione/provincia/comune.
+  sortItems = items;
+  sortLevel = level;
+  chartSortState = Object.fromEntries(
+    Object.entries(RANKED_CHART_CONFIGS).map(([id, cfg]) => [id, { field: "value", dir: cfg.defaultDir }])
+  );
 
   const section = document.createElement("div");
   section.innerHTML = `<h2 style="margin:0 0 10px">${title}</h2>`;
   root.appendChild(section);
 
+  const chartHeight = rankedChartHeight(items.length);
   const grid = document.createElement("div");
   grid.className = "charts-grid";
   grid.innerHTML = `
     <div class="card-panel">
       <h2>${t("statsChartRankedTitle")}</h2>
       <p class="chart-note">${t("statsChartRankedNote")}</p>
-      <div id="chart-ranked" class="chart-box" style="height:${Math.max(220, items.length * 22)}px"></div>
+      <div class="chart-sort-toggle" data-chart="chart-ranked"></div>
+      <div id="chart-ranked" class="chart-box" style="height:${chartHeight}px"></div>
     </div>
     <div class="card-panel">
       <h2>${t("statsChartLtsStackTitle")}</h2>
       <p class="chart-note">${t("statsChartLtsStackNote")}</p>
-      <div id="chart-lts-stack" class="chart-box" style="height:${Math.max(220, items.length * 22)}px"></div>
+      <div class="chart-sort-toggle" data-chart="chart-lts-stack"></div>
+      <div id="chart-lts-stack" class="chart-box" style="height:${chartHeight}px"></div>
     </div>
     <div class="card-panel">
       <h2>${t("statsChartExcludedTitle")}</h2>
       <p class="chart-note">${t("statsChartExcludedNote")}</p>
-      <div id="chart-excluded" class="chart-box" style="height:${Math.max(220, items.length * 22)}px"></div>
+      <div class="chart-sort-toggle" data-chart="chart-excluded"></div>
+      <div id="chart-excluded" class="chart-box" style="height:${chartHeight}px"></div>
     </div>
     <div class="card-panel">
       <h2>${t("statsChartDensityTitle")}</h2>
       <p class="chart-note">${t("statsChartDensityNote")}</p>
-      <div id="chart-density" class="chart-box" style="height:${Math.max(220, items.length * 22)}px"></div>
+      <div class="chart-sort-toggle" data-chart="chart-density"></div>
+      <div id="chart-density" class="chart-box" style="height:${chartHeight}px"></div>
     </div>
     ${items.some((r) => r.popolazione) ? `
     <div class="card-panel">
       <h2>${t("statsChartPerCapitaTitle")}</h2>
       <p class="chart-note">${t("statsChartPerCapitaNote")}</p>
-      <div id="chart-per-capita" class="chart-box" style="height:${Math.max(220, items.length * 22)}px"></div>
+      <div class="chart-sort-toggle" data-chart="chart-per-capita"></div>
+      <div id="chart-per-capita" class="chart-box" style="height:${chartHeight}px"></div>
     </div>` : ""}
     <div class="card-panel">
       <h2>${t("statsChartScatterTitle")}</h2>
@@ -405,6 +820,7 @@ function renderLevelView(root, items, level, title) {
     </div>
   `;
   root.appendChild(grid);
+  grid.querySelectorAll(".chart-sort-toggle").forEach((toggle) => renderSortToggle(toggle, toggle.dataset.chart));
 
   const treemapPanel = document.createElement("div");
   treemapPanel.className = "card-panel";
@@ -415,15 +831,59 @@ function renderLevelView(root, items, level, title) {
   `;
   root.appendChild(treemapPanel);
 
+  redrawRankedCharts(items, level);
+  drawScatter(items, level);
+  drawTreemap(items, level);
+
+  renderTable(root, items, level);
+}
+
+function redrawRankedCharts(items, level) {
   drawRankedBar(items, level);
   drawLtsStack(items, level);
   drawExcludedStack(items, level);
   drawDensity(items, level);
   if (items.some((r) => r.popolazione)) drawPerCapita(items, level);
-  drawScatter(items, level);
-  drawTreemap(items, level);
+}
 
-  renderTable(root, items, level);
+const SORT_ARROW_UP = "▲";
+const SORT_ARROW_DOWN = "▼";
+
+// Renders (or re-renders after a click) one chart's own Nome/Valore
+// toggle. Each button doubles as the direction flip - clicking the
+// already-active one flips its arrow/order, clicking the other one
+// switches field instead (starting from that chart's own default
+// direction for "Valore", or A->Z for "Nome").
+function renderSortToggle(toggle, chartId) {
+  const state = chartSortState[chartId];
+  const arrow = state.dir === 1 ? SORT_ARROW_UP : SORT_ARROW_DOWN;
+  const label = (field) => `${field === "value" ? t("statsSortByValue") : t("statsSortByName")}${state.field === field ? ` <span class="sort-arrow">${arrow}</span>` : ""}`;
+  toggle.innerHTML = `
+    <button type="button" data-field="value" class="${state.field === "value" ? "active" : ""}">${label("value")}</button>
+    <button type="button" data-field="name" class="${state.field === "name" ? "active" : ""}">${label("name")}</button>
+  `;
+  toggle.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const field = btn.dataset.field;
+      if (state.field === field) {
+        state.dir *= -1;
+      } else {
+        state.field = field;
+        state.dir = field === "name" ? 1 : RANKED_CHART_CONFIGS[chartId].defaultDir;
+      }
+      renderSortToggle(toggle, chartId);
+      RANKED_CHART_CONFIGS[chartId].draw();
+    });
+  });
+}
+
+function sortForChart(items, level, chartId) {
+  const state = chartSortState[chartId];
+  if (state.field === "name") {
+    return [...items].sort((a, b) => state.dir * itemName(a, level).localeCompare(itemName(b, level), "it"));
+  }
+  const valueOf = RANKED_CHART_CONFIGS[chartId].valueOf;
+  return [...items].sort((a, b) => state.dir * (valueOf(a) - valueOf(b)));
 }
 
 // Horizontal-bar charts reserve a fixed left margin for the category
@@ -438,11 +898,12 @@ function hbarLayout() {
 
 function drawRankedBar(items, level) {
   const chart = getChart("chart-ranked");
-  const sorted = [...items].sort((a, b) => (a.low_stress_share ?? 0) - (b.low_stress_share ?? 0));
+  const sorted = sortForChart(items, level, "chart-ranked");
   const layout1 = hbarLayout();
-  chart.setOption(
+  applyChartOption(
+    chart,
     {
-      grid: { left: layout1.left, right: 40, top: 10, bottom: 20 },
+      grid: { left: layout1.left, right: 50, top: 10, bottom: 20 },
       xAxis: { type: "value", max: 1, axisLabel: { formatter: (v) => `${Math.round(v * 100)}%`, hideOverlap: true } },
       yAxis: { type: "category", data: sorted.map((r) => itemName(r, level)), axisLabel: { width: layout1.labelWidth, overflow: "truncate" } },
       tooltip: {
@@ -460,7 +921,7 @@ function drawRankedBar(items, level) {
         },
       ],
     },
-    true
+    { dataZoom: true }
   );
   chart.off("click");
   chart.on("click", (p) => onItemActivate(sorted[p.dataIndex], level));
@@ -468,7 +929,7 @@ function drawRankedBar(items, level) {
 
 function drawLtsStack(items, level) {
   const chart = getChart("chart-lts-stack");
-  const sorted = [...items].sort((a, b) => (b.total_km ?? 0) - (a.total_km ?? 0));
+  const sorted = sortForChart(items, level, "chart-lts-stack");
   const series = ["0", "1", "2", "3", "4"].map((cls) => ({
     name: ltsLabel(cls),
     type: "bar",
@@ -477,15 +938,16 @@ function drawLtsStack(items, level) {
     data: sorted.map((r) => (r.km_by_lts && r.km_by_lts[cls]) || 0),
   }));
   const layout2 = hbarLayout();
-  chart.setOption(
+  applyChartOption(
+    chart,
     {
-      grid: { left: layout2.left, right: 40, top: 10, bottom: 20 },
+      grid: { left: layout2.left, right: 50, top: 10, bottom: 20 },
       xAxis: { type: "value", axisLabel: { formatter: (v) => `${v} km`, hideOverlap: true } },
       yAxis: { type: "category", data: sorted.map((r) => itemName(r, level)), axisLabel: { width: layout2.labelWidth, overflow: "truncate" } },
       tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
       series,
     },
-    true
+    { dataZoom: true }
   );
   chart.off("click");
   chart.on("click", (p) => onItemActivate(sorted[p.dataIndex], level));
@@ -494,7 +956,7 @@ function drawLtsStack(items, level) {
 function drawExcludedStack(items, level) {
   const chart = getChart("chart-excluded");
   const fields = excludedFields();
-  const sorted = [...items].sort((a, b) => nonCyclableKm(b) - nonCyclableKm(a));
+  const sorted = sortForChart(items, level, "chart-excluded");
   const series = fields.map((f) => ({
     name: f.label,
     type: "bar",
@@ -503,15 +965,16 @@ function drawExcludedStack(items, level) {
     data: sorted.map((r) => f.value(r)),
   }));
   const layout2 = hbarLayout();
-  chart.setOption(
+  applyChartOption(
+    chart,
     {
-      grid: { left: layout2.left, right: 40, top: 10, bottom: 20 },
+      grid: { left: layout2.left, right: 50, top: 10, bottom: 20 },
       xAxis: { type: "value", axisLabel: { formatter: (v) => `${v} km`, hideOverlap: true } },
       yAxis: { type: "category", data: sorted.map((r) => itemName(r, level)), axisLabel: { width: layout2.labelWidth, overflow: "truncate" } },
       tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
       series,
     },
-    true
+    { dataZoom: true }
   );
   chart.off("click");
   chart.on("click", (p) => onItemActivate(sorted[p.dataIndex], level));
@@ -534,17 +997,18 @@ function perCapita(row) {
 
 function drawDensity(items, level) {
   const chart = getChart("chart-density");
-  const sorted = [...items].sort((a, b) => density(a) - density(b));
+  const sorted = sortForChart(items, level, "chart-density");
   const layoutD = hbarLayout();
-  chart.setOption(
+  applyChartOption(
+    chart,
     {
-      grid: { left: layoutD.left, right: 40, top: 10, bottom: 20 },
+      grid: { left: layoutD.left, right: 50, top: 10, bottom: 20 },
       xAxis: { type: "value", axisLabel: { formatter: (v) => `${v}`, hideOverlap: true } },
       yAxis: { type: "category", data: sorted.map((r) => itemName(r, level)), axisLabel: { width: layoutD.labelWidth, overflow: "truncate" } },
       tooltip: { formatter: (p) => t("statsDensityTooltipTemplate")(p.name, density(sorted[p.dataIndex]).toFixed(2)) },
       series: [{ type: "bar", data: sorted.map((r) => Number(density(r).toFixed(2))), itemStyle: { color: "#3B4A7A" }, barMaxWidth: 18 }],
     },
-    true
+    { dataZoom: true }
   );
   chart.off("click");
   chart.on("click", (p) => onItemActivate(sorted[p.dataIndex], level));
@@ -553,17 +1017,18 @@ function drawDensity(items, level) {
 function drawPerCapita(items, level) {
   const chart = getChart("chart-per-capita");
   const withPop = items.filter((r) => r.popolazione);
-  const sorted = [...withPop].sort((a, b) => perCapita(a) - perCapita(b));
+  const sorted = sortForChart(withPop, level, "chart-per-capita");
   const layoutP = hbarLayout();
-  chart.setOption(
+  applyChartOption(
+    chart,
     {
-      grid: { left: layoutP.left, right: 40, top: 10, bottom: 20 },
+      grid: { left: layoutP.left, right: 50, top: 10, bottom: 20 },
       xAxis: { type: "value", axisLabel: { formatter: (v) => `${v}`, hideOverlap: true } },
       yAxis: { type: "category", data: sorted.map((r) => itemName(r, level)), axisLabel: { width: layoutP.labelWidth, overflow: "truncate" } },
       tooltip: { formatter: (p) => t("statsPerCapitaTooltipTemplate")(p.name, perCapita(sorted[p.dataIndex]).toFixed(2)) },
       series: [{ type: "bar", data: sorted.map((r) => Number(perCapita(r).toFixed(2))), itemStyle: { color: "#26A69A" }, barMaxWidth: 18 }],
     },
-    true
+    { dataZoom: true }
   );
   chart.off("click");
   chart.on("click", (p) => onItemActivate(sorted[p.dataIndex], level));
@@ -582,21 +1047,18 @@ function drawTreemap(items, level) {
     value: r.total_km,
     itemStyle: { color: shareToColor(r.low_stress_share) },
   }));
-  chart.setOption(
-    {
-      tooltip: { formatter: (p) => t("statsTreemapTooltipTemplate")(p.name, fmtKm(p.value)) },
-      series: [
-        {
-          type: "treemap",
-          roam: false,
-          nodeClick: false,
-          breadcrumb: { show: false },
-          data,
-        },
-      ],
-    },
-    true
-  );
+  applyChartOption(chart, {
+    tooltip: { formatter: (p) => t("statsTreemapTooltipTemplate")(p.name, fmtKm(p.value)) },
+    series: [
+      {
+        type: "treemap",
+        roam: false,
+        nodeClick: false,
+        breadcrumb: { show: false },
+        data,
+      },
+    ],
+  });
   chart.off("click");
   chart.on("click", (p) => {
     const row = items.find((r) => itemName(r, level) === p.name);
@@ -607,28 +1069,25 @@ function drawTreemap(items, level) {
 function drawScatter(items, level) {
   const chart = getChart("chart-scatter");
   const maxKm = Math.max(1, ...items.map((r) => r.total_km || 0));
-  chart.setOption(
-    {
-      grid: { left: 55, right: 20, top: 20, bottom: 45 },
-      xAxis: { type: "value", name: t("statsScatterXAxis"), min: 0, max: 1, axisLabel: { formatter: (v) => `${Math.round(v * 100)}%` } },
-      yAxis: { type: "value", name: t("statsScatterYAxis") },
-      tooltip: {
-        formatter: (p) => t("statsScatterTooltipTemplate")(p.data.name, fmtPercent(p.data.value[0]), fmtKm(p.data.value[1]), fmtKm(p.data.value[2])),
-      },
-      series: [
-        {
-          type: "scatter",
-          symbolSize: (val) => 8 + 32 * Math.sqrt((val[2] || 0) / maxKm),
-          data: items.map((r) => ({
-            name: itemName(r, level),
-            value: [r.low_stress_share ?? 0, r.priority_intervention_km ?? 0, r.total_km ?? 0],
-            itemStyle: { color: shareToColor(r.low_stress_share), opacity: 0.75 },
-          })),
-        },
-      ],
+  applyChartOption(chart, {
+    grid: { left: 55, right: 20, top: 20, bottom: 45 },
+    xAxis: { type: "value", name: t("statsScatterXAxis"), min: 0, max: 1, axisLabel: { formatter: (v) => `${Math.round(v * 100)}%` } },
+    yAxis: { type: "value", name: t("statsScatterYAxis") },
+    tooltip: {
+      formatter: (p) => t("statsScatterTooltipTemplate")(p.data.name, fmtPercent(p.data.value[0]), fmtKm(p.data.value[1]), fmtKm(p.data.value[2])),
     },
-    true
-  );
+    series: [
+      {
+        type: "scatter",
+        symbolSize: (val) => 8 + 32 * Math.sqrt((val[2] || 0) / maxKm),
+        data: items.map((r) => ({
+          name: itemName(r, level),
+          value: [r.low_stress_share ?? 0, r.priority_intervention_km ?? 0, r.total_km ?? 0],
+          itemStyle: { color: shareToColor(r.low_stress_share), opacity: 0.75 },
+        })),
+      },
+    ],
+  });
   chart.off("click");
   chart.on("click", (p) => onItemActivate(items[p.dataIndex], level));
 }
@@ -1129,9 +1588,12 @@ function renderComuneDetail(root, istatCode) {
     [t("statsKpiKmPrioritario"), fmtKm(comune.priority_intervention_km)],
     [t("statsKpiKmSeparate"), fmtKm(comune.separated_path_km)],
     [t("statsKpiNonCyclable"), fmtKm(nonCyclableKm(comune))],
-    [t("statsKpiIsole"), fmtInt(comune.low_stress_island_count)],
+    [t("statsKpiIsole"), fmtInt(comune.low_stress_island_count), t("statsKpiIsoleHelp")],
   ]
-    .map(([label, value]) => `<div class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div></div>`)
+    .map(
+      ([label, value, help]) =>
+        `<div class="kpi-card"><div class="kpi-label">${label}${help ? ` <span class="kpi-help" title="${help}">ⓘ</span>` : ""}</div><div class="kpi-value">${value}</div></div>`
+    )
     .join("");
   root.appendChild(kpiRow);
 
@@ -1150,7 +1612,7 @@ function renderComuneDetail(root, istatCode) {
   root.appendChild(grid);
 
   const ltsChart = getChart("chart-comune-lts");
-  ltsChart.setOption({
+  applyChartOption(ltsChart, {
     grid: { left: 10, right: 40, top: 45, bottom: 60 },
     xAxis: { type: "value", position: "top", axisLabel: { formatter: (v) => `${v} km` } },
     yAxis: { type: "category", data: [comune.comune], axisLabel: { show: false } },
@@ -1163,10 +1625,10 @@ function renderComuneDetail(root, istatCode) {
       data: [(comune.km_by_lts && comune.km_by_lts[cls]) || 0],
     })),
     legend: { bottom: 0, left: "center", textStyle: { fontSize: 10 } },
-  }, true);
+  });
 
   const exclChart = getChart("chart-comune-excluded");
-  exclChart.setOption({
+  applyChartOption(exclChart, {
     grid: { left: 10, right: 40, top: 45, bottom: 60 },
     xAxis: { type: "value", position: "top", axisLabel: { formatter: (v) => `${v} km` } },
     yAxis: { type: "category", data: [comune.comune], axisLabel: { show: false } },
@@ -1179,7 +1641,7 @@ function renderComuneDetail(root, istatCode) {
       data: [f.value(comune)],
     })),
     legend: { bottom: 0, left: "center", textStyle: { fontSize: 10 } },
-  }, true);
+  });
 
   const interventionsPanel = document.createElement("div");
   interventionsPanel.className = "card-panel";
@@ -1243,14 +1705,15 @@ function renderInterventions(panel, data) {
   const highwayEntries = Object.entries(highwayKm).sort((a, b) => b[1] - a[1]);
   const highwayChart = getChart("chart-highway");
   const layoutH = hbarLayout();
-  highwayChart.setOption(
+  applyChartOption(
+    highwayChart,
     {
-      grid: { left: layoutH.left, right: 40, top: 10, bottom: 20 },
+      grid: { left: layoutH.left, right: 50, top: 10, bottom: 20 },
       xAxis: { type: "value", axisLabel: { formatter: (v) => `${v} km`, hideOverlap: true } },
       yAxis: { type: "category", data: highwayEntries.map(([k]) => highwayLabel(k)).reverse(), axisLabel: { width: layoutH.labelWidth, overflow: "truncate" } },
       series: [{ type: "bar", data: highwayEntries.map(([, v]) => v).reverse(), itemStyle: { color: "#3B4A7A" }, barMaxWidth: 18 }],
     },
-    true
+    { dataZoom: true }
   );
 
   if (!streets.length) return;
@@ -1258,22 +1721,19 @@ function renderInterventions(panel, data) {
   const top10 = streets.slice(0, 10);
   const streetsChart = getChart("chart-streets");
   const layoutS = hbarLayout();
-  streetsChart.setOption(
-    {
-      grid: { left: layoutS.left, right: 40, top: 10, bottom: 20 },
-      xAxis: { type: "value", axisLabel: { formatter: (v) => `${v} km`, hideOverlap: true } },
-      yAxis: { type: "category", data: top10.map((s) => s.name).reverse(), axisLabel: { width: layoutS.labelWidth, overflow: "truncate" } },
-      tooltip: { formatter: (p) => t("statsStreetTooltipTemplate")(p.name, top10[top10.length - 1 - p.dataIndex].lts, fmtKm(p.value)) },
-      series: [
-        {
-          type: "bar",
-          data: top10.map((s) => ({ value: s.length_km, itemStyle: { color: LTS_COLORS[String(s.lts)] } })).reverse(),
-          barMaxWidth: 18,
-        },
-      ],
-    },
-    true
-  );
+  applyChartOption(streetsChart, {
+    grid: { left: layoutS.left, right: 40, top: 10, bottom: 20 },
+    xAxis: { type: "value", axisLabel: { formatter: (v) => `${v} km`, hideOverlap: true } },
+    yAxis: { type: "category", data: top10.map((s) => s.name).reverse(), axisLabel: { width: layoutS.labelWidth, overflow: "truncate" } },
+    tooltip: { formatter: (p) => t("statsStreetTooltipTemplate")(p.name, top10[top10.length - 1 - p.dataIndex].lts, fmtKm(p.value)) },
+    series: [
+      {
+        type: "bar",
+        data: top10.map((s) => ({ value: s.length_km, itemStyle: { color: LTS_COLORS[String(s.lts)] } })).reverse(),
+        barMaxWidth: 18,
+      },
+    ],
+  });
   streetsChart.off("click");
   streetsChart.on("click", (p) => {
     const street = top10[top10.length - 1 - p.dataIndex];
@@ -1493,35 +1953,29 @@ function openCompareModal() {
   document.getElementById("compare-modal-backdrop").classList.remove("hidden");
 
   const shareChart = getChart("chart-compare-share");
-  shareChart.setOption(
-    {
-      title: { text: t("statsCompareShareChartTitle"), left: "center", textStyle: { fontSize: 13 } },
-      grid: { left: 140, right: 40, top: 40, bottom: 20 },
-      xAxis: { type: "value", max: 1, axisLabel: { formatter: (v) => `${Math.round(v * 100)}%` } },
-      yAxis: { type: "category", data: rows.map((r) => itemName(r, level)) },
-      series: [{ type: "bar", data: rows.map((r) => ({ value: r.low_stress_share ?? 0, itemStyle: { color: shareToColor(r.low_stress_share) } })), barMaxWidth: 22 }],
-    },
-    true
-  );
+  applyChartOption(shareChart, {
+    title: { text: t("statsCompareShareChartTitle"), left: "center", textStyle: { fontSize: 13 } },
+    grid: { left: 140, right: 40, top: 40, bottom: 20 },
+    xAxis: { type: "value", max: 1, axisLabel: { formatter: (v) => `${Math.round(v * 100)}%` } },
+    yAxis: { type: "category", data: rows.map((r) => itemName(r, level)) },
+    series: [{ type: "bar", data: rows.map((r) => ({ value: r.low_stress_share ?? 0, itemStyle: { color: shareToColor(r.low_stress_share) } })), barMaxWidth: 22 }],
+  });
 
   const ltsChart = getChart("chart-compare-lts");
-  ltsChart.setOption(
-    {
-      title: { text: t("statsCompareLtsChartTitle"), left: "center", textStyle: { fontSize: 13 } },
-      grid: { left: 140, right: 40, top: 40, bottom: 20 },
-      xAxis: { type: "value", axisLabel: { formatter: (v) => `${v} km` } },
-      yAxis: { type: "category", data: rows.map((r) => itemName(r, level)) },
-      legend: { top: 20 },
-      series: ["0", "1", "2", "3", "4"].map((cls) => ({
-        name: ltsLabel(cls),
-        type: "bar",
-        stack: "lts",
-        itemStyle: { color: LTS_COLORS[cls] },
-        data: rows.map((r) => (r.km_by_lts && r.km_by_lts[cls]) || 0),
-      })),
-    },
-    true
-  );
+  applyChartOption(ltsChart, {
+    title: { text: t("statsCompareLtsChartTitle"), left: "center", textStyle: { fontSize: 13 } },
+    grid: { left: 140, right: 40, top: 40, bottom: 20 },
+    xAxis: { type: "value", axisLabel: { formatter: (v) => `${v} km` } },
+    yAxis: { type: "category", data: rows.map((r) => itemName(r, level)) },
+    legend: { top: 20 },
+    series: ["0", "1", "2", "3", "4"].map((cls) => ({
+      name: ltsLabel(cls),
+      type: "bar",
+      stack: "lts",
+      itemStyle: { color: LTS_COLORS[cls] },
+      data: rows.map((r) => (r.km_by_lts && r.km_by_lts[cls]) || 0),
+    })),
+  });
 }
 
 function closeCompareModal() {

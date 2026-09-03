@@ -71,6 +71,20 @@ BBOX_COLUMNS = ["bbox_minlon", "bbox_minlat", "bbox_maxlon", "bbox_maxlat"]
 
 
 def build_from_dataframe(df: pd.DataFrame) -> dict:
+    # A pandas/MVT DataFrame only gets a column if at least one row's
+    # dict actually had that key - a small enough comune (verified:
+    # Aquila d'Arroscia, 10750 edges) can have precisely zero named
+    # streets in OSM, in which case "name" never appears in any feature's
+    # properties and df["name"] raises KeyError instead of just being
+    # all-NaN. Same reasoning could in principle hit "highway", though
+    # that's never actually been observed missing (every classified edge
+    # carries it). Backfilling both here keeps this a "no named streets"
+    # result (still reports highway_km, just an empty streets list)
+    # instead of skipping the whole comune.
+    for optional_column in ("name", "highway"):
+        if optional_column not in df.columns:
+            df = df.assign(**{optional_column: None})
+
     highway_km = (
         df.assign(highway=df["highway"].fillna("sconosciuto"))
         .groupby("highway")["length"]

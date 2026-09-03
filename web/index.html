@@ -68,6 +68,7 @@
          until it's picked back up. -->
     <button id="about-toggle" class="nav-link"></button>
     <button id="faq-toggle" class="nav-link"></button>
+    <button id="credits-toggle" class="nav-link"></button>
     <button id="privacy-toggle" class="nav-link"></button>
     <div id="lang-switcher">
       <select id="lang-select">
@@ -95,7 +96,7 @@
       <div id="facility-legend"></div>
       <div id="style-switcher">
         <label><input type="radio" name="basemap" value="light"> <span id="bg-light-label"></span></label>
-        <label><input type="radio" name="basemap" value="summer"> <span id="bg-summer-label"></span></label>
+        <label><input type="radio" name="basemap" value="summer"> <span id="bg-urban-label"></span></label>
         <label><input type="radio" name="basemap" value="cycling"> <span id="bg-cycling-label"></span></label>
         <label><input type="radio" name="basemap" value="dark"> <span id="bg-dark-label"></span></label>
       </div>
@@ -137,6 +138,12 @@
   <button id="privacy-close" class="info-panel-close">&times;</button>
   <h2 id="privacy-heading"></h2>
   <p id="privacy-intro"></p>
+</div>
+<div id="credits-panel" class="info-panel hidden">
+  <button id="credits-close" class="info-panel-close">&times;</button>
+  <p id="credits-ai-note" class="ai-note hidden"></p>
+  <h2 id="credits-heading"></h2>
+  <div id="credits-body"></div>
 </div>
 <div id="share-panel" class="info-panel hidden">
   <button id="share-close" class="info-panel-close">&times;</button>

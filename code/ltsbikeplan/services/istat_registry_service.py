@@ -1,11 +1,23 @@
 from __future__ import annotations
 
 import os
+import re
 import time
+import unicodedata
 from typing import Dict
 
 import pandas as pd
 import requests
+
+
+# Accent/case/punctuation-insensitive key for matching a comune name
+# across two different sources that don't spell it identically (see
+# IstatRegistryService.load_by_name's own docstring for the Sardegna
+# legacy-istat-code case this exists for).
+def normalize_comune_name(name: str) -> str:
+    normalized = unicodedata.normalize("NFKD", str(name))
+    ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]", "", ascii_name.lower())
 
 # Permanent link (per ISTAT's own site: it "rimane invariato ad ogni
 # aggiornamento del file" - stays the same across every refresh). Verified
@@ -70,6 +82,7 @@ class IstatRegistryService:
         self.cache_dir = os.path.join(cache_dir, "_cache", "istat_registry")
         os.makedirs(self.cache_dir, exist_ok=True)
         self._path = os.path.join(self.cache_dir, "Elenco-comuni-italiani.xlsx")
+        self._df: pd.DataFrame | None = None
 
     def _download_if_stale(self) -> None:
         if os.path.exists(self._path) and (time.time() - os.path.getmtime(self._path)) <= _CACHE_MAX_AGE_SECONDS:
@@ -79,26 +92,57 @@ class IstatRegistryService:
         with open(self._path, "wb") as file_handle:
             file_handle.write(response.content)
 
+    def _dataframe(self) -> pd.DataFrame:
+        if self._df is None:
+            self._download_if_stale()
+            # sheet_name=0 (not the literal sheet name) - the real sheet
+            # name embeds the file's own revision date (e.g. "CODICI al
+            # 21_02_2026"), which changes on every ISTAT refresh.
+            self._df = pd.read_excel(self._path, sheet_name=0)
+        return self._df
+
+    @staticmethod
+    def _entry_from_row(row) -> dict:
+        regione = row["Denominazione Regione"]
+        comune_name = row["Denominazione in italiano"]
+        return {
+            "regione": regione,
+            "provincia": row["Denominazione dell'Unità territoriale sovracomunale \n(valida a fini statistici)"],
+            "capoluogo_provincia": bool(row["Flag Comune capoluogo di Provincia/Città metropolitana/libero consorzio"]),
+            "capoluogo_regione": REGIONE_CAPOLUOGO.get(regione) == comune_name,
+        }
+
     def load(self) -> Dict[str, dict]:
         """Returns {istat_code (6-digit zero-padded string): {"regione":
         str, "provincia": str, "capoluogo_provincia": bool,
         "capoluogo_regione": bool}}.
         """
-        self._download_if_stale()
-        # sheet_name=0 (not the literal sheet name) - the real sheet name
-        # embeds the file's own revision date (e.g. "CODICI al
-        # 21_02_2026"), which changes on every ISTAT refresh.
-        df = pd.read_excel(self._path, sheet_name=0)
-
         registry: Dict[str, dict] = {}
-        for _, row in df.iterrows():
+        for _, row in self._dataframe().iterrows():
             istat_code = str(int(row["Codice Comune formato numerico"])).zfill(6)
-            regione = row["Denominazione Regione"]
-            comune_name = row["Denominazione in italiano"]
-            registry[istat_code] = {
-                "regione": regione,
-                "provincia": row["Denominazione dell'Unità territoriale sovracomunale \n(valida a fini statistici)"],
-                "capoluogo_provincia": bool(row["Flag Comune capoluogo di Provincia/Città metropolitana/libero consorzio"]),
-                "capoluogo_regione": REGIONE_CAPOLUOGO.get(regione) == comune_name,
-            }
+            registry[istat_code] = self._entry_from_row(row)
         return registry
+
+    def load_by_name(self) -> Dict[str, dict]:
+        """Same entries as load(), keyed by normalize_comune_name(...) of
+        the comune's current official Italian name instead of istat_code.
+
+        Exists for comuni whose istat_code has since changed - Sardegna's
+        provincial reorganizations (the 8-province split, then its
+        reversal down to Sassari/Nuoro/Oristano/Sud Sardegna plus Cagliari
+        città metropolitana) renumbered practically every Sardinian
+        comune, but this project's already-processed data (parquet/
+        pmtiles, some of it years old) still carries whatever istat_code
+        was current when it was fetched - e.g. Fonni as "091024" (a
+        legacy Nuoro-province code), not this registry's current
+        "114013". A straight istat_code lookup silently misses all ~374
+        of them (confirmed 2026-09 - see [[sardegna_legacy_istat_codes]]
+        if that memory exists). The comune name itself didn't change,
+        so matching on that instead recovers every one of them - verified
+        374/374 matched this way, no residual misses.
+        """
+        by_name: Dict[str, dict] = {}
+        for _, row in self._dataframe().iterrows():
+            key = normalize_comune_name(row["Denominazione in italiano"])
+            by_name[key] = self._entry_from_row(row)
+        return by_name

@@ -10,7 +10,7 @@ const I18N = {
     legendHint: "Clicca per mostrare/nascondere",
     legendZoomDisabledHint: "Visibile da zoom {zoom} in poi",
     bgLight: "Sfondo chiaro",
-    bgSummer: "Sfondo estivo",
+    bgUrban: "Sfondo urbano",
     bgCycling: "Sfondo ciclabile",
     bgDark: "Sfondo scuro",
     terrainToggle: "Terreno 3D",
@@ -127,6 +127,21 @@ const I18N = {
     privacyToggle: "Cookie",
     privacyHeading: "Privacy e cookie",
     privacyIntro: "Questo sito non usa cookie di tracciamento, né servizi di analisi o pubblicità: non viene raccolto alcun dato di navigazione. Un'unica eccezione, puramente tecnica: se scegli di non mostrare più l'avviso sui tempi di calcolo del percorso, quella preferenza viene salvata nella memoria locale del browser (localStorage), solo sul tuo dispositivo - non è mai inviata a nessun server, non serve a tracciarti e resta finché non cancelli i dati del sito dal tuo browser. Se in futuro venissero introdotti strumenti che richiedono cookie di tracciamento o analisi, questa pagina sarà aggiornata con le informazioni necessarie e le opzioni per gestire il consenso.",
+    creditsToggle: "Ringraziamenti",
+    creditsHeading: "Ringraziamenti",
+    creditsBody: `<p>Stress in bici nasce dal lavoro e dai contributi di molte persone e comunità.</p>
+<ul>
+<li>L'ispirazione iniziale viene da <a href="https://bikeottawa.ca/" target="_blank" rel="noopener"><strong>Bike Ottawa</strong></a>, che ha tradotto in codice open source il metodo LTS sviluppato da <a href="https://peterfurth.sites.northeastern.edu/" target="_blank" rel="noopener"><strong>Peter Furth</strong></a>.</li>
+<li><a href="https://orcid.org/0000-0002-7064-8334" target="_blank" rel="noopener"><strong>Maurizio Napolitano</strong></a> ha promosso e portato avanti il progetto.</li>
+<li><a href="https://leoventuroso.github.io/" target="_blank" rel="noopener"><strong>Leonardo Venturoso</strong></a> ha adattato il metodo al contesto italiano e sviluppato gli indicatori nell'ambito della sua tesi.</li>
+<li><a href="https://orcid.org/0000-0002-6469-1619" target="_blank" rel="noopener"><strong>Munazza Usmani</strong></a> e <a href="https://orcid.org/0000-0002-2773-4093" target="_blank" rel="noopener"><strong>Riccardo Nanni</strong></a>, insieme a Leonardo Venturoso e Maurizio Napolitano, hanno trasformato quel lavoro nell'articolo scientifico <a href="https://doi.org/10.1080/10630732.2026.2639290" target="_blank" rel="noopener"><em>LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety</em></a>.</li>
+<li><a href="https://github.com/mfortini" target="_blank" rel="noopener"><strong>Matteo Fortini</strong></a> ha realizzato una prima implementazione per il contesto italiano e contribuito con suggerimenti e confronti.</li>
+<li><a href="https://github.com/aborruso" target="_blank" rel="noopener"><strong>Andrea Borruso</strong></a> ha contribuito con preziosi consigli.</li>
+<li><a href="https://www.top-ix.org/" target="_blank" rel="noopener"><strong>TOP-IX</strong></a> mette a disposizione l'infrastruttura che ospita il sito.</li>
+<li><a href="https://supporting.openstreetmap.org/donate/" target="_blank" rel="noopener"><strong>OpenStreetMap</strong></a> e la sua comunità rendono disponibili i dati su cui si basa la mappa.</li>
+<li><a href="https://mapterhorn.com/" target="_blank" rel="noopener"><strong>Mapterhorn</strong></a>, per i dati altimetrici e le terrain tiles utilizzate nel calcolo delle pendenze e nella visualizzazione 3D.</li>
+<li><a href="https://www.maptoolkit.org/" target="_blank" rel="noopener"><strong>Maptoolkit</strong></a>, per le mappe di base e i relativi stili cartografici.</li>
+</ul>`,
     comuniNavLink: "Confronta comuni",
     statsNavLink: "Statistiche",
     mapNavLink: "Mappa",
@@ -304,6 +319,7 @@ const I18N = {
     statsKpiKmPrioritario: "Km intervento prioritario",
     statsKpiKmSeparate: "Km piste separate",
     statsKpiIsole: "Isole a basso stress",
+    statsKpiIsoleHelp: "Un gruppo di strade a basso stress (LTS 1-2) collegate fra loro, ma raggiungibile dal resto della rete comoda solo attraversando un tratto più stressante (LTS 3-4). Più isole ci sono, più la rete a basso stress è frammentata invece che continua.",
     statsComuneLtsTitle: "Composizione km per classe LTS",
     statsComuneExcludedTitle: "Km esclusi dal calcolo, per motivo",
     statsInterventionsTitle: "Vie con interventi prioritari",
@@ -389,6 +405,19 @@ const I18N = {
     statsPriorityMapSelectedLegend: "Via selezionata",
     statsPriorityMapZoomHint: "Clic per centrare la mappa su questo tratto",
     statsPriorityChartCaptionTemplate: (shown, total) => `Le prime ${shown} vie su ${total} in elenco, per gravità - la tabella qui sotto le mostra tutte.`,
+    statsClustersTitle: "Classifiche per tipologia di comune",
+    statsClustersNoteTemplate: (n) => `I comuni sono raggruppati in ${n} categorie simili per popolazione e superficie, così il confronto avviene solo fra comuni realmente paragonabili - non ha senso mettere un piccolo borgo accanto a una grande città.`,
+    statsClusterRangeTemplate: (popMin, popMax, areaMin, areaMax) => `Comuni con circa ${popMin}-${popMax} abitanti e ${areaMin}-${areaMax} km²`,
+    statsClusterCountTemplate: (n) => `${n} comuni in questa categoria`,
+    statsClusterBestLabel: "I migliori (quota basso-stress)",
+    statsClusterWorstLabel: "Da migliorare",
+    statsClusterTrophyTitle: "Premio basso-stress della categoria",
+    statsClusterPagerPrev: "Torna alle posizioni precedenti",
+    statsClusterPagerNext: "Scorri alle posizioni successive",
+    statsChartDownload: "Scarica immagine",
+    statsChartFullscreen: "Schermo intero",
+    statsSortByValue: "Valore",
+    statsSortByName: "Nome",
   },
 
   en: {
@@ -396,7 +425,7 @@ const I18N = {
     legendHint: "Click to show/hide",
     legendZoomDisabledHint: "Visible from zoom {zoom} onward",
     bgLight: "Light background",
-    bgSummer: "Summer background",
+    bgUrban: "Urban background",
     bgCycling: "Cycling background",
     bgDark: "Dark background",
     terrainToggle: "3D terrain",
@@ -502,6 +531,21 @@ const I18N = {
     privacyToggle: "Cookie",
     privacyHeading: "Privacy & cookies",
     privacyIntro: "This site does not use tracking cookies, analytics, or advertising services: no browsing data is collected. One purely technical exception: if you choose to stop showing the notice about route-calculation times, that preference is saved in the browser's local storage (localStorage), only on your own device - it's never sent to any server, isn't used to track you, and stays until you clear this site's data from your browser. If tools that require tracking or analytics cookies are introduced in the future, this page will be updated with the necessary information and consent options.",
+    creditsToggle: "Acknowledgements",
+    creditsHeading: "Acknowledgements",
+    creditsBody: `<p>Stress in bici was born from the work and contributions of many people and communities.</p>
+<ul>
+<li>The initial inspiration comes from <a href="https://bikeottawa.ca/" target="_blank" rel="noopener"><strong>Bike Ottawa</strong></a>, which turned the LTS method developed by <a href="https://peterfurth.sites.northeastern.edu/" target="_blank" rel="noopener"><strong>Peter Furth</strong></a> into open-source code.</li>
+<li><a href="https://orcid.org/0000-0002-7064-8334" target="_blank" rel="noopener"><strong>Maurizio Napolitano</strong></a> promoted and carried the project forward.</li>
+<li><a href="https://leoventuroso.github.io/" target="_blank" rel="noopener"><strong>Leonardo Venturoso</strong></a> adapted the method to the Italian context and developed the indicators as part of his thesis.</li>
+<li><a href="https://orcid.org/0000-0002-6469-1619" target="_blank" rel="noopener"><strong>Munazza Usmani</strong></a> and <a href="https://orcid.org/0000-0002-2773-4093" target="_blank" rel="noopener"><strong>Riccardo Nanni</strong></a>, together with Leonardo Venturoso and Maurizio Napolitano, turned that work into the scientific paper <a href="https://doi.org/10.1080/10630732.2026.2639290" target="_blank" rel="noopener"><em>LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety</em></a>.</li>
+<li><a href="https://github.com/mfortini" target="_blank" rel="noopener"><strong>Matteo Fortini</strong></a> built a first implementation for the Italian context and contributed suggestions and comparisons.</li>
+<li><a href="https://github.com/aborruso" target="_blank" rel="noopener"><strong>Andrea Borruso</strong></a> contributed valuable advice.</li>
+<li><a href="https://www.top-ix.org/" target="_blank" rel="noopener"><strong>TOP-IX</strong></a> provides the infrastructure that hosts the site.</li>
+<li><a href="https://supporting.openstreetmap.org/donate/" target="_blank" rel="noopener"><strong>OpenStreetMap</strong></a> and its community make available the data the map is built on.</li>
+<li><a href="https://mapterhorn.com/" target="_blank" rel="noopener"><strong>Mapterhorn</strong></a>, for the elevation data and terrain tiles used to compute slopes and for the 3D view.</li>
+<li><a href="https://www.maptoolkit.org/" target="_blank" rel="noopener"><strong>Maptoolkit</strong></a>, for the base maps and their cartographic styles.</li>
+</ul>`,
     comuniNavLink: "Compare municipalities",
     statsNavLink: "Statistics",
     mapNavLink: "Map",
@@ -678,6 +722,7 @@ const I18N = {
     statsKpiKmPrioritario: "Priority intervention km",
     statsKpiKmSeparate: "Separated-path km",
     statsKpiIsole: "Low-stress islands",
+    statsKpiIsoleHelp: "A group of low-stress streets (LTS 1-2) connected to each other, but reachable from the rest of the comfortable network only by crossing a more stressful stretch (LTS 3-4). The more islands there are, the more fragmented the low-stress network is, rather than continuous.",
     statsComuneLtsTitle: "Km composition by LTS class",
     statsComuneExcludedTitle: "Km excluded from the calculation, by reason",
     statsInterventionsTitle: "Streets needing priority intervention",
@@ -763,6 +808,19 @@ const I18N = {
     statsPriorityMapSelectedLegend: "Selected street",
     statsPriorityMapZoomHint: "Click to center the map on this segment",
     statsPriorityChartCaptionTemplate: (shown, total) => `Top ${shown} of ${total} listed streets, by severity - the table below shows all of them.`,
+    statsClustersTitle: "Rankings by municipality type",
+    statsClustersNoteTemplate: (n) => `Comuni are grouped into ${n} categories similar in population and area, so comparisons only happen between genuinely comparable municipalities - putting a tiny village next to a big city wouldn't mean much.`,
+    statsClusterRangeTemplate: (popMin, popMax, areaMin, areaMax) => `Municipalities with about ${popMin}-${popMax} residents and ${areaMin}-${areaMax} km²`,
+    statsClusterCountTemplate: (n) => `${n} municipalities in this category`,
+    statsClusterBestLabel: "Best (low-stress share)",
+    statsClusterWorstLabel: "Room for improvement",
+    statsClusterTrophyTitle: "Category's low-stress award",
+    statsClusterPagerPrev: "Back to the previous positions",
+    statsClusterPagerNext: "Scroll to the next positions",
+    statsChartDownload: "Download image",
+    statsChartFullscreen: "Fullscreen",
+    statsSortByValue: "Value",
+    statsSortByName: "Name",
   },
 
   de: {
@@ -770,7 +828,7 @@ const I18N = {
     legendHint: "Klicken zum Ein-/Ausblenden",
     legendZoomDisabledHint: "Sichtbar ab Zoomstufe {zoom}",
     bgLight: "Heller Hintergrund",
-    bgSummer: "Sommer-Hintergrund",
+    bgUrban: "Städtischer Hintergrund",
     bgCycling: "Rad-Hintergrund",
     bgDark: "Dunkler Hintergrund",
     terrainToggle: "3D-Gelände",
@@ -876,6 +934,21 @@ const I18N = {
     privacyToggle: "Cookies",
     privacyHeading: "Datenschutz und Cookies",
     privacyIntro: "Diese Website verwendet keine Tracking-Cookies, keine Analyse- und keine Werbedienste: Es werden keine Nutzungsdaten erfasst. Eine einzige, rein technische Ausnahme: Wenn Sie den Hinweis zu den Berechnungszeiten der Route nicht mehr anzeigen lassen, wird diese Einstellung im lokalen Speicher des Browsers (localStorage) gespeichert - nur auf Ihrem eigenen Gerät, nie an einen Server gesendet, nicht zum Tracking genutzt, und bleibt erhalten, bis Sie die Website-Daten in Ihrem Browser löschen. Sollten künftig Werkzeuge eingeführt werden, die Tracking- oder Analyse-Cookies erfordern, wird diese Seite mit den nötigen Informationen und Einwilligungsoptionen aktualisiert.",
+    creditsToggle: "Danksagung",
+    creditsHeading: "Danksagung",
+    creditsBody: `<p>Stress in bici entstand aus der Arbeit und den Beiträgen vieler Menschen und Communitys.</p>
+<ul>
+<li>Die ursprüngliche Inspiration stammt von <a href="https://bikeottawa.ca/" target="_blank" rel="noopener"><strong>Bike Ottawa</strong></a>, das die von <a href="https://peterfurth.sites.northeastern.edu/" target="_blank" rel="noopener"><strong>Peter Furth</strong></a> entwickelte LTS-Methode in Open-Source-Code umgesetzt hat.</li>
+<li><a href="https://orcid.org/0000-0002-7064-8334" target="_blank" rel="noopener"><strong>Maurizio Napolitano</strong></a> hat das Projekt angestoßen und vorangetrieben.</li>
+<li><a href="https://leoventuroso.github.io/" target="_blank" rel="noopener"><strong>Leonardo Venturoso</strong></a> hat die Methode an den italienischen Kontext angepasst und die Indikatoren im Rahmen seiner Abschlussarbeit entwickelt.</li>
+<li><a href="https://orcid.org/0000-0002-6469-1619" target="_blank" rel="noopener"><strong>Munazza Usmani</strong></a> und <a href="https://orcid.org/0000-0002-2773-4093" target="_blank" rel="noopener"><strong>Riccardo Nanni</strong></a> haben diese Arbeit gemeinsam mit Leonardo Venturoso und Maurizio Napolitano in den wissenschaftlichen Artikel <a href="https://doi.org/10.1080/10630732.2026.2639290" target="_blank" rel="noopener"><em>LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety</em></a> verwandelt.</li>
+<li><a href="https://github.com/mfortini" target="_blank" rel="noopener"><strong>Matteo Fortini</strong></a> hat eine erste Umsetzung für den italienischen Kontext realisiert und mit Vorschlägen und Vergleichen beigetragen.</li>
+<li><a href="https://github.com/aborruso" target="_blank" rel="noopener"><strong>Andrea Borruso</strong></a> hat mit wertvollen Ratschlägen beigetragen.</li>
+<li><a href="https://www.top-ix.org/" target="_blank" rel="noopener"><strong>TOP-IX</strong></a> stellt die Infrastruktur bereit, auf der die Website gehostet wird.</li>
+<li><a href="https://supporting.openstreetmap.org/donate/" target="_blank" rel="noopener"><strong>OpenStreetMap</strong></a> und seine Community stellen die Daten bereit, auf denen die Karte basiert.</li>
+<li><a href="https://mapterhorn.com/" target="_blank" rel="noopener"><strong>Mapterhorn</strong></a>, für die Höhendaten und Terrain-Tiles, die zur Berechnung der Steigungen und für die 3D-Ansicht verwendet werden.</li>
+<li><a href="https://www.maptoolkit.org/" target="_blank" rel="noopener"><strong>Maptoolkit</strong></a>, für die Basiskarten und die zugehörigen kartografischen Stile.</li>
+</ul>`,
     comuniNavLink: "Gemeinden vergleichen",
     statsNavLink: "Statistiken",
     mapNavLink: "Karte",
@@ -1052,6 +1125,7 @@ const I18N = {
     statsKpiKmPrioritario: "Km prioritärer Maßnahmen",
     statsKpiKmSeparate: "Km getrennte Wege",
     statsKpiIsole: "Inseln mit niedrigem Stress",
+    statsKpiIsoleHelp: "Eine Gruppe von Straßen mit niedrigem Stress (LTS 1-2), die untereinander verbunden sind, aber vom Rest des komfortablen Netzes nur durch Überqueren eines stressigeren Abschnitts (LTS 3-4) erreichbar sind. Je mehr Inseln es gibt, desto fragmentierter ist das Netz mit niedrigem Stress, statt durchgängig.",
     statsComuneLtsTitle: "Km-Zusammensetzung nach LTS-Klasse",
     statsComuneExcludedTitle: "Von der Berechnung ausgeschlossene Km, nach Grund",
     statsInterventionsTitle: "Straßen mit prioritärem Handlungsbedarf",
@@ -1137,6 +1211,19 @@ const I18N = {
     statsPriorityMapSelectedLegend: "Ausgewählte Straße",
     statsPriorityMapZoomHint: "Klicken, um die Karte auf diesen Abschnitt zu zentrieren",
     statsPriorityChartCaptionTemplate: (shown, total) => `Die ${shown} wichtigsten von ${total} aufgeführten Straßen nach Schweregrad - die Tabelle unten zeigt alle.`,
+    statsClustersTitle: "Rangliste nach Gemeindetyp",
+    statsClustersNoteTemplate: (n) => `Die Gemeinden sind in ${n} Kategorien mit ähnlicher Einwohnerzahl und Fläche gruppiert, damit nur wirklich vergleichbare Gemeinden gegenübergestellt werden - ein kleines Dorf neben einer Großstadt zu stellen, würde wenig aussagen.`,
+    statsClusterRangeTemplate: (popMin, popMax, areaMin, areaMax) => `Gemeinden mit etwa ${popMin}-${popMax} Einwohnern und ${areaMin}-${areaMax} km²`,
+    statsClusterCountTemplate: (n) => `${n} Gemeinden in dieser Kategorie`,
+    statsClusterBestLabel: "Die besten (Anteil niedriger Stress)",
+    statsClusterWorstLabel: "Verbesserungspotenzial",
+    statsClusterTrophyTitle: "Auszeichnung der Kategorie für niedrigen Stress",
+    statsClusterPagerPrev: "Zurück zu den vorherigen Positionen",
+    statsClusterPagerNext: "Weiter zu den nächsten Positionen",
+    statsChartDownload: "Bild herunterladen",
+    statsChartFullscreen: "Vollbild",
+    statsSortByValue: "Wert",
+    statsSortByName: "Name",
   },
 
   fr: {
@@ -1144,7 +1231,7 @@ const I18N = {
     legendHint: "Cliquer pour afficher/masquer",
     legendZoomDisabledHint: "Visible à partir du zoom {zoom}",
     bgLight: "Fond clair",
-    bgSummer: "Fond estival",
+    bgUrban: "Fond urbain",
     bgCycling: "Fond cyclable",
     bgDark: "Fond sombre",
     terrainToggle: "Relief 3D",
@@ -1250,6 +1337,21 @@ const I18N = {
     privacyToggle: "Cookies",
     privacyHeading: "Confidentialité et cookies",
     privacyIntro: "Ce site n'utilise aucun cookie de suivi, ni service d'analyse ou de publicité : aucune donnée de navigation n'est collectée. Une seule exception, purement technique : si vous choisissez de ne plus afficher l'avertissement sur les temps de calcul de l'itinéraire, cette préférence est enregistrée dans la mémoire locale du navigateur (localStorage), uniquement sur votre propre appareil - elle n'est jamais envoyée à un serveur, ne sert pas à vous suivre, et reste jusqu'à ce que vous effaciez les données de ce site dans votre navigateur. Si des outils nécessitant des cookies de suivi ou d'analyse étaient introduits à l'avenir, cette page serait mise à jour avec les informations nécessaires et des options de gestion du consentement.",
+    creditsToggle: "Remerciements",
+    creditsHeading: "Remerciements",
+    creditsBody: `<p>Stress in bici est né du travail et des contributions de nombreuses personnes et communautés.</p>
+<ul>
+<li>L'inspiration initiale vient de <a href="https://bikeottawa.ca/" target="_blank" rel="noopener"><strong>Bike Ottawa</strong></a>, qui a traduit en code open source la méthode LTS développée par <a href="https://peterfurth.sites.northeastern.edu/" target="_blank" rel="noopener"><strong>Peter Furth</strong></a>.</li>
+<li><a href="https://orcid.org/0000-0002-7064-8334" target="_blank" rel="noopener"><strong>Maurizio Napolitano</strong></a> a promu et fait avancer le projet.</li>
+<li><a href="https://leoventuroso.github.io/" target="_blank" rel="noopener"><strong>Leonardo Venturoso</strong></a> a adapté la méthode au contexte italien et développé les indicateurs dans le cadre de son mémoire.</li>
+<li><a href="https://orcid.org/0000-0002-6469-1619" target="_blank" rel="noopener"><strong>Munazza Usmani</strong></a> et <a href="https://orcid.org/0000-0002-2773-4093" target="_blank" rel="noopener"><strong>Riccardo Nanni</strong></a>, avec Leonardo Venturoso et Maurizio Napolitano, ont transformé ce travail en article scientifique <a href="https://doi.org/10.1080/10630732.2026.2639290" target="_blank" rel="noopener"><em>LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety</em></a>.</li>
+<li><a href="https://github.com/mfortini" target="_blank" rel="noopener"><strong>Matteo Fortini</strong></a> a réalisé une première mise en œuvre pour le contexte italien et contribué avec des suggestions et des comparaisons.</li>
+<li><a href="https://github.com/aborruso" target="_blank" rel="noopener"><strong>Andrea Borruso</strong></a> a apporté de précieux conseils.</li>
+<li><a href="https://www.top-ix.org/" target="_blank" rel="noopener"><strong>TOP-IX</strong></a> met à disposition l'infrastructure qui héberge le site.</li>
+<li><a href="https://supporting.openstreetmap.org/donate/" target="_blank" rel="noopener"><strong>OpenStreetMap</strong></a> et sa communauté mettent à disposition les données sur lesquelles s'appuie la carte.</li>
+<li><a href="https://mapterhorn.com/" target="_blank" rel="noopener"><strong>Mapterhorn</strong></a>, pour les données altimétriques et les terrain tiles utilisées dans le calcul des pentes et dans la visualisation 3D.</li>
+<li><a href="https://www.maptoolkit.org/" target="_blank" rel="noopener"><strong>Maptoolkit</strong></a>, pour les fonds de carte et les styles cartographiques associés.</li>
+</ul>`,
     comuniNavLink: "Comparer les communes",
     statsNavLink: "Statistiques",
     mapNavLink: "Carte",
@@ -1426,6 +1528,7 @@ const I18N = {
     statsKpiKmPrioritario: "Km d'intervention prioritaire",
     statsKpiKmSeparate: "Km de pistes séparées",
     statsKpiIsole: "Îlots à faible stress",
+    statsKpiIsoleHelp: "Un groupe de rues à faible stress (LTS 1-2) reliées entre elles, mais accessible depuis le reste du réseau confortable seulement en traversant un tronçon plus stressant (LTS 3-4). Plus il y a d'îlots, plus le réseau à faible stress est fragmenté au lieu d'être continu.",
     statsComuneLtsTitle: "Composition des km par classe LTS",
     statsComuneExcludedTitle: "Km exclus du calcul, par motif",
     statsInterventionsTitle: "Rues nécessitant une intervention prioritaire",
@@ -1511,5 +1614,18 @@ const I18N = {
     statsPriorityMapSelectedLegend: "Rue sélectionnée",
     statsPriorityMapZoomHint: "Cliquez pour centrer la carte sur ce tronçon",
     statsPriorityChartCaptionTemplate: (shown, total) => `Les ${shown} premières rues sur ${total} listées, par gravité - le tableau ci-dessous les affiche toutes.`,
+    statsClustersTitle: "Classements par type de commune",
+    statsClustersNoteTemplate: (n) => `Les communes sont regroupées en ${n} catégories similaires en population et superficie, afin de ne comparer que des communes réellement comparables - mettre un petit village à côté d'une grande ville n'aurait pas beaucoup de sens.`,
+    statsClusterRangeTemplate: (popMin, popMax, areaMin, areaMax) => `Communes avec environ ${popMin}-${popMax} habitants et ${areaMin}-${areaMax} km²`,
+    statsClusterCountTemplate: (n) => `${n} communes dans cette catégorie`,
+    statsClusterBestLabel: "Les meilleures (part à faible stress)",
+    statsClusterWorstLabel: "À améliorer",
+    statsClusterTrophyTitle: "Prix de la catégorie pour le faible stress",
+    statsClusterPagerPrev: "Revenir aux positions précédentes",
+    statsClusterPagerNext: "Passer aux positions suivantes",
+    statsChartDownload: "Télécharger l'image",
+    statsChartFullscreen: "Plein écran",
+    statsSortByValue: "Valeur",
+    statsSortByName: "Nom",
   },
 };

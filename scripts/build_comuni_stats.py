@@ -35,7 +35,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 from ltsbikeplan.domain.area_statistics import compute_area_statistics
 from ltsbikeplan.services.area_index_service import compute_comuni_superficie_km2
-from ltsbikeplan.services.istat_registry_service import IstatRegistryService
+from ltsbikeplan.services.istat_registry_service import IstatRegistryService, normalize_comune_name
 from ltsbikeplan.services.pmtiles_edges_service import load_edges_dataframe
 from ltsbikeplan.services.population_service import PopulationService
 
@@ -48,8 +48,33 @@ NON_COMUNE_PMTILES_SLUGS = {"italia"}
 CHECKPOINT_EVERY = 200
 
 
-def _apply_registry_fields(record: dict, istat_code: str, registry: dict, superficie: dict, population: dict) -> None:
-    registry_entry = registry.get(istat_code, {})
+def _registry_lookup(istat_code: str, comune_name: str, registry: dict, registry_by_name: dict) -> dict:
+    entry = registry.get(istat_code)
+    if entry:
+        return entry
+    # Falls back to matching by name when the istat_code itself isn't in
+    # the CURRENT registry - not a data error, just an old istat_code:
+    # Sardegna's repeated provincial reorganizations renumbered nearly
+    # every comune there, so already-processed data (some of it years
+    # old) can carry a legacy code the live ISTAT download no longer
+    # recognizes, even though the comune itself and its name are
+    # unchanged. See IstatRegistryService.load_by_name's own docstring
+    # (confirmed 2026-09: 374/374 otherwise-orphaned comuni, effectively
+    # all of Sardegna, matched this way with zero residual misses).
+    # `comune_name` can carry a "Sardo/Italiano" dual name (as tagged in
+    # this project's own OSM extraction) - try the full string first,
+    # then each half.
+    for candidate in [comune_name, *comune_name.split("/")]:
+        entry = registry_by_name.get(normalize_comune_name(candidate))
+        if entry:
+            return entry
+    return {}
+
+
+def _apply_registry_fields(
+    record: dict, istat_code: str, comune_name: str, registry: dict, registry_by_name: dict, superficie: dict, population: dict
+) -> None:
+    registry_entry = _registry_lookup(istat_code, comune_name, registry, registry_by_name)
     record["regione"] = registry_entry.get("regione")
     record["provincia"] = registry_entry.get("provincia")
     record["capoluogo_provincia"] = registry_entry.get("capoluogo_provincia", False)
@@ -81,7 +106,9 @@ def main() -> None:
     web_data_dir = os.path.join(repo_root, "web", "data")
     out_path = os.path.join(web_data_dir, "italia_comuni_stats.json")
 
-    registry = IstatRegistryService(cache_dir=data_dir).load()
+    istat_service = IstatRegistryService(cache_dir=data_dir)
+    registry = istat_service.load()
+    registry_by_name = istat_service.load_by_name()
     superficie = compute_comuni_superficie_km2(data_dir)
     population = PopulationService(cache_dir=data_dir).load()
 
@@ -94,7 +121,7 @@ def main() -> None:
         with open(path) as file_handle:
             record = json.load(file_handle)
         istat_code = record.get("istat_code") or ""
-        _apply_registry_fields(record, istat_code, registry, superficie, population)
+        _apply_registry_fields(record, istat_code, record.get("comune", ""), registry, registry_by_name, superficie, population)
         merged.append(record)
         seen_istat_codes.add(istat_code)
     print(f"  {len(merged)} loaded", flush=True)
@@ -130,7 +157,7 @@ def main() -> None:
             record = compute_area_statistics(edges, slug)
             record["comune"] = edges["comune"].iloc[0] if "comune" in edges.columns else slug.replace("_", " ")
             record["istat_code"] = istat_code
-            _apply_registry_fields(record, istat_code, registry, superficie, population)
+            _apply_registry_fields(record, istat_code, record["comune"], registry, registry_by_name, superficie, population)
             merged.append(record)
             seen_istat_codes.add(istat_code)
             reconstructed += 1

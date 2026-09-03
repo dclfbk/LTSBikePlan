@@ -28,7 +28,11 @@
     display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
     gap: 6px 16px; padding: 10px 16px;
     background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-    position: relative; z-index: 20;
+    /* sticky (not just relative) so a fullscreened chart further down the
+       page can reserve space below it and have that space mean something
+       - a non-sticky header would already be scrolled out of view by the
+       time a chart mid-page goes fullscreen. */
+    position: sticky; top: 0; z-index: 210;
   }
   #header-brand-link { display: flex; align-items: center; gap: 8px; min-width: 0; text-decoration: none; color: inherit; }
   #header-brand-link:hover #site-title { text-decoration: underline; }
@@ -41,7 +45,7 @@
     padding: 4px 10px; cursor: pointer; color: #333; text-decoration: none; display: inline-block;
   }
   .nav-link:hover { background: #f0f0f0; }
-  .nav-link.current { background: #3B4A7A; border-color: #3B4A7A; color: white; }
+  .nav-link.current, .nav-link.active { background: #3B4A7A; border-color: #3B4A7A; color: white; }
 
   #content { flex: 1 1 auto; max-width: 1200px; margin: 0 auto; padding: 20px 16px 60px; width: 100%; box-sizing: border-box; }
   body.compare-active #content { padding-bottom: 120px; }
@@ -76,6 +80,52 @@
   .card-panel h2 { font-size: 15px; margin: 0 0 4px; }
   .card-panel .chart-note { color: #777; font-size: 11px; margin: 0 0 8px; }
   .chart-box { width: 100%; }
+  /* !important throughout: echarts sets an inline `position: relative`
+     on this same element (both at init AND again on every chart.resize()
+     call - confirmed by testing, not just at mount time), which would
+     otherwise stomp a plain `position: fixed` here moments after we set
+     it, since inline beats stylesheet at equal declaration. !important
+     is the only thing that reliably wins against a library re-asserting
+     its own inline style on a timer. The actual offsets are dynamic
+     (header height, share-bar width both vary) so they come in via CSS
+     custom properties set from positionFullscreenChart() in stats.js -
+     custom properties aren't among what echarts touches, only the
+     handful of plain layout properties it manages itself. */
+  .chart-box.chart-fullscreen {
+    position: fixed !important;
+    top: var(--fs-top, 16px) !important; left: var(--fs-left, 16px) !important;
+    right: var(--fs-right, 16px) !important; bottom: var(--fs-bottom, 16px) !important;
+    width: auto !important; height: auto !important; z-index: 200 !important;
+    background: white; border-radius: 8px; box-shadow: 0 4px 30px rgba(0,0,0,0.35);
+    padding: 8px; box-sizing: border-box;
+  }
+  /* Both html and body - depending on the browser, the actual
+     scrolling box for a body{height:100%} page like this one is the
+     documentElement, not body itself, so suppressing scroll on only one
+     of the two can still leave a scrollbar behind. */
+  html.has-fullscreen-chart, body.has-fullscreen-chart { overflow: hidden; }
+
+  /* Per-chart sort toggle (Nome/Valore, each an ascending/descending
+     flip-flop) - replaces the old single sort bar shared by every chart
+     on the level, since the user wants each chart sorted independently. */
+  .chart-sort-toggle { display: flex; gap: 6px; margin: 0 0 8px; }
+  .chart-sort-toggle button {
+    font: inherit; font-size: 11px; padding: 3px 8px; border: 1px solid #ccc; border-radius: 4px;
+    background: white; cursor: pointer; color: #555; display: inline-flex; align-items: center; gap: 3px;
+  }
+  .chart-sort-toggle button:hover { background: #f0f0f0; }
+  .chart-sort-toggle button.active { background: #3B4A7A; border-color: #3B4A7A; color: white; }
+  .chart-sort-toggle .sort-arrow { font-size: 10px; }
+
+  /* Cluster best/worst pager - steps through the ranking in blocks of 3
+     rather than only ever showing the fixed top-3/bottom-3. */
+  .cluster-pager { display: flex; justify-content: center; gap: 4px; margin-top: 6px; }
+  .cluster-pager button {
+    font: inherit; font-size: 11px; padding: 2px 8px; border: 1px solid #ccc; border-radius: 4px;
+    background: white; cursor: pointer; color: #555; line-height: 1.4;
+  }
+  .cluster-pager button:hover:not(:disabled) { background: #f0f0f0; }
+  .cluster-pager button:disabled { opacity: 0.35; cursor: default; }
 
   #kpi-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
   .kpi-card {
@@ -84,6 +134,7 @@
   }
   .kpi-card .kpi-label { font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: .02em; }
   .kpi-card .kpi-value { font-size: 20px; font-weight: 700; color: #222; margin-top: 2px; }
+  .kpi-help { cursor: help; color: #999; text-transform: none; }
   .badge {
     display: inline-block; font-size: 10px; font-weight: normal; color: #3B4A7A;
     background: #eaf1fa; border-radius: 3px; padding: 1px 5px; margin-left: 6px; vertical-align: middle;
@@ -138,7 +189,7 @@
      of inside an on-demand panel, per the user's request to keep it
      visible while scrolling. */
   #share-bar {
-    position: fixed; top: 64px; right: 16px; z-index: 25;
+    position: fixed; top: 64px; right: 16px; z-index: 210;
     display: flex; flex-direction: column; gap: 8px;
   }
   .share-social-link {
@@ -157,6 +208,65 @@
     #share-bar { top: auto; bottom: 16px; right: 12px; flex-direction: row; }
     body.compare-active #share-bar { bottom: 90px; }
   }
+
+  #clusters-grid .card-panel { box-shadow: none; border: 1px solid #eee; }
+  .cluster-lists { display: flex; gap: 16px; flex-wrap: wrap; }
+  .cluster-lists > div { flex: 1 1 200px; min-width: 180px; }
+  .cluster-lists h3 { font-size: 12px; color: #555; margin: 0 0 6px; text-transform: uppercase; letter-spacing: .02em; }
+  .cluster-list { list-style: none; margin: 0; padding: 0; }
+  .cluster-list li {
+    display: flex; justify-content: space-between; gap: 8px; padding: 5px 4px;
+    border-bottom: 1px solid #f0f0f0; cursor: pointer; font-size: 12.5px;
+  }
+  .cluster-list li:hover { background: #f7f9fc; }
+  .cluster-item-rank { color: #999; font-size: 11px; flex: none; min-width: 1.2em; }
+  .cluster-item-name { font-weight: 600; color: #3B4A7A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cluster-item-meta { color: #777; white-space: nowrap; flex: none; }
+  .cluster-item-provincia:hover { text-decoration: underline; color: #3B4A7A; }
+
+  /* Info panels (About/FAQ/Ringraziamenti/Cookie) - same markup/behaviour
+     as the main site (web/styles.css, web/app.js's setupInfoPanel), so
+     these read as the same feature rather than a stats-page-only
+     approximation. */
+  .info-panel {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    z-index: 220;
+    background: white; padding: 16px 20px; border-radius: 6px;
+    font: 13px/1.5 "Atkinson Hyperlegible Next", system-ui, sans-serif; box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    width: 80vw; max-height: 90vh; overflow-y: auto;
+    box-sizing: border-box;
+  }
+  .info-panel h2 { font-size: 15px; margin: 0 0 8px; font-weight: 600; }
+  .info-panel h3 { font-size: 13px; margin: 14px 0 4px; color: #222; font-weight: 600; }
+  .info-panel p { margin: 6px 0; }
+  .info-panel a { color: #3B4A7A; }
+  .info-panel-close {
+    position: absolute; top: 6px; right: 8px; border: none; background: none;
+    font-size: 16px; cursor: pointer; color: #777; line-height: 1;
+    font-weight: 600;
+  }
+  #about-subtitle { font-style: italic; color: #555; margin: 0 0 10px; }
+  .ai-note { font-style: italic; font-size: 11px; color: #999; margin: 0 0 6px; text-align: left; }
+
+  .faq-item { border-top: 1px solid #eee; }
+  .faq-item:first-child { border-top: none; }
+  .faq-question {
+    display: block; width: 100%; text-align: left; font: inherit; font-weight: 600;
+    background: none; border: none; padding: 10px 22px 10px 0; cursor: pointer; color: #222;
+    position: relative;
+  }
+  .faq-question:hover { color: #3B4A7A; }
+  .faq-question::after { content: "+"; position: absolute; right: 2px; top: 8px; color: #999; }
+  .faq-item.open .faq-question::after { content: "\2212"; }
+  .faq-answer { padding: 0 0 10px; }
+  .faq-answer.hidden { display: none; }
+  .faq-close-answer {
+    display: block; margin-top: 8px; font: inherit; font-size: 11px;
+    color: #999; background: none; border: none; padding: 0;
+    cursor: pointer; text-decoration: underline;
+    font-weight: 600;
+  }
+  .faq-close-answer:hover { color: #3B4A7A; }
 
   #priority-map { width: 100%; height: 420px; border-radius: 6px; }
   #priority-map-legend {
@@ -188,6 +298,10 @@
   <nav id="header-nav">
     <a id="comuni-link" class="nav-link" href="../comuni.html"></a>
     <a id="stats-link" class="nav-link current" href="index.html"></a>
+    <button id="about-toggle" class="nav-link" type="button"></button>
+    <button id="faq-toggle" class="nav-link" type="button"></button>
+    <button id="credits-toggle" class="nav-link" type="button"></button>
+    <button id="privacy-toggle" class="nav-link" type="button"></button>
     <div id="lang-switcher">
       <select id="lang-select">
         <option value="it">IT</option>
@@ -198,6 +312,31 @@
     </div>
   </nav>
 </header>
+
+<div id="about-panel" class="info-panel hidden">
+  <button id="about-close" class="info-panel-close" type="button">&times;</button>
+  <p id="about-ai-note" class="ai-note hidden"></p>
+  <h2 id="about-heading"></h2>
+  <p id="about-subtitle"></p>
+  <div id="about-body"></div>
+</div>
+<div id="faq-panel" class="info-panel hidden">
+  <button id="faq-close" class="info-panel-close" type="button">&times;</button>
+  <p id="faq-ai-note" class="ai-note hidden"></p>
+  <h2 id="faq-heading"></h2>
+  <div id="faq-list"></div>
+</div>
+<div id="privacy-panel" class="info-panel hidden">
+  <button id="privacy-close" class="info-panel-close" type="button">&times;</button>
+  <h2 id="privacy-heading"></h2>
+  <p id="privacy-intro"></p>
+</div>
+<div id="credits-panel" class="info-panel hidden">
+  <button id="credits-close" class="info-panel-close" type="button">&times;</button>
+  <p id="credits-ai-note" class="ai-note hidden"></p>
+  <h2 id="credits-heading"></h2>
+  <div id="credits-body"></div>
+</div>
 
 <!-- Always-visible share bar (copy link + socials), independent of
      header scroll - fixed rather than living inside #site-header so it

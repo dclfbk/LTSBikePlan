@@ -287,7 +287,7 @@ function applyUiTranslations() {
   document.getElementById("legend-hint").textContent = t("legendHint");
   document.getElementById("panel-toggle").textContent = t("legendToggle");
   document.getElementById("bg-light-label").textContent = t("bgLight");
-  document.getElementById("bg-summer-label").textContent = t("bgSummer");
+  document.getElementById("bg-urban-label").textContent = t("bgUrban");
   document.getElementById("bg-cycling-label").textContent = t("bgCycling");
   document.getElementById("bg-dark-label").textContent = t("bgDark");
   document.getElementById("loading-title").textContent = t("loadingTitle");
@@ -321,6 +321,11 @@ function applyUiTranslations() {
   document.getElementById("privacy-toggle").textContent = t("privacyToggle");
   document.getElementById("privacy-heading").textContent = t("privacyHeading");
   document.getElementById("privacy-intro").textContent = t("privacyIntro");
+  document.getElementById("credits-toggle").textContent = t("creditsToggle");
+  document.getElementById("credits-heading").textContent = t("creditsHeading");
+  document.getElementById("credits-body").innerHTML = t("creditsBody");
+  document.getElementById("credits-ai-note").textContent = aiNote;
+  document.getElementById("credits-ai-note").classList.toggle("hidden", !aiNote);
   document.getElementById("share-heading").textContent = t("shareModalHeading");
   document.getElementById("share-url-label").textContent = t("shareUrlLabel");
   document.getElementById("share-url-copy").textContent = t("shareCopyButton");
@@ -3066,6 +3071,7 @@ function setupInfoPanel(toggleId, panelId, closeId, onOpen) {
 const setAboutOpen = setupInfoPanel("about-toggle", "about-panel", "about-close");
 const setFaqOpen = setupInfoPanel("faq-toggle", "faq-panel", "faq-close");
 setupInfoPanel("privacy-toggle", "privacy-panel", "privacy-close");
+setupInfoPanel("credits-toggle", "credits-panel", "credits-close");
 // onOpen repopulates url/embed/social links fresh each time - see
 // populateShareModal's own comment for why this can't just run once.
 setupInfoPanel("share-toggle", "share-panel", "share-close", populateShareModal);
