@@ -4,10 +4,6 @@
     "a": "<p><strong>LTS</strong> significa <strong>Level of Traffic Stress</strong>.</p>\n<p>È un indicatore che classifica le strade in base al livello di stress che le loro caratteristiche possono generare nelle persone che le percorrono in bicicletta.</p>\n<p>Tiene conto di elementi come il tipo di strada, la presenza di infrastrutture ciclabili, il limite di velocità, il numero di corsie, i parcheggi e la larghezza della carreggiata.</p>"
   },
   {
-    "q": "Cosa significano LTS 1, 2, 3 e 4?",
-    "a": "<p>La scala va da 1 a 4:</p>\n<ul>\n<li><strong>LTS 1</strong> - stress molto basso</li>\n<li><strong>LTS 2</strong> - stress basso</li>\n<li><strong>LTS 3</strong> - stress elevato</li>\n<li><strong>LTS 4</strong> - stress molto elevato</li>\n</ul>\n<p>Più aumenta il valore, più le caratteristiche della strada possono rendere impegnativa l'esperienza in bicicletta.</p>"
-  },
-  {
     "q": "Perché in alcuni casi non riesco ad attivare tutti i livelli LTS dalla legenda?",
     "a": "<p>Per mantenere leggibile la mappa quando si vede una porzione ampia di territorio, i livelli LTS vengono mostrati gradualmente man mano che si aumenta lo zoom:</p>\n<ul>\n<li><strong>Zoom 4-7</strong> - solo <strong>LTS 1</strong> e <strong>LTS 2</strong> (stress basso)</li>\n<li><strong>Zoom 8-11</strong> - si aggiunge <strong>LTS 3</strong></li>\n<li><strong>Zoom 12 e oltre</strong> - tutti i livelli, incluso <strong>LTS 4</strong> e le strade non ciclabili</li>\n</ul>\n<p>Mostrare da subito ogni strada di ogni livello, su tutta l'Italia, avrebbe reso la mappa una macchia di colore poco leggibile. Nella legenda le voci non ancora disponibili al livello di zoom corrente compaiono <strong>disattivate</strong>, con l'indicazione dello zoom da cui si sbloccano: basta avvicinarsi alla zona di interesse per vederle.</p>\n<p>Una volta sbloccata, ogni voce resta comunque cliccabile per mostrarla o nasconderla, esattamente come prima.</p>"
   },
@@ -20,10 +16,6 @@
     "a": "<p>Perché non c'è solo il traffico.</p>\n<p>Una strada può avere buone caratteristiche infrastrutturali, ma una salita lunga e molto ripida può comunque cambiare parecchio l'esperienza di chi la percorre.</p>\n<p>Nel nostro adattamento dell'LTS, quando una salita è sufficientemente lunga e ripida il valore può aumentare.</p>\n<p>La pendenza viene calcolata da un modello digitale del terreno con una risoluzione di circa 10 metri. Su un tratto molto corto (pochi metri) questa misura può non essere affidabile: per questo la penalità si applica solo ai tratti di almeno 500 metri, dove il dato è stabile.</p>\n<p>La vista 3D della mappa aiuta anche a leggere questo aspetto del territorio.</p>"
   },
   {
-    "q": "Da dove arrivano i dati?",
-    "a": "<p>Principalmente da <strong>OpenStreetMap - OSM</strong>.</p>\n<p>Utilizziamo le informazioni presenti nel database per descrivere le caratteristiche delle strade: accessibilità alle biciclette, tipologia stradale, infrastrutture ciclabili, limiti di velocità, corsie e altri attributi utili al calcolo.</p>\n<p>Per approfondire come OpenStreetMap descrive l'accessibilità alle biciclette puoi consultare la <a href=\"https://wiki.openstreetmap.org/wiki/IT:Key:bicycle\" target=\"_blank\" rel=\"noopener\">wiki OSM dedicata alla chiave <code>bicycle</code></a>.</p>"
-  },
-  {
     "q": "Ho trovato una strada classificata male. Cosa posso fare?",
     "a": "<p>La prima cosa da controllare sono i dati presenti in OpenStreetMap.</p>\n<p>Se un'informazione è mancante o sbagliata, può essere corretta direttamente su OSM.</p>\n<p>Questo però <strong>non modifica immediatamente Stress in bici</strong>.</p>\n<p>La nostra mappa viene ricalcolata periodicamente. Una correzione fatta oggi su OpenStreetMap potrà quindi essere recepita in uno degli aggiornamenti successivi.</p>"
   },
@@ -34,10 +26,6 @@
   {
     "q": "Perché alcune informazioni mancanti vengono stimate?",
     "a": "<p>Non tutte le strade in OpenStreetMap hanno ogni attributo necessario al calcolo.</p>\n<p>Nel modello LTS-BikePlan alcuni valori mancanti vengono quindi stimati sulla base della tipologia della strada e delle regole adottate per il contesto italiano.</p>\n<p>Questo permette di calcolare l'LTS anche dove i dati non sono completi, ma è un altro motivo per cui migliorare OpenStreetMap è importante.</p>"
-  },
-  {
-    "q": "Cosa sono i \"Tratti da valutare\"?",
-    "a": "<p>Non sono semplicemente tutte le strade con LTS alto.</p>\n<p>Le strade formano una rete e alcuni tratti hanno un ruolo più importante di altri nel collegarla.</p>\n<p>La funzione <strong>\"Tratti da valutare\"</strong> mette in evidenza i punti nei quali si combinano:</p>\n<p><strong>LTS elevato + importanza del tratto nella connessione della rete.</strong></p>\n<p>Un breve tratto ad alto stress può, per esempio, interrompere il collegamento tra due zone dove le condizioni sono molto migliori.</p>"
   },
   {
     "q": "Un \"tratto da valutare\" significa che lì bisogna costruire una pista ciclabile?",
@@ -61,7 +49,7 @@
   },
   {
     "q": "Posso usare i dati?",
-    "a": "<p>Sì.</p>\n<p>I dati derivano principalmente da OpenStreetMap e sono distribuiti secondo le condizioni della licenza <strong>ODbL</strong>, mantenendo l'attribuzione a <strong>© OpenStreetMap contributors</strong>.</p>\n<p>Anche il codice del progetto è pubblico e può essere studiato, verificato e migliorato.</p>"
+    "a": "<p>Sì.</p><p>I dati derivano principalmente da OpenStreetMap e sono distribuiti secondo le condizioni della licenza <strong>ODbL</strong>, mantenendo l'attribuzione a <strong>© OpenStreetMap contributors</strong>.</p>"
   },
   {
     "q": "Dove trovo il codice?",
@@ -72,12 +60,12 @@
     "a": "<p>Sì.</p>\n<p>La metodologia è descritta in:</p>\n<p><strong>Venturoso, L., Usmani, M., Nanni, R., &amp; Napolitano, M. (2026). <em>LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety</em>. Journal of Urban Technology, 1&ndash;42.</strong></p>\n<p><a href=\"https://doi.org/10.1080/10630732.2026.2639290\" target=\"_blank\" rel=\"noopener\">DOI 10.1080/10630732.2026.2639290</a></p>"
   },
   {
-    "q": "Da dove nasce Stress in bici?",
-    "a": "<p>Il progetto parte dagli studi sulle reti ciclabili a basso stress e dall'esperienza di <strong>BikeOttawa</strong>.</p>\n<p>Nel 2021 <strong>Maurizio Napolitano e Matteo Fortini</strong> hanno sperimentato questo approccio in Italia con <a href=\"https://medium.com/tantotanto/lo-stress-dei-percorsi-ciclabili-ee7573ec8284\" target=\"_blank\" rel=\"noopener\"><strong>Bici stressate dal traffico</strong></a>.</p>\n<p>Il lavoro è poi proseguito con la tesi di Master in Data Science di <strong>Leonardo Venturoso</strong> e con lo sviluppo di <strong>LTS-BikePlan</strong>, da cui deriva l'approccio utilizzato in Stress in bici.</p>"
+    "q": "Come funziona il calcolo del percorso e del tempo stimato?",
+    "a": "<p>Il calcolo del percorso è <strong>sperimentale</strong> e viene eseguito interamente sul tuo dispositivo, non su un server: il tracciato preferisce le strade con LTS più basso, ma <strong>non tiene conto del traffico in tempo reale</strong>, perché non è un dato disponibile.</p><p>Proprio perché il calcolo avviene sul tuo dispositivo, su distanze molto lunghe (per esempio tra due estremi opposti dell'Italia) può richiedere diversi minuti: se non ti serve davvero coprire tutta quella distanza, conviene restringere la ricerca a una zona più vicina.</p><p>I tratti classificati come <strong>non ciclabili</strong> (LTS 0) non vengono presi in considerazione: se l'unico collegamento verso una destinazione passa da lì, il percorso potrebbe non essere calcolabile - lo stesso vale per i tratti isolati descritti nella domanda successiva.</p><p>Il tempo stimato viene calcolato sia per una <strong>bicicletta muscolare</strong> (velocità di base 18 km/h in piano) sia per una <strong>bicicletta elettrica</strong> (velocità di base 22 km/h in piano, rallentata molto meno in salita grazie all'assistenza del motore), entrambe ridotte in salita e aumentate (fino a un limite) in discesa, in base alla pendenza reale rilevata dal modello del terreno lungo il percorso.</p><p>Non considera vento, forma fisica, semafori o soste: va preso come un'indicazione di massima, non come un tempo di percorrenza garantito.</p>"
   },
   {
-    "q": "Come funziona il calcolo del percorso e del tempo stimato?",
-    "a": "<p>Il calcolo del percorso è <strong>sperimentale</strong> e viene eseguito interamente sul tuo dispositivo, non su un server: il tracciato preferisce le strade con LTS più basso, ma <strong>non tiene conto del traffico in tempo reale</strong>, perché non è un dato disponibile.</p>\n<p>I tratti classificati come <strong>non ciclabili</strong> (LTS 0) non vengono presi in considerazione: se l'unico collegamento verso una destinazione passa da lì, il percorso potrebbe non essere calcolabile.</p>\n<p>Il tempo stimato viene calcolato sia per una <strong>bicicletta muscolare</strong> (velocità di base 18 km/h in piano) sia per una <strong>bicicletta elettrica</strong> (velocità di base 22 km/h in piano, rallentata molto meno in salita grazie all'assistenza del motore), entrambe ridotte in salita e aumentate (fino a un limite) in discesa, in base alla pendenza reale rilevata dal modello del terreno lungo il percorso.</p>\n<p>Non considera vento, forma fisica, semafori o soste: va preso come un'indicazione di massima, non come un tempo di percorrenza garantito.</p>"
+    "q": "Perché alcuni tratti colorati sulla mappa sembrano isolati, senza collegamento con il resto della rete?",
+    "a": "<p>Ogni tratto di strada riceve il proprio LTS in modo indipendente, in base alle sue sole caratteristiche - non in base a cosa lo circonda.</p><p>Questo significa che un tratto può avere un LTS 1-4 anche se, nella rete effettivamente percorribile in bici, è raggiungibile solo attraversando una strada classificata come <strong>non ciclabile</strong> (LTS 0, per esempio un'autostrada): sulla mappa appare colorato come qualunque altro tratto, ma di fatto è isolato dal resto della rete a basso stress.</p><p>Il calcolo del percorso non userà mai questi tratti per collegare due punti, perché non attraversa mai strade non ciclabili (vedi la domanda precedente).</p><p>Non è necessariamente un errore: a volte è un limite reale del territorio, altre volte un'informazione mancante su OpenStreetMap (una strada di collegamento non ancora mappata, o taggata in modo da escluderla per sbaglio). Se sospetti quest'ultimo caso, vale la stessa indicazione della domanda su una strada classificata male: la correzione va fatta su OpenStreetMap.</p>"
   },
   {
     "q": "Posso segnalare un problema o proporre un miglioramento?",

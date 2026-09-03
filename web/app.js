@@ -1222,6 +1222,24 @@ function buildRouteKml(runs) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n${placemarks}\n</Document>\n</kml>`;
 }
 
+// One-time heads-up shown at the top of the routing panel (not the
+// collapsed <details> disclaimer just below it, which people routinely
+// skip past) - the whole engine is client-side (see RoutingControl's own
+// comment), so a long-distance route can take genuinely long time to
+// compute. Dismissed permanently via localStorage rather than tied to
+// zoom level: zoom at the moment the panel opens is a weak proxy for how
+// far apart the user will actually click start/end (the map can still be
+// panned freely with the panel open), so a simple one-time dismiss is
+// both simpler and more honest than pretending zoom predicts it.
+const ROUTING_SLOW_WARNING_KEY = "stressInBici.routingSlowWarningDismissed";
+function routingSlowWarningDismissed() {
+  try {
+    return localStorage.getItem(ROUTING_SLOW_WARNING_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 // Client-side LTS-preferring bike routing (web/routing.js's
 // candidateComuniForRoute/mergeRoutingGraphs/findRoute - no routing
 // server). Same toggle-button + left-flyout-panel shape as
@@ -1254,6 +1272,10 @@ class RoutingControl {
           <button type="button" id="routing-panel-expand" class="routing-panel-close">&#9974;</button>
           <button type="button" id="routing-panel-close" class="routing-panel-close">&times;</button>
         </span>
+      </div>
+      <div class="routing-slow-warning${routingSlowWarningDismissed() ? " hidden" : ""}" id="routing-slow-warning">
+        <p>${t("routingSlowWarningBody")}</p>
+        <button type="button" id="routing-slow-warning-dismiss">${t("routingSlowWarningDismiss")}</button>
       </div>
       <p class="routing-hint">${t("routingClickHint")}</p>
       <div class="routing-point-row" id="routing-start-row">
@@ -1319,6 +1341,11 @@ class RoutingControl {
 
     this._closeBtn = this._panel.querySelector("#routing-panel-close");
     this._expandBtn = this._panel.querySelector("#routing-panel-expand");
+    this._slowWarning = this._panel.querySelector("#routing-slow-warning");
+    this._panel.querySelector("#routing-slow-warning-dismiss").addEventListener("click", () => {
+      this._slowWarning.classList.add("hidden");
+      try { localStorage.setItem(ROUTING_SLOW_WARNING_KEY, "1"); } catch { /* no persistence, still hidden this session */ }
+    });
     this._startRow = this._panel.querySelector("#routing-start-row");
     this._endRow = this._panel.querySelector("#routing-end-row");
     this._clearBtn = this._panel.querySelector("#routing-clear");
@@ -3011,13 +3038,16 @@ setupInfoPanel("privacy-toggle", "privacy-panel", "privacy-close");
 // populateShareModal's own comment for why this can't just run once.
 setupInfoPanel("share-toggle", "share-panel", "share-close", populateShareModal);
 
-// "Dai un'occhiata alle FAQ" link inside the About body (see aboutBody in
-// i18n.js) - event delegation on the parent, since #about-body's whole
+// "Dai un'occhiata alle FAQ" links inside the About body (see aboutBody in
+// i18n.js - there are two now, the closing one and the routing section's
+// own) - event delegation on the parent, since #about-body's whole
 // innerHTML is replaced on every applyUiTranslations() call (language
 // switch), which would silently drop a listener bound directly to the
-// inner <a>.
+// inner <a>s. Matched by class, not id - two elements sharing one id
+// would still fire this (delegation only reads e.target.id), but is
+// invalid HTML and breaks any FUTURE getElementById("open-faq-link").
 document.getElementById("about-body").addEventListener("click", (e) => {
-  if (e.target.id !== "open-faq-link") return;
+  if (!e.target.classList.contains("open-faq-link")) return;
   e.preventDefault();
   setAboutOpen(false);
   setFaqOpen(true);

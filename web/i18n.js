@@ -31,8 +31,10 @@ const I18N = {
     routingStartLabel: "Partenza",
     routingEndLabel: "Arrivo",
     routingClickHint: "Clicca sulla mappa<br>per impostare partenza e arrivo",
+    routingSlowWarningBody: "Il percorso viene calcolato sul tuo dispositivo, non su un server: su distanze molto lunghe può richiedere parecchio tempo.",
+    routingSlowWarningDismiss: "Capito, non mostrare più",
     routingDisclaimerSummary: "Come funziona questo calcolo",
-    routingDisclaimerBody: "Il percorso privilegia i tratti con livello di stress (LTS) più basso e non considera i tratti classificati come non ciclabili: se l'unico collegamento verso una destinazione passa da lì, il percorso potrebbe non essere calcolabile. Non tiene conto del traffico in tempo reale, perché non è un dato disponibile. È un motore sperimentale ed elabora il percorso localmente, sul tuo dispositivo. Il tempo stimato è calcolato sia per una bicicletta muscolare che per una elettrica, e tiene conto della pendenza reale del terreno, ma non di vento, forma fisica o soste.",
+    routingDisclaimerBody: "Il percorso privilegia i tratti con livello di stress (LTS) più basso e non considera i tratti classificati come non ciclabili: se l'unico collegamento verso una destinazione passa da lì, il percorso potrebbe non essere calcolabile. Non tiene conto del traffico in tempo reale, perché non è un dato disponibile. È un motore sperimentale ed elabora il percorso localmente, sul tuo dispositivo: su distanze molto lunghe il calcolo può richiedere diversi minuti. Il tempo stimato è calcolato sia per una bicicletta muscolare che per una elettrica, e tiene conto della pendenza reale del terreno, ma non di vento, forma fisica o soste.",
     routingBikeMuscularLabel: "Bici muscolare",
     routingBikeElectricLabel: "Bici elettrica",
     routeEstimatedTimeTemplate: (h, m) => (h > 0 ? `~${h} h ${m} min` : `~${m} min`),
@@ -92,6 +94,9 @@ const I18N = {
 <p>Non significa <strong>"qui bisogna costruire una pista ciclabile"</strong>.</p>
 <p>Significa piuttosto: <strong>"questo tratto merita attenzione"</strong>.</p>
 <p>Intervenire in un punto strategico può infatti migliorare la continuità di una parte molto più grande della rete.</p>
+<h3>Il percorso (sperimentale)</h3>
+<p>Oltre a leggere la rete, puoi calcolare un <strong>percorso</strong> che privilegia le strade a basso stress tra un punto di partenza e uno di arrivo.</p>
+<p>È una funzione sperimentale, eseguita interamente sul tuo dispositivo e non su un server: su distanze molto lunghe il calcolo può richiedere diversi minuti. Trovi tutti i dettagli - dati usati, limiti, tempi stimati - nelle <a href="#" class="open-faq-link">FAQ</a>.</p>
 <h3>Il ruolo di OpenStreetMap</h3>
 <p><a href="https://www.openstreetmap.org" target="_blank" rel="noopener"><strong>OpenStreetMap</strong></a> non è soltanto una mappa di sfondo: i suoi dati sono alla base del calcolo dell'LTS.</p>
 <p>Accessibilità alle biciclette, tipo di strada, infrastrutture ciclabili, limiti di velocità e numero di corsie sono alcune delle informazioni ricavate da OSM.</p>
@@ -112,7 +117,7 @@ const I18N = {
 <p><strong>Venturoso, L., Usmani, M., Nanni, R., &amp; Napolitano, M. (2026). <em>LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety</em>. Journal of Urban Technology, 1&ndash;42.</strong></p>
 <p><a href="https://doi.org/10.1080/10630732.2026.2639290" target="_blank" rel="noopener"><strong>DOI 10.1080/10630732.2026.2639290</strong></a></p>
 <p><strong>Stress in bici</strong> prova a guardare le strade italiane dalla prospettiva delle persone che le percorrono in bicicletta: per capire quali generano meno stress, quali ne generano di più e quali punti della rete meritano maggiore attenzione.</p>
-<p><strong>Hai dubbi su come vengono calcolati i valori, sul significato dell'LTS o sui limiti della mappa? Dai un'occhiata alle <a href="#" id="open-faq-link">FAQ</a>.</strong></p>`,
+<p><strong>Hai dubbi su come vengono calcolati i valori, sul significato dell'LTS o sui limiti della mappa? Dai un'occhiata alle <a href="#" class="open-faq-link">FAQ</a>.</strong></p>`,
     // FAQ content lives in web/faq.json now (see ensureFaqLoaded/
     // renderFaq in app.js), not here - so it can be edited without
     // touching JS/HTML. Italian only for now, same reasoning as
@@ -120,7 +125,7 @@ const I18N = {
     // this gets translated.
     privacyToggle: "Cookie",
     privacyHeading: "Privacy e cookie",
-    privacyIntro: "Questo sito non usa cookie di tracciamento, né servizi di analisi o pubblicità: non viene raccolto alcun dato di navigazione. Se in futuro venissero introdotti strumenti che li richiedono, questa pagina sarà aggiornata con le informazioni necessarie e le opzioni per gestire il consenso.",
+    privacyIntro: "Questo sito non usa cookie di tracciamento, né servizi di analisi o pubblicità: non viene raccolto alcun dato di navigazione. Un'unica eccezione, puramente tecnica: se scegli di non mostrare più l'avviso sui tempi di calcolo del percorso, quella preferenza viene salvata nella memoria locale del browser (localStorage), solo sul tuo dispositivo - non è mai inviata a nessun server, non serve a tracciarti e resta finché non cancelli i dati del sito dal tuo browser. Se in futuro venissero introdotti strumenti che richiedono cookie di tracciamento o analisi, questa pagina sarà aggiornata con le informazioni necessarie e le opzioni per gestire il consenso.",
     comuniNavLink: "Confronta comuni",
     mapNavLink: "Mappa",
     comuniTitle: "Confronta i comuni",
@@ -277,8 +282,10 @@ const I18N = {
     routingStartLabel: "Start",
     routingEndLabel: "End",
     routingClickHint: "Click on the map<br>to set start and end",
+    routingSlowWarningBody: "The route is computed on your own device, not on a server: over very long distances it can take quite a while.",
+    routingSlowWarningDismiss: "Got it, don't show again",
     routingDisclaimerSummary: "How this calculation works",
-    routingDisclaimerBody: "The route favours the lowest-stress (LTS) stretches available and excludes segments classified as not suitable for cycling: if the only connection to a destination runs through one, a route may not be found. It doesn't account for real-time traffic, since that data isn't available. This is an experimental engine that computes the route locally, on your own device. The estimated time is calculated for both a regular and an electric bike, and accounts for the terrain's real gradient, but not wind, fitness level, or stops.",
+    routingDisclaimerBody: "The route favours the lowest-stress (LTS) stretches available and excludes segments classified as not suitable for cycling: if the only connection to a destination runs through one, a route may not be found. It doesn't account for real-time traffic, since that data isn't available. This is an experimental engine that computes the route locally, on your own device: over very long distances the calculation can take several minutes. The estimated time is calculated for both a regular and an electric bike, and accounts for the terrain's real gradient, but not wind, fitness level, or stops.",
     routingBikeMuscularLabel: "Regular bike",
     routingBikeElectricLabel: "E-bike",
     routeEstimatedTimeTemplate: (h, m) => (h > 0 ? `~${h} h ${m} min` : `~${m} min`),
@@ -358,7 +365,7 @@ const I18N = {
 <p>And, above all, <strong>where riding could be better</strong>.</p>`,
     privacyToggle: "Cookie",
     privacyHeading: "Privacy & cookies",
-    privacyIntro: "This site does not use tracking cookies, analytics, or advertising services: no browsing data is collected. If tools that require them are introduced in the future, this page will be updated with the necessary information and consent options.",
+    privacyIntro: "This site does not use tracking cookies, analytics, or advertising services: no browsing data is collected. One purely technical exception: if you choose to stop showing the notice about route-calculation times, that preference is saved in the browser's local storage (localStorage), only on your own device - it's never sent to any server, isn't used to track you, and stays until you clear this site's data from your browser. If tools that require tracking or analytics cookies are introduced in the future, this page will be updated with the necessary information and consent options.",
     comuniNavLink: "Compare municipalities",
     mapNavLink: "Map",
     comuniTitle: "Compare municipalities",
@@ -514,8 +521,10 @@ const I18N = {
     routingStartLabel: "Start",
     routingEndLabel: "Ziel",
     routingClickHint: "Klicken Sie auf die Karte,<br>um Start und Ziel festzulegen",
+    routingSlowWarningBody: "Die Route wird auf Ihrem eigenen Gerät berechnet, nicht auf einem Server: bei sehr langen Strecken kann das eine ganze Weile dauern.",
+    routingSlowWarningDismiss: "Verstanden, nicht mehr anzeigen",
     routingDisclaimerSummary: "So funktioniert diese Berechnung",
-    routingDisclaimerBody: "Die Route bevorzugt Abschnitte mit niedrigerem Stressniveau (LTS) und berücksichtigt keine Abschnitte, die als nicht fahrradgeeignet eingestuft sind: Führt die einzige Verbindung zu einem Ziel dort hindurch, kann möglicherweise keine Route gefunden werden. Der Echtzeitverkehr wird nicht berücksichtigt, da diese Daten nicht verfügbar sind. Es handelt sich um eine experimentelle Engine, die die Route lokal auf Ihrem eigenen Gerät berechnet. Die geschätzte Zeit wird sowohl für ein normales als auch für ein Elektrofahrrad berechnet und berücksichtigt die reale Geländesteigung, aber nicht Wind, Fitness oder Pausen.",
+    routingDisclaimerBody: "Die Route bevorzugt Abschnitte mit niedrigerem Stressniveau (LTS) und berücksichtigt keine Abschnitte, die als nicht fahrradgeeignet eingestuft sind: Führt die einzige Verbindung zu einem Ziel dort hindurch, kann möglicherweise keine Route gefunden werden. Der Echtzeitverkehr wird nicht berücksichtigt, da diese Daten nicht verfügbar sind. Es handelt sich um eine experimentelle Engine, die die Route lokal auf Ihrem eigenen Gerät berechnet: bei sehr langen Strecken kann die Berechnung mehrere Minuten dauern. Die geschätzte Zeit wird sowohl für ein normales als auch für ein Elektrofahrrad berechnet und berücksichtigt die reale Geländesteigung, aber nicht Wind, Fitness oder Pausen.",
     routingBikeMuscularLabel: "Normales Fahrrad",
     routingBikeElectricLabel: "E-Bike",
     routeEstimatedTimeTemplate: (h, m) => (h > 0 ? `~${h} Std ${m} Min` : `~${m} Min`),
@@ -595,7 +604,7 @@ const I18N = {
 <p>Und vor allem, <strong>wo man besser Rad fahren könnte</strong>.</p>`,
     privacyToggle: "Cookies",
     privacyHeading: "Datenschutz und Cookies",
-    privacyIntro: "Diese Website verwendet keine Tracking-Cookies, keine Analyse- und keine Werbedienste: Es werden keine Nutzungsdaten erfasst. Sollten künftig Werkzeuge eingeführt werden, die dies erfordern, wird diese Seite mit den nötigen Informationen und Einwilligungsoptionen aktualisiert.",
+    privacyIntro: "Diese Website verwendet keine Tracking-Cookies, keine Analyse- und keine Werbedienste: Es werden keine Nutzungsdaten erfasst. Eine einzige, rein technische Ausnahme: Wenn Sie den Hinweis zu den Berechnungszeiten der Route nicht mehr anzeigen lassen, wird diese Einstellung im lokalen Speicher des Browsers (localStorage) gespeichert - nur auf Ihrem eigenen Gerät, nie an einen Server gesendet, nicht zum Tracking genutzt, und bleibt erhalten, bis Sie die Website-Daten in Ihrem Browser löschen. Sollten künftig Werkzeuge eingeführt werden, die Tracking- oder Analyse-Cookies erfordern, wird diese Seite mit den nötigen Informationen und Einwilligungsoptionen aktualisiert.",
     comuniNavLink: "Gemeinden vergleichen",
     mapNavLink: "Karte",
     comuniTitle: "Gemeinden vergleichen",
@@ -751,8 +760,10 @@ const I18N = {
     routingStartLabel: "Départ",
     routingEndLabel: "Arrivée",
     routingClickHint: "Cliquez sur la carte<br>pour définir le départ et l'arrivée",
+    routingSlowWarningBody: "L'itinéraire est calculé sur votre propre appareil, pas sur un serveur : sur de très longues distances, cela peut prendre pas mal de temps.",
+    routingSlowWarningDismiss: "Compris, ne plus afficher",
     routingDisclaimerSummary: "Comment fonctionne ce calcul",
-    routingDisclaimerBody: "L'itinéraire privilégie les tronçons avec le niveau de stress (LTS) le plus bas et exclut les tronçons classés comme non adaptés au vélo : si la seule liaison vers une destination passe par là, il se peut qu'aucun itinéraire ne soit trouvé. Il ne tient pas compte du trafic en temps réel, cette donnée n'étant pas disponible. Il s'agit d'un moteur expérimental qui calcule l'itinéraire localement, sur votre propre appareil. Le temps estimé est calculé à la fois pour un vélo musculaire et pour un vélo électrique, et tient compte de la pente réelle du terrain, mais pas du vent, de la forme physique ni des arrêts.",
+    routingDisclaimerBody: "L'itinéraire privilégie les tronçons avec le niveau de stress (LTS) le plus bas et exclut les tronçons classés comme non adaptés au vélo : si la seule liaison vers une destination passe par là, il se peut qu'aucun itinéraire ne soit trouvé. Il ne tient pas compte du trafic en temps réel, cette donnée n'étant pas disponible. Il s'agit d'un moteur expérimental qui calcule l'itinéraire localement, sur votre propre appareil : sur de très longues distances, le calcul peut prendre plusieurs minutes. Le temps estimé est calculé à la fois pour un vélo musculaire et pour un vélo électrique, et tient compte de la pente réelle du terrain, mais pas du vent, de la forme physique ni des arrêts.",
     routingBikeMuscularLabel: "Vélo musculaire",
     routingBikeElectricLabel: "Vélo électrique",
     routeEstimatedTimeTemplate: (h, m) => (h > 0 ? `~${h} h ${m} min` : `~${m} min`),
@@ -832,7 +843,7 @@ const I18N = {
 <p>Et, surtout, <strong>o&ugrave; l'on pourrait mieux rouler</strong>.</p>`,
     privacyToggle: "Cookies",
     privacyHeading: "Confidentialité et cookies",
-    privacyIntro: "Ce site n'utilise aucun cookie de suivi, ni service d'analyse ou de publicité : aucune donnée de navigation n'est collectée. Si des outils nécessitant ces éléments étaient introduits à l'avenir, cette page serait mise à jour avec les informations nécessaires et des options de gestion du consentement.",
+    privacyIntro: "Ce site n'utilise aucun cookie de suivi, ni service d'analyse ou de publicité : aucune donnée de navigation n'est collectée. Une seule exception, purement technique : si vous choisissez de ne plus afficher l'avertissement sur les temps de calcul de l'itinéraire, cette préférence est enregistrée dans la mémoire locale du navigateur (localStorage), uniquement sur votre propre appareil - elle n'est jamais envoyée à un serveur, ne sert pas à vous suivre, et reste jusqu'à ce que vous effaciez les données de ce site dans votre navigateur. Si des outils nécessitant des cookies de suivi ou d'analyse étaient introduits à l'avenir, cette page serait mise à jour avec les informations nécessaires et des options de gestion du consentement.",
     comuniNavLink: "Comparer les communes",
     mapNavLink: "Carte",
     comuniTitle: "Comparer les communes",
