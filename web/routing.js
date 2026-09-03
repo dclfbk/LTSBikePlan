@@ -40,9 +40,15 @@ const LTS_PENALTY = { 1: 1.0, 2: 1.2, 3: 1.6, 4: 3.0 };
 // scripts/build_routing_graph.py's slope_class_code (0=flat..5=impossible);
 // code 255 (UNKNOWN_SLOPE_CLASS_CODE, no reliable reading) never indexes
 // into this array, see edgeCost below. Raised alongside LTS_PENALTY's own
-// narrowing above (previously 1.0/1.05/1.2/1.5/2.0/2.0) - validated
-// together, not independently (see LTS_PENALTY's comment).
-const FATIGUE_PENALTY = [1.0, 1.1, 1.6, 2.5, 4.0, 4.0];
+// narrowing above (previously 1.0/1.05/1.2/1.5/2.0/2.0), then raised
+// again on just the top two tiers (previously 4.0/4.0, one shared
+// ceiling) after a real Trento -> Pergine Valsugana route kept crossing
+// Passo Cimirlo despite that ceiling - see domain/routing_cost.py's own
+// FATIGUE_PENALTY comment for the full validation (client-side findRoute
+// re-run confirming the switch to a real alternative, the Ponte Alto
+// valley road, plus an ordinary flat-route check that this doesn't
+// perturb routing where slope doesn't matter).
+const FATIGUE_PENALTY = [1.0, 1.1, 2.0, 4.0, 8.0, 16.0];
 const UNKNOWN_SLOPE_CLASS_CODE = 255;
 
 // NOTE - deliberately does NOT gate this on edge length (an earlier

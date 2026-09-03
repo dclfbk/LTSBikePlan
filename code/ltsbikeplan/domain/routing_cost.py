@@ -72,13 +72,32 @@ LTS_PENALTY: dict[int, float] = {1: 1.0, 2: 1.2, 3: 1.6, 4: 3.0}
 # independently: on their own, neither a narrower LTS gap nor a stronger
 # fatigue penalty was enough to match real routers' actual choice on two
 # real test routes (see LTS_PENALTY's own comment for the specifics).
+#
+# The top two tiers were raised again later (previously 4.0/4.0, sharing
+# one ceiling - "impossible" got no extra penalty beyond "extreme") after
+# a real case showed that ceiling wasn't enough on its own: Trento -> an
+# address near Pergine Valsugana kept routing over Passo Cimirlo even
+# with "impossible" split out to 6.0, and even with medium/hard/extreme
+# raised to 2.0/3.0/5.0 - Cimirlo is almost entirely LTS1-2, so its low
+# LTS_PENALTY still won over the fatigue cost of its ~2.4km of very-steep/
+# impossible edges. Doubling the whole upper half of this table (medium
+# 1.6->2.0, hard 2.5->4.0, extreme 4.0->8.0, impossible 4.0->16.0, this
+# last one now finally distinct from extreme) was what actually flipped
+# the choice: verified client-side (web/routing.js's own findRoute, same
+# start/end) switching to the Ponte Alto valley road instead - a real,
+# sensible alternative a cyclist would recognize, not a router artifact -
+# at a genuine +30% distance (13.6km -> 17.6km) for a ~70% cut in very-
+# steep/impossible-slope exposure (2.96km -> 0.97km). Checked against an
+# ordinary flat in-town route too (Trento centro, ~1.9km) to confirm this
+# far stronger upper end doesn't perturb routing where slope barely
+# matters - it changed the result by 7m.
 FATIGUE_PENALTY: dict[str, float] = {
     "0-3: flat": 1.0,
     "3-5: mild": 1.1,
-    "5-8: medium": 1.6,
-    "8-10: hard": 2.5,
-    "10-20: extreme": 4.0,
-    ">20: impossible": 4.0,
+    "5-8: medium": 2.0,
+    "8-10: hard": 4.0,
+    "10-20: extreme": 8.0,
+    ">20: impossible": 16.0,
 }
 
 # A third, independent multiplier - LTS_PENALTY and FATIGUE_PENALTY are
