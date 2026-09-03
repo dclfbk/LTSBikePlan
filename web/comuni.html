@@ -78,6 +78,7 @@
   </div>
   <nav id="header-nav">
     <a id="map-link" class="nav-link" href="index.html"></a>
+    <a id="stats-link" class="nav-link" href="stats/index.html"></a>
     <div id="lang-switcher">
       <select id="lang-select">
         <option value="it">IT</option>
@@ -178,6 +179,7 @@
     document.getElementById("lang-select").value = currentLang;
     document.title = `Stress in bici - ${t("comuniTitle")}`;
     document.getElementById("map-link").textContent = t("mapNavLink");
+    document.getElementById("stats-link").textContent = t("statsNavLink");
     document.getElementById("page-title").textContent = t("comuniTitle");
     document.getElementById("page-subtitle").textContent = t("comuniSubtitle");
     document.getElementById("population-note").textContent = t("comuniPopulationNote");

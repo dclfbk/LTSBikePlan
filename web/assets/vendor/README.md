@@ -15,13 +15,16 @@ takes the whole site down with it.
 | `jspdf-4.2.1.umd.min.js` | jspdf | 4.2.1 | latest; `dist/jspdf.umd.min.js` |
 | `ngraph.graph-20.1.2.umd.js` | ngraph.graph | 20.1.2 | latest; global `createGraph` |
 | `ngraph.path-1.6.1.umd.js` | ngraph.path | 1.6.1 | latest; global `ngraphPath` |
+| `echarts-6.1.0.min.js` | echarts | 6.1.0 | latest; full `dist/echarts.min.js` (not `.simple.min.js` - the stats page uses boxplot and treemap series, which the simple build strips) |
 
 maplibre-gl and pmtiles are loaded unconditionally (`<script defer>` in
 index.html) since the map itself needs them on every visit. Turf, jsPDF
 and ngraph.graph/ngraph.path are loaded on demand instead, via
 `ensureTurfLoaded()` / `ensureJspdfLoaded()` / `ensureNgraphLoaded()` in
 app.js - each is only needed by one specific feature (gap-buffer/
-elevation geometry, PDF export, the router).
+elevation geometry, PDF export, the router). echarts is loaded
+unconditionally by web/stats/index.html only - that page is the only
+thing that needs it.
 
 ## Bumping a version
 

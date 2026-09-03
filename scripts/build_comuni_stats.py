@@ -1,17 +1,25 @@
 #!/usr/bin/env python3
-"""Merges every processed area's <slug>_stats.json (written by
-pipeline/compute_lts.py, see domain/area_statistics.py) with ISTAT
-reference data - regione/provincia hierarchy and capoluogo flags
-(services/istat_registry_service.py), plus superficie computed from the
+"""Merges every processed area's stats with ISTAT reference data -
+regione/provincia hierarchy and capoluogo flags
+(services/istat_registry_service.py), superficie computed from the
 already-cached comuni boundary geometry
-(services/area_index_service.py::compute_comuni_superficie_km2) - into one
-national file, web/data/italia_comuni_stats.json, for the comuni
-comparison page (web/comuni.html).
+(services/area_index_service.py::compute_comuni_superficie_km2), and
+resident population (services/population_service.py) - into one national
+file, web/data/italia_comuni_stats.json, for the comuni comparison page
+(web/comuni.html) and the stats page (web/stats/).
 
-Population/density are NOT included yet - see
-services/istat_registry_service.py's module docstring for why.
+Two sources for the per-comune stats themselves, preferred in this order:
+1. data/<slug>/<slug>_stats.json, written by pipeline/compute_lts.py
+   (domain/area_statistics.py) from the full raw export - the fast path,
+   no reconstruction needed.
+2. web/data/<slug>_lts.pmtiles, for any comune whose raw data/<slug>/
+   folder is gone (deleted to reclaim disk once its tileset was already
+   built - the pmtiles alone are enough to keep serving the map). Read
+   back via services/pmtiles_edges_service.py and fed through the exact
+   same compute_area_statistics() the raw path uses - see that module's
+   own docstring for why this is lossless, not an approximation.
 
-Same "glob every area under data_dir, merge into one file" pattern as
+Same "glob every area, merge into one file" pattern as
 scripts/build_national_tiles.sh - rerun after processing more areas.
 
 Usage: scripts/build_comuni_stats.py [data_dir]
@@ -25,51 +33,125 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "code"))
 
+from ltsbikeplan.domain.area_statistics import compute_area_statistics
 from ltsbikeplan.services.area_index_service import compute_comuni_superficie_km2
 from ltsbikeplan.services.istat_registry_service import IstatRegistryService
+from ltsbikeplan.services.pmtiles_edges_service import load_edges_dataframe
+from ltsbikeplan.services.population_service import PopulationService
+
+# Not a comune - the merged whole-country low-detail tileset
+# (scripts/build_national_tiles.sh). Matches the *_lts.pmtiles glob below
+# but has no single istat_code/comune to attribute stats to.
+NON_COMUNE_PMTILES_SLUGS = {"italia"}
+
+
+CHECKPOINT_EVERY = 200
+
+
+def _apply_registry_fields(record: dict, istat_code: str, registry: dict, superficie: dict, population: dict) -> None:
+    registry_entry = registry.get(istat_code, {})
+    record["regione"] = registry_entry.get("regione")
+    record["provincia"] = registry_entry.get("provincia")
+    record["capoluogo_provincia"] = registry_entry.get("capoluogo_provincia", False)
+    record["capoluogo_regione"] = registry_entry.get("capoluogo_regione", False)
+    record["superficie_km2"] = superficie.get(istat_code)
+    record["popolazione"] = population.get(istat_code)
+
+
+# Atomic (write-then-rename, same filesystem) so a process killed mid-run
+# - low-priority/nice'd jobs on a shared box are exactly the kind that get
+# preempted or OOM-killed - never leaves the live, nginx-served JSON
+# truncated or half-written. Called both mid-run (checkpoints, see
+# CHECKPOINT_EVERY below) and at the very end, so an interrupted run's
+# last checkpoint is always a complete, valid file - just not the FULL
+# result, rather than nothing at all.
+def _write_output(merged: list, out_path: str) -> None:
+    ordered = sorted(merged, key=lambda r: r["comune"])
+    tmp_path = out_path + ".tmp"
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(tmp_path, "w") as file_handle:
+        json.dump(ordered, file_handle, ensure_ascii=False)
+    os.replace(tmp_path, out_path)
 
 
 def main() -> None:
     repo_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
     default_data_dir = os.environ.get("LTSBP_DATA_DIR", os.path.join(repo_root, "data"))
     data_dir = sys.argv[1] if len(sys.argv) > 1 else default_data_dir
-    out_path = os.path.join(repo_root, "web", "data", "italia_comuni_stats.json")
-
-    stats_paths = sorted(glob.glob(os.path.join(data_dir, "*", "*_stats.json")))
-    if not stats_paths:
-        print(
-            f"No *_stats.json found under {data_dir} - run 'ltsbikeplan compute-lts' for at least one area first.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    print(f"Merging {len(stats_paths)} area(s):")
-    for path in stats_paths:
-        print(f"  {path}")
+    web_data_dir = os.path.join(repo_root, "web", "data")
+    out_path = os.path.join(web_data_dir, "italia_comuni_stats.json")
 
     registry = IstatRegistryService(cache_dir=data_dir).load()
     superficie = compute_comuni_superficie_km2(data_dir)
+    population = PopulationService(cache_dir=data_dir).load()
 
     merged = []
+    seen_istat_codes: set[str] = set()
+
+    stats_paths = sorted(glob.glob(os.path.join(data_dir, "*", "*_stats.json")))
+    print(f"Merging {len(stats_paths)} area(s) from raw data/:", flush=True)
     for path in stats_paths:
         with open(path) as file_handle:
             record = json.load(file_handle)
         istat_code = record.get("istat_code") or ""
-        registry_entry = registry.get(istat_code, {})
-        record["regione"] = registry_entry.get("regione")
-        record["provincia"] = registry_entry.get("provincia")
-        record["capoluogo_provincia"] = registry_entry.get("capoluogo_provincia", False)
-        record["capoluogo_regione"] = registry_entry.get("capoluogo_regione", False)
-        record["superficie_km2"] = superficie.get(istat_code)
+        _apply_registry_fields(record, istat_code, registry, superficie, population)
         merged.append(record)
+        seen_istat_codes.add(istat_code)
+    print(f"  {len(merged)} loaded", flush=True)
 
-    merged.sort(key=lambda r: r["comune"])
+    comuni_index_path = os.path.join(web_data_dir, "comuni_index.json")
+    slug_to_istat = {}
+    if os.path.exists(comuni_index_path):
+        with open(comuni_index_path) as file_handle:
+            slug_to_istat = {entry["slug"]: entry["istat"] for entry in json.load(file_handle)}
 
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    with open(out_path, "w") as file_handle:
-        json.dump(merged, file_handle, ensure_ascii=False)
+    pmtiles_paths = sorted(glob.glob(os.path.join(web_data_dir, "*_lts.pmtiles")))
+    to_reconstruct = [
+        (path, os.path.basename(path)[: -len("_lts.pmtiles")]) for path in pmtiles_paths
+    ]
+    to_reconstruct = [
+        (path, slug, slug_to_istat.get(slug))
+        for path, slug in to_reconstruct
+        if slug not in NON_COMUNE_PMTILES_SLUGS
+    ]
+    to_reconstruct = [
+        (path, slug, istat_code)
+        for path, slug, istat_code in to_reconstruct
+        if istat_code and istat_code not in seen_istat_codes
+    ]
+    print(f"Reconstructing {len(to_reconstruct)} area(s) from web/data/*_lts.pmtiles (no raw data/ folder)...", flush=True)
 
-    print(f"Wrote {out_path}")
+    reconstructed = 0
+    for path, slug, istat_code in to_reconstruct:
+        try:
+            edges = load_edges_dataframe(path)
+            if edges.empty:
+                continue
+            record = compute_area_statistics(edges, slug)
+            record["comune"] = edges["comune"].iloc[0] if "comune" in edges.columns else slug.replace("_", " ")
+            record["istat_code"] = istat_code
+            _apply_registry_fields(record, istat_code, registry, superficie, population)
+            merged.append(record)
+            seen_istat_codes.add(istat_code)
+            reconstructed += 1
+        except Exception as error:  # noqa: BLE001 - one bad tileset shouldn't abort the whole national merge
+            print(f"  skip {slug} (reconstruction from pmtiles failed: {error})", file=sys.stderr, flush=True)
+
+        # Checkpoint every CHECKPOINT_EVERY comuni (not every one - the
+        # write itself, plus the sort, has a cost not worth paying per
+        # comune) so a low-priority job on a shared box that gets
+        # preempted/killed partway through still leaves the live JSON
+        # updated with most of its progress, not reverted to nothing.
+        if reconstructed and reconstructed % CHECKPOINT_EVERY == 0:
+            _write_output(merged, out_path)
+            print(f"  {reconstructed}/{len(to_reconstruct)} reconstructed, checkpoint written", flush=True)
+
+    if not merged:
+        print("No comuni found via raw data/ or web/data/*_lts.pmtiles - nothing to merge.", file=sys.stderr)
+        sys.exit(1)
+
+    _write_output(merged, out_path)
+    print(f"Wrote {out_path} ({len(merged)} comuni total, {reconstructed} reconstructed from pmtiles)", flush=True)
 
 
 if __name__ == "__main__":

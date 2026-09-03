@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<title>Stress in bici - Statistiche</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="../favicon.ico" sizes="any" />
+<script src="../i18n.js"></script>
+<script src="../assets/vendor/echarts-6.1.0.min.js"></script>
+<style>
+  /* Same self-hosted variable font as the main site (web/styles.css) -
+     duplicated here rather than linking styles.css wholesale, since that
+     stylesheet also carries a lot of main-map-only rules (#map-container,
+     .info-panel, routing controls, etc.) that would just be dead weight
+     and a cascade-collision risk against this page's own selectors. */
+  @font-face {
+    font-family: "Atkinson Hyperlegible Next";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 200 800;
+    src: url("../assets/fonts/atkinson-hyperlegible-next-latin-wght-normal.woff2") format("woff2-variations");
+  }
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column; font: 13px/1.4 "Atkinson Hyperlegible Next", system-ui, sans-serif; background: #f5f5f5; color: #222; }
+
+  #site-header {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+    gap: 6px 16px; padding: 10px 16px;
+    background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    position: relative; z-index: 20;
+  }
+  #header-brand-link { display: flex; align-items: center; gap: 8px; min-width: 0; text-decoration: none; color: inherit; }
+  #header-brand-link:hover #site-title { text-decoration: underline; }
+  #site-logo { width: 26px; height: 26px; flex: none; }
+  #site-title { font-size: 18px; margin: 0; white-space: nowrap; color: #222; }
+  #header-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  #lang-switcher select { font: inherit; padding: 2px 4px; }
+  .nav-link {
+    font: inherit; background: none; border: 1px solid #ccc; border-radius: 4px;
+    padding: 4px 10px; cursor: pointer; color: #333; text-decoration: none; display: inline-block;
+  }
+  .nav-link:hover { background: #f0f0f0; }
+  .nav-link.current { background: #3B4A7A; border-color: #3B4A7A; color: white; }
+
+  #content { flex: 1 1 auto; max-width: 1200px; margin: 0 auto; padding: 20px 16px 60px; width: 100%; box-sizing: border-box; }
+  body.compare-active #content { padding-bottom: 120px; }
+  #page-title { font-size: 22px; margin: 0 0 4px; }
+  #page-subtitle { color: #555; margin: 0 0 4px; }
+  #coverage-note { color: #999; font-size: 12px; margin: 0 0 16px; font-style: italic; }
+
+  #search-wrap { position: relative; max-width: 420px; margin-bottom: 14px; }
+  #comune-search {
+    width: 100%; box-sizing: border-box; font: inherit; padding: 8px 10px;
+    border: 1px solid #ccc; border-radius: 6px;
+  }
+  #search-results {
+    position: absolute; top: 100%; left: 0; right: 0; background: white;
+    border: 1px solid #ccc; border-top: none; border-radius: 0 0 6px 6px;
+    max-height: 280px; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 15;
+  }
+  #search-results div { padding: 7px 10px; cursor: pointer; }
+  #search-results div:hover { background: #eaf1fa; }
+  #search-results .sr-meta { color: #888; font-size: 11px; }
+  .hidden { display: none !important; }
+
+  #breadcrumb { margin: 0 0 14px; font-size: 14px; }
+  #breadcrumb button {
+    font: inherit; background: none; border: none; color: #3B4A7A; cursor: pointer;
+    padding: 2px 2px; text-decoration: underline;
+  }
+  #breadcrumb button:disabled { color: #222; text-decoration: none; cursor: default; font-weight: 600; }
+  #breadcrumb .crumb-sep { color: #999; margin: 0 4px; }
+
+  .card-panel { background: white; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); padding: 14px 16px; margin-bottom: 16px; }
+  .card-panel h2 { font-size: 15px; margin: 0 0 4px; }
+  .card-panel .chart-note { color: #777; font-size: 11px; margin: 0 0 8px; }
+  .chart-box { width: 100%; }
+
+  #kpi-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  .kpi-card {
+    background: white; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    padding: 10px 14px; min-width: 130px; flex: 1 1 130px;
+  }
+  .kpi-card .kpi-label { font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: .02em; }
+  .kpi-card .kpi-value { font-size: 20px; font-weight: 700; color: #222; margin-top: 2px; }
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: normal; color: #3B4A7A;
+    background: #eaf1fa; border-radius: 3px; padding: 1px 5px; margin-left: 6px; vertical-align: middle;
+  }
+
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+
+  #filters-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 10px; }
+  #filters-row input[type="text"] { font: inherit; padding: 5px 6px; border: 1px solid #ccc; border-radius: 4px; min-width: 200px; }
+
+  table.data-table { border-collapse: collapse; width: 100%; white-space: nowrap; font-size: 12.5px; }
+  table.data-table th, table.data-table td { padding: 7px 9px; text-align: right; border-bottom: 1px solid #eee; }
+  table.data-table th:first-child, table.data-table td:first-child,
+  table.data-table th.col-check, table.data-table td.col-check { text-align: left; }
+  table.data-table th { cursor: pointer; user-select: none; color: #444; font-weight: 600; background: #fafafa; position: sticky; top: 0; }
+  table.data-table th:hover { background: #f0f0f0; }
+  table.data-table th.sorted::after { content: " " attr(data-arrow); }
+  table.data-table tbody tr:hover { background: #f7f9fc; cursor: pointer; }
+  .table-wrap { overflow-x: auto; }
+  .pager { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 10px; font-size: 13px; }
+  .pager button { font: inherit; padding: 4px 10px; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; }
+  .pager button:disabled { opacity: .4; cursor: default; }
+  .row-name { font-weight: 600; color: #3B4A7A; }
+
+  #compare-tray {
+    position: fixed; left: 0; right: 0; bottom: 0; background: #222; color: white;
+    padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.3); z-index: 30;
+  }
+  #compare-tray button { font: inherit; padding: 6px 12px; border-radius: 4px; border: none; cursor: pointer; }
+  #compare-open { background: #A6B32C; color: #222; font-weight: 600; }
+  #compare-clear { background: #555; color: white; }
+  #compare-chips { display: flex; gap: 6px; flex-wrap: wrap; flex: 1 1 auto; }
+  .compare-chip { background: #3B4A7A; border-radius: 12px; padding: 3px 10px; font-size: 12px; }
+
+  #compare-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  #compare-modal {
+    background: white; border-radius: 8px; max-width: 1000px; width: 100%; max-height: 90vh;
+    overflow-y: auto; padding: 20px;
+  }
+  #compare-modal h2 { margin-top: 0; }
+  #compare-close { float: right; font: inherit; border: none; background: none; font-size: 20px; cursor: pointer; color: #666; }
+
+  .street-lts-badge { display: inline-block; min-width: 18px; text-align: center; border-radius: 3px; padding: 1px 6px; color: white; font-weight: 700; font-size: 11px; }
+
+  /* Same round-icon-button treatment as the main site's share modal
+     (web/styles.css .share-social-link) - fixed under the header instead
+     of inside an on-demand panel, per the user's request to keep it
+     visible while scrolling. */
+  #share-bar {
+    position: fixed; top: 64px; right: 16px; z-index: 25;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .share-social-link {
+    width: 36px; height: 36px; padding: 0; border: 1px solid #ccc; border-radius: 50%;
+    background: white; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  }
+  .share-social-link:hover { background: #f0f0f0; }
+  .share-social-link svg { width: 20px; height: 20px; }
+  #share-copy-link svg { fill: #3B4A7A; }
+  #share-social-facebook svg { fill: #1877F2; }
+  #share-social-x svg { fill: #000; }
+  #share-social-whatsapp svg { fill: #25D366; }
+  #share-social-linkedin svg rect { fill: #0A66C2; }
+  @media (max-width: 700px) {
+    #share-bar { top: auto; bottom: 16px; right: 12px; flex-direction: row; }
+    body.compare-active #share-bar { bottom: 90px; }
+  }
+
+  #priority-map { width: 100%; height: 420px; border-radius: 6px; }
+  #priority-map-legend {
+    display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 12px; color: #444;
+  }
+  #priority-map-legend .legend-swatch {
+    display: inline-block; width: 14px; height: 4px; border-radius: 2px; margin-right: 5px; vertical-align: middle;
+  }
+  #priority-map-legend .legend-highlight { display: inline-flex; align-items: center; }
+  #priority-map-legend .legend-highlight .legend-swatch { background: #FFD60A; border: 1px solid #1A1A1A; }
+
+  #site-footer {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+    gap: 4px 16px; padding: 6px 16px;
+    background: white; box-shadow: 0 -1px 4px rgba(0,0,0,0.15);
+    font-size: 12px; color: #555;
+  }
+  #footer-hosting { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  #footer-logo { height: 18px; width: auto; vertical-align: middle; }
+</style>
+</head>
+<body>
+<header id="site-header">
+  <a id="header-brand-link" href="../index.html">
+    <img id="site-logo" src="../logo.svg" alt="" />
+    <h1 id="site-title">Stress in bici</h1>
+  </a>
+  <nav id="header-nav">
+    <a id="comuni-link" class="nav-link" href="../comuni.html"></a>
+    <a id="stats-link" class="nav-link current" href="index.html"></a>
+    <div id="lang-switcher">
+      <select id="lang-select">
+        <option value="it">IT</option>
+        <option value="en">EN</option>
+        <option value="de">DE</option>
+        <option value="fr">FR</option>
+      </select>
+    </div>
+  </nav>
+</header>
+
+<!-- Always-visible share bar (copy link + socials), independent of
+     header scroll - fixed rather than living inside #site-header so it
+     stays put while the page scrolls, per the user's own request. Shares
+     the CURRENT view's URL (regione/provincia/comune query params kept
+     in sync by stats.js's syncUrlState()), not just the page root. -->
+<div id="share-bar">
+  <button type="button" id="share-copy-link" class="share-social-link" aria-label="Copia link" title="Copia link">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.9 12a5 5 0 0 1 5-5h3v2h-3a3 3 0 0 0 0 6h3v2h-3a5 5 0 0 1-5-5Zm6-1h4v2h-4v-2Zm5-4h3a5 5 0 0 1 0 10h-3v-2h3a3 3 0 0 0 0-6h-3V7Z"/></svg>
+  </button>
+  <a id="share-social-facebook" class="share-social-link" target="_blank" rel="noopener" aria-label="Facebook" title="Facebook">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z"/></svg>
+  </a>
+  <a id="share-social-linkedin" class="share-social-link" target="_blank" rel="noopener" aria-label="LinkedIn" title="LinkedIn">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="4"/><path fill="#fff" d="M6.94 8.5a1.94 1.94 0 1 1 0-3.88 1.94 1.94 0 0 1 0 3.88ZM5.22 19.5h3.44V10H5.22v9.5ZM11.5 10h3.3v1.3h.05c.46-.84 1.58-1.72 3.25-1.72 3.48 0 4.12 2.2 4.12 5.06v5.86h-3.44v-5.2c0-1.24-.02-2.83-1.75-2.83-1.75 0-2.02 1.34-2.02 2.74v5.29H11.5V10Z"/></svg>
+  </a>
+  <a id="share-social-x" class="share-social-link" target="_blank" rel="noopener" aria-label="X" title="X">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z"/></svg>
+  </a>
+  <a id="share-social-whatsapp" class="share-social-link" target="_blank" rel="noopener" aria-label="WhatsApp" title="WhatsApp">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+  </a>
+</div>
+
+<main id="content">
+  <h2 id="page-title"></h2>
+  <p id="page-subtitle"></p>
+  <p id="coverage-note"></p>
+
+  <div id="search-wrap">
+    <input type="text" id="comune-search" autocomplete="off" />
+    <div id="search-results" class="hidden"></div>
+  </div>
+
+  <nav id="breadcrumb"></nav>
+
+  <div id="view-root"></div>
+</main>
+
+<div id="compare-tray" class="hidden">
+  <span id="compare-label"></span>
+  <div id="compare-chips"></div>
+  <button id="compare-open" type="button">Confronta</button>
+  <button id="compare-clear" type="button">Svuota</button>
+</div>
+
+<div id="compare-modal-backdrop" class="hidden">
+  <div id="compare-modal">
+    <button id="compare-close" type="button">&times;</button>
+    <h2 id="compare-modal-title"></h2>
+    <div id="compare-modal-body"></div>
+  </div>
+</div>
+
+<footer id="site-footer">
+  <span id="footer-credit"></span>
+  <span id="footer-hosting">
+    <span id="footer-hosting-text"></span>
+    <a href="https://www.top-ix.org/" target="_blank" rel="noopener">
+      <img src="https://www.top-ix.org/public/uploads/2024/03/TOP-IX_MainLogo.png" alt="TOP-IX" id="footer-logo" />
+    </a>
+  </span>
+</footer>
+
+<script src="stats.js"></script>
+</body>
+</html>

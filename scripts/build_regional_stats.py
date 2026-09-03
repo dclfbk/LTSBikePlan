@@ -45,7 +45,10 @@ _SUM_FIELDS = [
     "low_stress_island_km",
     "excluded_motorroad_km",
     "excluded_mountain_trail_km",
+    "excluded_restricted_access_km",
+    "excluded_service_road_km",
     "superficie_km2",
+    "popolazione",
 ]
 _KM_BY_LTS_CLASSES = ["0", "1", "2", "3", "4"]
 
@@ -70,12 +73,12 @@ def _add(bucket: dict, record: dict) -> None:
     bucket["comuni_processed"] += 1
 
 
-def _finalize(name: str, bucket: dict, total_comuni: int) -> dict:
+def _finalize(name: str, bucket: dict, total_comuni: int, regione: str | None = None) -> dict:
     low = bucket["sums"]["low_stress_km"]
     high = bucket["sums"]["high_stress_km"]
     classified = low + high
     processed = bucket["comuni_processed"]
-    return {
+    out = {
         "area": name,
         **{field: round(value, 3) for field, value in bucket["sums"].items()},
         "km_by_lts": {cls: round(value, 3) for cls, value in bucket["km_by_lts"].items()},
@@ -85,6 +88,9 @@ def _finalize(name: str, bucket: dict, total_comuni: int) -> dict:
         "comuni_total": total_comuni,
         "coverage_pct": round(100 * processed / total_comuni, 1) if total_comuni else None,
     }
+    if regione is not None:
+        out["regione"] = regione
+    return out
 
 
 def main() -> None:
@@ -103,9 +109,11 @@ def main() -> None:
     registry = IstatRegistryService(cache_dir=data_dir).load()
     total_per_provincia: dict = defaultdict(int)
     total_per_regione: dict = defaultdict(int)
+    regione_per_provincia: dict = {}
     for entry in registry.values():
         total_per_provincia[entry["provincia"]] += 1
         total_per_regione[entry["regione"]] += 1
+        regione_per_provincia[entry["provincia"]] = entry["regione"]
 
     provincia_buckets: dict = defaultdict(_new_bucket)
     regione_buckets: dict = defaultdict(_new_bucket)
@@ -126,7 +134,8 @@ def main() -> None:
         )
 
     provincia_out = [
-        _finalize(name, bucket, total_per_provincia.get(name, 0)) for name, bucket in provincia_buckets.items()
+        _finalize(name, bucket, total_per_provincia.get(name, 0), regione_per_provincia.get(name))
+        for name, bucket in provincia_buckets.items()
     ]
     regione_out = [_finalize(name, bucket, total_per_regione.get(name, 0)) for name, bucket in regione_buckets.items()]
     provincia_out.sort(key=lambda r: r["area"])

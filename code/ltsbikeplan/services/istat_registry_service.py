@@ -14,19 +14,12 @@ import requests
 # - superficie is instead computed from the comuni boundary geometry
 #   AreaResolver already caches - see
 #   area_index_service.py::compute_comuni_superficie_km2.
-# - population isn't sourced anywhere in this project yet. ISTAT's
-#   population figures live behind the SDMX/I.Stat data warehouse
-#   (dati.istat.it / esploradati.istat.it), not a stable direct-download
-#   file like this one - a live investigation of that API on 2026-08-15
-#   (dataflow 22_289_DF_DCIS_POPRES1_1) confirmed the comune-level
-#   territory codes match ISTAT codes 1:1, but every query attempted
-#   returned "NoRecordsFound" or a key-count error from the
-#   `availableconstraint` endpoint, and a suggested alternative
-#   (cruscotto-italia's MCP server) isn't reachable as a plain HTTP data
-#   source (TLS handshake failure, and MCP is meant for interactive
-#   tool-calling, not a deterministic fetch step in an unattended pipeline
-#   like scripts/build_italy_map_cron.sh). Population/density are left out
-#   of the comuni statistics page until this is picked back up.
+# - population is sourced separately, from ISTAT's POSAS bulk file - see
+#   population_service.py's own module docstring. An earlier
+#   investigation (2026-08-15) of the SDMX/I.Stat data warehouse
+#   (dataflow 22_289_DF_DCIS_POPRES1_1) dead-ended on every query
+#   returning "NoRecordsFound" - that was the wrong endpoint, not a
+#   population-isn't-available problem; POSAS resolved it (2026-09-03).
 ISTAT_COMUNI_URL = "https://www.istat.it/storage/codici-unita-amministrative/Elenco-comuni-italiani.xlsx"
 
 # Administrative-boundary changes (comuni mergers, new province) happen a
