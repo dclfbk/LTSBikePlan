@@ -388,6 +388,7 @@ const I18N = {
     statsPriorityMapNote: "Solo le vie con interventi prioritari, colorate per classe LTS. Clic sul nome di una via nell'elenco qui sotto per zoomare su quel tratto (evidenziato in giallo); clic su un tratto in mappa per i dettagli.",
     statsPriorityMapSelectedLegend: "Via selezionata",
     statsPriorityMapZoomHint: "Clic per centrare la mappa su questo tratto",
+    statsPriorityChartCaptionTemplate: (shown, total) => `Le prime ${shown} vie su ${total} in elenco, per gravità - la tabella qui sotto le mostra tutte.`,
   },
 
   en: {
@@ -761,6 +762,7 @@ const I18N = {
     statsPriorityMapNote: "Only the streets with priority interventions, colored by LTS class. Click a street name in the list below to zoom to that segment (highlighted in yellow); click a segment on the map for details.",
     statsPriorityMapSelectedLegend: "Selected street",
     statsPriorityMapZoomHint: "Click to center the map on this segment",
+    statsPriorityChartCaptionTemplate: (shown, total) => `Top ${shown} of ${total} listed streets, by severity - the table below shows all of them.`,
   },
 
   de: {
@@ -1134,6 +1136,7 @@ const I18N = {
     statsPriorityMapNote: "Nur die Straßen mit prioritärem Handlungsbedarf, nach LTS-Klasse eingefärbt. Klick auf einen Straßennamen in der Liste unten zoomt zu diesem Abschnitt (gelb hervorgehoben); Klick auf einen Abschnitt auf der Karte zeigt Details.",
     statsPriorityMapSelectedLegend: "Ausgewählte Straße",
     statsPriorityMapZoomHint: "Klicken, um die Karte auf diesen Abschnitt zu zentrieren",
+    statsPriorityChartCaptionTemplate: (shown, total) => `Die ${shown} wichtigsten von ${total} aufgeführten Straßen nach Schweregrad - die Tabelle unten zeigt alle.`,
   },
 
   fr: {
@@ -1507,5 +1510,6 @@ const I18N = {
     statsPriorityMapNote: "Seules les rues avec interventions prioritaires, colorées par classe LTS. Cliquez sur le nom d'une rue dans la liste ci-dessous pour zoomer sur ce tronçon (en surbrillance jaune) ; cliquez sur un tronçon sur la carte pour le détail.",
     statsPriorityMapSelectedLegend: "Rue sélectionnée",
     statsPriorityMapZoomHint: "Cliquez pour centrer la carte sur ce tronçon",
+    statsPriorityChartCaptionTemplate: (shown, total) => `Les ${shown} premières rues sur ${total} listées, par gravité - le tableau ci-dessous les affiche toutes.`,
   },
 };
