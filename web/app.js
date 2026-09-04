@@ -332,7 +332,6 @@ function applyUiTranslations() {
   document.getElementById("credits-heading").textContent = t("creditsHeading");
   document.getElementById("credits-body").innerHTML = t("creditsBody");
   document.getElementById("credits-ai-note").textContent = aiNote;
-  document.getElementById("stats-link").textContent = t("statsNavLink");
   document.getElementById("credits-ai-note").classList.toggle("hidden", !aiNote);
   document.getElementById("share-heading").textContent = t("shareModalHeading");
   document.getElementById("share-url-label").textContent = t("shareUrlLabel");
