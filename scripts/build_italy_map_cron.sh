@@ -71,7 +71,10 @@ for line in "${PROVINCE_LINES[@]}"; do
 done
 
 log "Rebuilding merged national tileset..."
-scripts/build_national_tiles.sh "$DATA_DIR"
+# No $DATA_DIR: build_national_tiles.sh's positional argument is web/data
+# (which it already defaults to correctly), not the raw data_dir, since
+# its 2026-09-04 rewrite - see that script's own header.
+scripts/build_national_tiles.sh
 
 if [ ${#FAILED[@]} -gt 0 ]; then
   log "Done with ${#FAILED[@]} failure(s): ${FAILED[*]}"

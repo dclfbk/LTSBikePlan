@@ -28,9 +28,20 @@ def _add_area_args(subparser: argparse.ArgumentParser, required: bool = True) ->
         help="Disambiguates --area when the name matches at more than one admin level (only used with --osmit-estratti)",
     )
     subparser.add_argument("--istat", default=None, help="ISTAT code, disambiguates --area precisely (only used with --osmit-estratti)")
+    subparser.add_argument(
+        "--boundary-geojson",
+        default=None,
+        help="Path to a local GeoJSON with --area's own boundary polygon, used instead of resolving --area by "
+        "name via Nominatim/osmit-estratti. For the rare comune with no administrative boundary relation in "
+        "OSM at all (both of those need one) - e.g. Pietramelara/061058, which OSM only has as a place=village "
+        "node, confirmed 2026-09-04.",
+    )
 
 
 def resolve_area(args: argparse.Namespace, config: AppConfig) -> AreaSpec:
+    if getattr(args, "boundary_geojson", None):
+        return AreaSpec.from_boundary_geojson(args.area, args.boundary_geojson, istat_code=args.istat)
+
     if getattr(args, "city", None):
         return AreaSpec.from_city(args.city)
 

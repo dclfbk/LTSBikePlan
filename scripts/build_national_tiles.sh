@@ -1,292 +1,122 @@
 #!/usr/bin/env bash
-# Merges every area already processed under $DATA_DIR into a single PMTiles
-# tileset, for the "one map with everything" viewer entry point
-# (web/index.html?area=italia). Complements build_tiles.sh, which builds a
-# tileset for one area at a time - rerun this after processing more areas
-# to fold them into the merged tileset.
+# Merges every comune's already-built web/data/<slug>_lts.pmtiles into a
+# single national overview tileset (web/data/italia_lts.pmtiles), for the
+# "one map with everything" viewer entry point (web/index.html?area=italia).
 #
-# Requires `tippecanoe`, `tile-join` and `pmtiles`
-# (https://github.com/protomaps/go-pmtiles) on PATH. See build_tiles.sh for
-# why this goes through an intermediate .mbtiles before converting to
-# PMTiles, and for why --minimum-zoom=4 below (web/app.js's lts-lines/
-# gap-edges layers only render from that zoom up, and MapLibre skips
-# fetching a source's tiles entirely below the zoom of its lowest active
-# layer - matters even more here than per-area, since this tippecanoe run
-# covers all of Italy at once).
+# Rewritten 2026-09-04 to merge the per-comune PMTiles directly via
+# tile-join, instead of re-deriving the whole country from raw
+# data/<slug>/*_all_lts.geojson (the previous approach, kept below in git
+# history if it's ever needed again). That approach quietly broke once
+# the comuni cron script started deleting data/<slug>/ entirely after a
+# comune's own tiles are built (to reclaim disk on a space-constrained
+# server) rather than just its .geojson: this script would then only find
+# raw output for the handful of comuni not yet cleaned up, silently
+# producing a tiny, geographically incomplete italia_lts.pmtiles (caught
+# live 2026-09-04: 13MB, missing Sicily/Calabria/most of the country -
+# not an error, just wrong, since the script only checks "did I find at
+# least one area" not "did I find all of them").
 #
-# --maximum-zoom=11 (NOT 16, unlike build_tiles.sh's per-comune output):
-# capped here because a whole-Italy tileset at full z16 street-level detail
-# measured 23.6GB (7893 comuni, Aug 2026) - far past Cloudflare's free-plan
-# 512MB per-file edge-cache ceiling, so it was never being CDN-cached at
-# all. z11 is a national/regional overview only (major+secondary roads,
-# see MAJOR_ROADS_FILTER's zoom tiers below - the z12 "everything" tier
-# never triggers now, since no tile past z11 is generated). web/app.js
-# swaps to the relevant per-comune _lts.pmtiles (already built to z16) once
-# the user zooms past COMUNE_SWAP_MIN_ZOOM there, so full street-level
-# detail is still available everywhere - just served from many small
-# per-comune files instead of duplicating it inside this merged one.
+# Why merging pre-built per-comune tiles is lossless for a z4-11 national
+# overview (NOT true in general for merging tiles instead of re-tiling -
+# it works here specifically because of how build_tiles.sh already
+# builds each comune's own pmtiles): build_tiles.sh applies the exact
+# same zoom-tiered major-roads-only filter to every comune's own z4-11
+# tiles that this script used to apply itself when tiling from raw
+# GeoJSON (motorway/trunk only at z4-5, +primary from z6, +secondary from
+# z7, everything from z12 - MAJOR_ROADS_FILTER below, kept textually
+# identical to build_tiles.sh's own so the two can't silently drift
+# apart). tile-join doesn't re-tile, re-simplify, or re-run that filter -
+# it just concatenates each input's EXISTING tiles at the requested zoom
+# range into one output. Since every comune already carries correctly
+# zoom-tiered content at z4-11, and nothing at that generalized an
+# overview needs cross-comune knowledge (unlike street-level detail,
+# nothing here straddles a comune boundary in a way that would need
+# reprocessing together), concatenating is exactly the right operation,
+# not an approximation.
 #
-# --drop-densest-as-needed: unlike build_tiles.sh (deliberately WITHOUT it,
-# see that file for why), the merged national tileset needs it - confirmed
-# live merging ~50 Sicilian comuni (2M+ features): a single low-zoom tile
-# (5/17/12, back when this built down to z4 with a single flat MAJOR_ROADS_
-# FILTER tier instead of today's zoom-tiered one) exceeded tippecanoe's
-# hard 200000-features-per-tile cap, which has no size-based fallback -
-# tippecanoe just stopped emitting any zoom past the last one that fit
-# ("TILES ONLY COMPLETE THROUGH ZOOM 4" - the resulting pmtiles had no
-# street-level detail anywhere). z4-5 now only admits motorway/trunk (see
-# MAJOR_ROADS_FILTER below), which is sparse enough that this cap
-# shouldn't be hit there again, but this option stays on as a safety net -
-# at the low/regional zooms where the cap can even be hit, thinning out
-# density is the correct behaviour (nobody's reading individual street
-# segments at a whole-Italy overview zoom) - --extend-zooms-if-still-
-# dropping (already present below) is specifically meant to pair with a
-# dropping option like this one.
+# Verified 2026-09-04: merging all 7894 comuni this way took well under a
+# minute end-to-end (tile-join + pmtiles convert), against the old
+# approach's 1-3+ hours regenerating GeoJSON per batch - and produced a
+# 144.8MB pmtiles with correct national bounds (lat 35.5-47.1, lon
+# 6.7-18.5 - all of Italy including Sicily and the islands), comfortably
+# under Cloudflare's free-plan 512MB per-file edge-cache ceiling that
+# motivated z11/property-stripping in the first place (see git history
+# for the original measurements: a full z16 whole-Italy tileset ran
+# 23.6GB).
 #
-# BATCHED BY ESTIMATED SIZE, not by area count: the comuni cron script
-# deletes each area's .geojson right after that area's own tiles are
-# built, keeping only the much smaller .parquet (see
-# scripts/regenerate_geojson.py) - this step still needs every area's full
-# GeoJSON as a real file (tippecanoe has no Parquet reader, and a FIFO-
-# streaming approach was tried and abandoned - see git history/commit
-# message - tippecanoe hangs (kernel state `wait_for_partner`, confirmed
-# via /proc, not a guess) once more than one FIFO is given as input at
-# once), so any area missing its .geojson gets one regenerated into a
-# throwaway temp file. Regenerating ALL of them at once (old behaviour)
-# needs roughly as much temp disk as keeping every area's .geojson
-# permanently would - not viable on a disk-constrained server. Instead,
-# areas are grouped into batches whose *estimated* total GeoJSON size
-# stays under LTSBP_NATIONAL_BATCH_MAX_MB (default 1000), each batch is
-# tiled separately (its own --drop-densest-as-needed, correct within that
-# batch), and the resulting per-batch .mbtiles are combined at the end
-# with `tile-join -pk` (verified: -pk is required - without it, tile-join
-# silently DROPS any tile over its hardcoded 500KB cap, no degradation
-# like tippecanoe's own --maximum-tile-bytes, confirmed by decoding a
-# dropped tile and finding it simply absent from the output).
+# -y equivalent (--include=lts/highway/rule below): keeps ONLY these 3
+# properties in italia_lts.pmtiles, dropping name/comune/length/
+# centrality/is_gap_edge/message/... - everything web/app.js's rendering
+# of the "italia" source doesn't read (colour+width need "lts", the
+# facility dash pattern needs "highway"/"rule"). Safe specifically because
+# nothing interactive ever runs against this tileset: web/app.js's
+# MIN_CLICK_ZOOM (13) is kept >= COMUNE_SWAP_MIN_ZOOM (12, where this
+# tileset's own lts-lines/gap-edges layers already stop rendering), so a
+# click, the gap list, and the PDF area-label lookup always hit a
+# per-comune source instead, which still carries the full property set.
+# If web/app.js ever reads a new property off the "italia" source
+# directly, it has to be added here too, or it'll silently be missing.
 #
-# Batching by SIZE rather than a fixed area count matters because area
-# size varies enormously - a comune like Roma alone can plausibly be
-# larger than hundreds of small comuni combined (Trento, a mid-size city,
-# already measured at 254MB of GeoJSON on its own). A fixed-count batch
-# could still blow the disk budget if it happens to contain one huge
-# comune; by size, a huge comune just ends up alone in its own
-# (unavoidably large) batch instead of forcing every batch to be sized
-# for the worst case.
+# No more batching/parallel-batches env vars (LTSBP_NATIONAL_BATCH_MAX_MB/
+# LTSBP_NATIONAL_PARALLEL_BATCHES from the old GeoJSON-based approach) -
+# tile-join's single pass over all 7894 comuni already finishes in
+# seconds, nothing here is slow enough to need chunking or concurrency.
 #
-# GeoJSON size is estimated from the .parquet size without regenerating
-# it first (regenerating just to measure would defeat the purpose): ratio
-# empirically measured at 26-28.5x across 7 real areas from an island
-# village to an actual city (Siracusa) - consistently tight enough to use
-# a flat 30x with headroom. Areas that still have a real .geojson (not yet
-# cleaned up) use its actual size instead, no estimate needed.
+# Requires `tile-join` and `pmtiles` (https://github.com/protomaps/go-pmtiles)
+# on PATH.
 #
-# MAJOR_ROADS_FILTER (-j): same as build_tiles.sh - tiered by zoom
-# (motorway/trunk only at z4-5, +primary from z6, +secondary from z7,
-# every class from z12 up). See that file for the full reasoning/
-# measurements; applies per-batch here (each batch's own tippecanoe call),
-# same as --drop-densest-as-needed already does.
-#
-# LTSBP_NATIONAL_PARALLEL_BATCHES (default 1, today's sequential
-# behaviour): how many batches' tippecanoe runs to execute concurrently.
-# Each batch is otherwise fully independent (its own GeoJSON regeneration
-# + its own tippecanoe call, writing to its own batch<N>.mbtiles) - only
-# the final tile-join merge needs every batch done. tippecanoe already
-# multithreads WITHIN one batch (uses all available cores for its own
-# tiling/sorting), so this isn't a 1:1 core multiplier - it mainly helps
-# when a single tippecanoe run doesn't saturate every core on its own
-# (I/O-bound reading, smaller batches from a low LTSBP_NATIONAL_BATCH_MAX_MB).
-# On a many-core box, 2-4 is a reasonable start; pushing it to the full
-# core count risks memory pressure (each concurrent tippecanoe process
-# holds its own working set) more than it buys extra throughput.
-#
-# Usage: LTSBP_NATIONAL_BATCH_MAX_MB=1000 LTSBP_NATIONAL_PARALLEL_BATCHES=4 scripts/build_national_tiles.sh [data_dir]
+# Usage: scripts/build_national_tiles.sh [web_data_dir]
+#   (web_data_dir defaults to web/data under the repo root - only used to
+#   find <slug>_lts.pmtiles and to write the merged italia_lts.pmtiles;
+#   unlike the old version, this has nothing to do with the raw data_dir
+#   used by fetch/compute-lts)
 set -euo pipefail
 
-DATA_DIR="${1:-${LTSBP_DATA_DIR:-data}}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUT_DIR="$REPO_ROOT/web/data"
-BATCH_MAX_BYTES=$(( ${LTSBP_NATIONAL_BATCH_MAX_MB:-1000} * 1000 * 1000 ))
-PARALLEL_BATCHES="${LTSBP_NATIONAL_PARALLEL_BATCHES:-1}"
-PARQUET_TO_GEOJSON_RATIO=30
-# -y lts -y highway -y rule (see run_batch's tippecanoe call below): keeps
-# ONLY these 3 properties in italia_lts.pmtiles, dropping name/comune/
-# length/centrality/is_gap_edge/message/... - everything web/app.js's
-# rendering doesn't read (colour+width need "lts", the facility dash
-# pattern needs "highway"/"rule"). Safe specifically because nothing
-# interactive ever runs against this tileset: web/app.js's MIN_CLICK_ZOOM
-# (13) is kept >= COMUNE_SWAP_MIN_ZOOM (12, where this tileset's own
-# lts-lines/gap-edges layers already stop rendering), so a click, the gap
-# list, and the PDF area-label lookup always hit a per-comune source
-# instead, which still carries the full property set from build_tiles.sh.
-# Cuts real weight: per-feature property bytes don't shrink with zoom the
-# way geometry/tile-count does (measured live: capping maxzoom alone, via
-# `pmtiles extract --maxzoom=`, went 24GB->1.1GB at z11, ->813MB at z10,
-# ->560MB at z9 - each step only ~1.4x, not the ~4x a zoom step "should"
-# save if properties weren't the dominant cost). If web/app.js ever reads
-# a new property off the "italia" source directly (not per-comune), it has
-# to be added to this list too, or it'll silently be missing there only.
-MAJOR_ROADS_FILTER='{"lts": ["any", [">=", "$zoom", 12], ["all", [">=", "$zoom", 7], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link", "secondary", "secondary_link"]], ["all", [">=", "$zoom", 6], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link"]], ["in", "highway", "motorway", "motorway_link", "trunk", "trunk_link"]]}'
+WEB_DATA_DIR="${1:-$REPO_ROOT/web/data}"
 
-# Everything this run creates lives under one throwaway directory, not
-# loose mktemp files sharing a generic /tmp/tmp.* prefix - a real incident:
-# a concurrent invocation's own cleanup (a plain `rm -f /tmp/tmp.*.batch*
-# .mbtiles`, not scoped to its own run) deleted this run's already-built
-# batch .mbtiles files out from under it mid-flight, crashing tile-join
-# with "no such table: tiles" partway through a live production run. A
-# per-run directory makes that class of mistake structurally impossible -
-# nothing outside this run's own $TMPDIR_RUN can collide with it, and this
-# run's own cleanup can never reach outside it either.
-TMPDIR_RUN="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR_RUN"' EXIT
-MBTILES="$TMPDIR_RUN/merged.mbtiles"
-BATCH_MBTILES=()
-
-shopt -s nullglob
-EXISTING_GEOJSON=("$DATA_DIR"/*/*_all_lts.geojson)
-PARQUET_FILES=("$DATA_DIR"/*/*_all_lts.parquet)
-shopt -u nullglob
-
-declare -A GEOJSON_FOR_DIR
-for f in "${EXISTING_GEOJSON[@]}"; do
-  GEOJSON_FOR_DIR["$(dirname "$f")"]="$f"
-done
-
-declare -A PARQUET_FOR_DIR
-for f in "${PARQUET_FILES[@]}"; do
-  PARQUET_FOR_DIR["$(dirname "$f")"]="$f"
-done
-
-# One area_dir per area, whichever source(s) it has.
-AREA_DIRS=()
-for d in "${!GEOJSON_FOR_DIR[@]}" "${!PARQUET_FOR_DIR[@]}"; do
-  AREA_DIRS+=("$d")
-done
-mapfile -t AREA_DIRS < <(printf '%s\n' "${AREA_DIRS[@]}" | sort -u)
-
-if [ ${#AREA_DIRS[@]} -eq 0 ]; then
-  echo "No *_all_lts.geojson or *_all_lts.parquet found under $DATA_DIR - run 'ltsbikeplan compute-lts' for at least one area first." >&2
-  exit 1
-fi
-
-command -v tippecanoe >/dev/null || { echo "tippecanoe not found on PATH" >&2; exit 1; }
 command -v tile-join >/dev/null || { echo "tile-join not found on PATH (ships with tippecanoe)" >&2; exit 1; }
 command -v pmtiles >/dev/null || { echo "pmtiles (go-pmtiles) not found on PATH" >&2; exit 1; }
 
-mkdir -p "$OUT_DIR"
+shopt -s nullglob
+ALL_PMTILES=("$WEB_DATA_DIR"/*_lts.pmtiles)
+shopt -u nullglob
 
-# Build batches: each entry is "area_dir<TAB>estimated_bytes".
-BATCHES_FILE="$TMPDIR_RUN/batches.tsv"
-{
-  for d in "${AREA_DIRS[@]}"; do
-    if [ -n "${GEOJSON_FOR_DIR[$d]:-}" ]; then
-      size=$(stat -c%s "${GEOJSON_FOR_DIR[$d]}")
-    else
-      pq_size=$(stat -c%s "${PARQUET_FOR_DIR[$d]}")
-      size=$(( pq_size * PARQUET_TO_GEOJSON_RATIO ))
-    fi
-    printf '%s\t%s\n' "$d" "$size"
-  done
-} > "$BATCHES_FILE"
+# Excludes italia_lts.pmtiles itself (this script's own previous output) -
+# tile-join would otherwise happily fold yesterday's national tileset
+# back into today's. Harmless (same 3 properties, same zoom range) but
+# pointless extra input.
+INPUTS=()
+for f in "${ALL_PMTILES[@]}"; do
+  [ "$(basename "$f")" = "italia_lts.pmtiles" ] && continue
+  INPUTS+=("$f")
+done
 
-run_batch() {
-  local batch_num="$1"
-  shift
-  local dirs=("$@")
-  [ ${#dirs[@]} -eq 0 ] && return
-  local inputs=()
-  local batch_tmp=()
-  local area_dir slug tmp
-  for area_dir in "${dirs[@]}"; do
-    slug="$(basename "$area_dir")"
-    if [ -n "${GEOJSON_FOR_DIR[$area_dir]:-}" ]; then
-      inputs+=("${GEOJSON_FOR_DIR[$area_dir]}")
-    else
-      tmp="$TMPDIR_RUN/regen_${slug}.geojson"
-      echo "  Regenerating GeoJSON for $slug from its .parquet..."
-      PYTHONPATH="$REPO_ROOT/code" python3 "$REPO_ROOT/scripts/regenerate_geojson.py" "${PARQUET_FOR_DIR[$area_dir]}" "$tmp"
-      batch_tmp+=("$tmp")
-      inputs+=("$tmp")
-    fi
-  done
-
-  local batch_mbtiles="$TMPDIR_RUN/batch${batch_num}.mbtiles"
-  echo "Batch $batch_num: tiling ${#inputs[@]} area(s)..."
-  tippecanoe \
-    -o "$batch_mbtiles" \
-    --force \
-    --read-parallel \
-    --minimum-zoom=4 \
-    --maximum-zoom=11 \
-    --extend-zooms-if-still-dropping \
-    --drop-densest-as-needed \
-    --maximum-tile-bytes=5000000 \
-    -j "$MAJOR_ROADS_FILTER" \
-    -y lts -y highway -y rule \
-    -l lts \
-    --name "LTSBikePlan Italia (batch $batch_num)" \
-    --attribution "LTSBikePlan / OpenStreetMap contributors" \
-    "${inputs[@]}"
-
-  rm -f "${batch_tmp[@]}"
-  # batch_mbtiles is NOT appended to BATCH_MBTILES here - when
-  # PARALLEL_BATCHES > 1 this runs in a background subshell (see
-  # launch_batch below), and array mutations in a subshell never reach the
-  # parent. BATCH_MBTILES is instead reconstructed after every batch has
-  # finished, from the deterministic batch<N>.mbtiles naming.
-}
-
-# Bounded-concurrency launcher: keeps at most PARALLEL_BATCHES tippecanoe
-# runs in flight. Always waits for the OLDEST in-flight batch once at
-# capacity (not the first one to finish) - simpler and fully portable
-# (`wait -n` needs bash 4.3+/5.1+ for PID-returning variants not
-# guaranteed on every box this runs on), and batches are similarly sized
-# by construction (BATCH_MAX_BYTES bucketing) so it isn't far from optimal
-# in practice. set -e means a failed batch's nonzero `wait` here aborts
-# the whole script immediately, same fail-fast behaviour as the previous
-# purely-sequential code.
-BATCH_PIDS=()
-launch_batch() {
-  run_batch "$@" &
-  BATCH_PIDS+=("$!")
-  if [ "${#BATCH_PIDS[@]}" -ge "$PARALLEL_BATCHES" ]; then
-    wait "${BATCH_PIDS[0]}"
-    BATCH_PIDS=("${BATCH_PIDS[@]:1}")
-  fi
-}
-
-batch_num=0
-batch_dirs=()
-batch_bytes=0
-while IFS=$'\t' read -r d size; do
-  if [ ${#batch_dirs[@]} -gt 0 ] && [ $((batch_bytes + size)) -gt "$BATCH_MAX_BYTES" ]; then
-    batch_num=$((batch_num + 1))
-    launch_batch "$batch_num" "${batch_dirs[@]}"
-    batch_dirs=()
-    batch_bytes=0
-  fi
-  batch_dirs+=("$d")
-  batch_bytes=$((batch_bytes + size))
-done < "$BATCHES_FILE"
-if [ ${#batch_dirs[@]} -gt 0 ]; then
-  batch_num=$((batch_num + 1))
-  launch_batch "$batch_num" "${batch_dirs[@]}"
+if [ ${#INPUTS[@]} -eq 0 ]; then
+  echo "No <slug>_lts.pmtiles found under $WEB_DATA_DIR - build at least one comune's tiles first (scripts/build_tiles.sh)." >&2
+  exit 1
 fi
 
-# Whatever's still in flight (fewer than PARALLEL_BATCHES, or - when
-# PARALLEL_BATCHES=1 - nothing, since launch_batch already waited
-# synchronously after each one above).
-for pid in "${BATCH_PIDS[@]}"; do
-  wait "$pid"
-done
+echo "Merging ${#INPUTS[@]} comuni's pmtiles into the national overview..."
 
-echo "Joining $batch_num batch(es) into the merged tileset..."
-BATCH_MBTILES=()
-for i in $(seq 1 "$batch_num"); do
-  BATCH_MBTILES+=("$TMPDIR_RUN/batch${i}.mbtiles")
-done
-tile-join -f -pk -o "$MBTILES" "${BATCH_MBTILES[@]}"
+TMPDIR_RUN="$(mktemp -d)"
+trap 'rm -rf "$TMPDIR_RUN"' EXIT
 
-pmtiles convert --force "$MBTILES" "$OUT_DIR/italia_lts.pmtiles"
+INPUTS_FILE="$TMPDIR_RUN/inputs.txt"
+printf '%s\n' "${INPUTS[@]}" > "$INPUTS_FILE"
 
-echo "Wrote $OUT_DIR/italia_lts.pmtiles"
+MBTILES="$TMPDIR_RUN/italia.mbtiles"
+tile-join \
+  --output="$MBTILES" --force \
+  --maximum-zoom=11 --minimum-zoom=4 \
+  --include=lts --include=highway --include=rule \
+  --no-tile-size-limit \
+  --name "LTSBikePlan Italia" \
+  --attribution "LTSBikePlan / OpenStreetMap contributors" \
+  --read-from="$INPUTS_FILE"
+
+echo "Converting to PMTiles..."
+pmtiles convert --force "$MBTILES" "$WEB_DATA_DIR/italia_lts.pmtiles"
+
+echo "Wrote $WEB_DATA_DIR/italia_lts.pmtiles"
 echo "Open web/index.html?area=italia to view it."

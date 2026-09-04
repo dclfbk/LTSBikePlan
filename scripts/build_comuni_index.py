@@ -94,6 +94,35 @@ def main() -> None:
             }
         )
 
+    # A handful of comuni (19 as of 2026-09-04 - mostly small islands and
+    # exclaves: Capri, Procida, Ponza, Ventotene, Isole Tremiti, Campione
+    # d'Italia...) have a completely empty geometry in the osmit-estratti
+    # topojson itself (type=None, arcs=None - confirmed by hand, not a
+    # decoding bug on this end), so they never appear in `gdf` above and
+    # would otherwise be silently missing from comuni_index.json despite
+    # having a perfectly good pmtiles built. Fall back to that pmtiles'
+    # own header bounds instead - every PMTiles file carries its true
+    # min/max lon/lat regardless of what the topojson source has.
+    covered_istat = {e["istat"] for e in entries}
+    missing_istat = {istat: slug for istat, slug in built_slug_by_istat.items() if istat not in covered_istat}
+    if missing_istat:
+        import pmtiles.reader as pmtiles_reader
+
+        print(f"{len(missing_istat)} comune(s) missing from the topojson boundary source - falling back to their own pmtiles header for bbox:")
+        for istat, slug in missing_istat.items():
+            pmtiles_path = os.path.join(web_data_dir, f"{slug}_lts.pmtiles")
+            with open(pmtiles_path, "rb") as file_handle:
+                header = pmtiles_reader.Reader(pmtiles_reader.MmapSource(file_handle)).header()
+            bbox = [
+                round(header["min_lon_e7"] / 1e7, 4),
+                round(header["min_lat_e7"] / 1e7, 4),
+                round(header["max_lon_e7"] / 1e7, 4),
+                round(header["max_lat_e7"] / 1e7, 4),
+            ]
+            has_routing = os.path.exists(os.path.join(web_data_dir, f"{slug}_routing.bin"))
+            print(f"  {istat} {slug}: {bbox}")
+            entries.append({"istat": istat, "slug": slug, "bbox": bbox, "has_routing": has_routing})
+
     entries.sort(key=lambda e: e["istat"])
 
     os.makedirs(web_data_dir, exist_ok=True)

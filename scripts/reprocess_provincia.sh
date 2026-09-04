@@ -84,7 +84,10 @@ for line in "${COMUNI[@]}"; do
 done
 
 log "Rebuilding merged national tileset..."
-scripts/build_national_tiles.sh "$DATA_DIR"
+# No $DATA_DIR: build_national_tiles.sh's positional argument is web/data
+# (which it already defaults to correctly), not the raw data_dir, since
+# its 2026-09-04 rewrite - see that script's own header.
+scripts/build_national_tiles.sh
 log "Rebuilding comuni index (istat/slug/bbox/has_routing)..."
 python3 scripts/build_comuni_index.py "$DATA_DIR"
 

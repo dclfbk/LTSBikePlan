@@ -68,6 +68,7 @@ const I18N = {
     faqCloseAndScrollUp: "Chiudi e torna su",
     aboutHeading: "Stress in bici",
     aboutSubtitle: "Quanto stress può generare una strada quando la percorri in bici?",
+    aboutVersionTemplate: (v) => `LTSBikePlan v${v}`,
     aboutBody: `<p><strong>Stress in bici</strong> è una mappa delle strade italiane vista dalla prospettiva delle persone che si muovono in bicicletta.</p>
 <p>L'idea è semplice: le caratteristiche di una strada possono cambiare molto la nostra esperienza in bici. Traffico, velocità, corsie, parcheggi e infrastrutture ciclabili possono farci sentire più a nostro agio oppure aumentare pressione e disagio durante il percorso.</p>
 <p>In letteratura scientifica esiste un indicatore chiamato <a href="https://peterfurth.sites.northeastern.edu/level-of-traffic-stress/" target="_blank" rel="noopener"><strong>LTS - Level of Traffic Stress</strong></a>.</p>
@@ -142,7 +143,6 @@ const I18N = {
 <li><a href="https://mapterhorn.com/" target="_blank" rel="noopener"><strong>Mapterhorn</strong></a>, per i dati altimetrici e le terrain tiles utilizzate nel calcolo delle pendenze e nella visualizzazione 3D.</li>
 <li><a href="https://www.maptoolkit.org/" target="_blank" rel="noopener"><strong>Maptoolkit</strong></a>, per le mappe di base e i relativi stili cartografici.</li>
 </ul>`,
-    comuniNavLink: "Confronta comuni",
     statsNavLink: "Statistiche",
     mapNavLink: "Mappa",
     comuniTitle: "Confronta i comuni",
@@ -484,6 +484,7 @@ const I18N = {
     aiTranslationNote: "Translation by AI",
     aboutHeading: "Stress in bici",
     aboutSubtitle: "How much stress can a street generate when you ride it by bike?",
+    aboutVersionTemplate: (v) => `LTSBikePlan v${v}`,
     aboutBody: `<p><strong>Stress in bici</strong> is a map that tries to answer a simple question: <strong>how much stress can a street generate when you ride it by bike?</strong></p>
 <p>To do this it uses <strong>LTS &ndash; Level of Traffic Stress</strong>, a method that describes how comfortable or demanding a road can be for cyclists.</p>
 <p>LTS doesn't directly measure collision risk: it tries instead to represent the sense of comfort, discomfort, or perceived danger in relation to traffic and the road's characteristics.</p>
@@ -546,7 +547,6 @@ const I18N = {
 <li><a href="https://mapterhorn.com/" target="_blank" rel="noopener"><strong>Mapterhorn</strong></a>, for the elevation data and terrain tiles used to compute slopes and for the 3D view.</li>
 <li><a href="https://www.maptoolkit.org/" target="_blank" rel="noopener"><strong>Maptoolkit</strong></a>, for the base maps and their cartographic styles.</li>
 </ul>`,
-    comuniNavLink: "Compare municipalities",
     statsNavLink: "Statistics",
     mapNavLink: "Map",
     comuniTitle: "Compare municipalities",
@@ -887,6 +887,7 @@ const I18N = {
     aiTranslationNote: "Übersetzung durch KI",
     aboutHeading: "Stress in bici",
     aboutSubtitle: "Wie viel Stress kann eine Straße verursachen, wenn man sie mit dem Fahrrad befährt?",
+    aboutVersionTemplate: (v) => `LTSBikePlan v${v}`,
     aboutBody: `<p><strong>Stress in bici</strong> ist eine Karte, die eine einfache Frage zu beantworten versucht: <strong>Wie viel Stress kann eine Straße verursachen, wenn man sie mit dem Fahrrad befährt?</strong></p>
 <p>Dafür wird der <strong>LTS &ndash; Level of Traffic Stress</strong> verwendet, eine Methode, die beschreibt, wie komfortabel oder anspruchsvoll eine Straße für Radfahrende sein kann.</p>
 <p>Der LTS misst nicht direkt das Unfallrisiko: Er versucht vielmehr, das Gefühl von Komfort, Unbehagen oder wahrgenommener Gefahr im Verhältnis zu Verkehr und Straßenmerkmalen darzustellen.</p>
@@ -949,7 +950,6 @@ const I18N = {
 <li><a href="https://mapterhorn.com/" target="_blank" rel="noopener"><strong>Mapterhorn</strong></a>, für die Höhendaten und Terrain-Tiles, die zur Berechnung der Steigungen und für die 3D-Ansicht verwendet werden.</li>
 <li><a href="https://www.maptoolkit.org/" target="_blank" rel="noopener"><strong>Maptoolkit</strong></a>, für die Basiskarten und die zugehörigen kartografischen Stile.</li>
 </ul>`,
-    comuniNavLink: "Gemeinden vergleichen",
     statsNavLink: "Statistiken",
     mapNavLink: "Karte",
     comuniTitle: "Gemeinden vergleichen",
@@ -1290,6 +1290,7 @@ const I18N = {
     aiTranslationNote: "Traduction par IA",
     aboutHeading: "Stress in bici",
     aboutSubtitle: "Quel niveau de stress une route peut-elle générer quand on la parcourt à vélo ?",
+    aboutVersionTemplate: (v) => `LTSBikePlan v${v}`,
     aboutBody: `<p><strong>Stress in bici</strong> est une carte qui tente de r&eacute;pondre &agrave; une question simple&nbsp;: <strong>quel niveau de stress une route peut-elle g&eacute;n&eacute;rer quand on la parcourt &agrave; v&eacute;lo&nbsp;?</strong></p>
 <p>Pour cela, elle utilise le <strong>LTS &ndash; Level of Traffic Stress</strong>, une m&eacute;thode qui d&eacute;crit &agrave; quel point une route peut &ecirc;tre confortable ou exigeante pour les cyclistes.</p>
 <p>Le LTS ne mesure pas directement le risque d'accident&nbsp;: il cherche plut&ocirc;t &agrave; repr&eacute;senter la sensation de confort, de g&ecirc;ne ou de danger per&ccedil;u en fonction du trafic et des caract&eacute;ristiques de la route.</p>
@@ -1352,7 +1353,6 @@ const I18N = {
 <li><a href="https://mapterhorn.com/" target="_blank" rel="noopener"><strong>Mapterhorn</strong></a>, pour les données altimétriques et les terrain tiles utilisées dans le calcul des pentes et dans la visualisation 3D.</li>
 <li><a href="https://www.maptoolkit.org/" target="_blank" rel="noopener"><strong>Maptoolkit</strong></a>, pour les fonds de carte et les styles cartographiques associés.</li>
 </ul>`,
-    comuniNavLink: "Comparer les communes",
     statsNavLink: "Statistiques",
     mapNavLink: "Carte",
     comuniTitle: "Comparer les communes",

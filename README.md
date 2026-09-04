@@ -20,7 +20,7 @@ Journal of Urban Technology, 1-42. https://doi.org/10.1080/10630732.2026.2639290
 - Extended analysis modules for ESDA, clusters, network, gap, destination-access, accidents, and sum-up.
 - Report generation (`report.md` + `report.html`) including only available artifacts.
 - Manual-input diagnostics via `ltsbikeplan doctor`.
-- A static [MapLibre GL JS](https://maplibre.org) + [PMTiles](https://protomaps.com/docs/pmtiles) viewer (`web/`) with a 3D terrain toggle, a gap-analysis panel (low-stress network "islands" + candidate segments to close the gaps between them), and a URL that mirrors the full view state for sharing.
+- A static [MapLibre GL JS](https://maplibre.org) + [PMTiles](https://protomaps.com/docs/pmtiles) viewer (`web/`) with a 3D terrain toggle, a gap-analysis panel (low-stress network "islands" + candidate segments to close the gaps between them), client-side bike routing, and a URL that mirrors the full view state for sharing - see [WEB.md](WEB.md) (and [ROUTING.md](ROUTING.md) for the routing engine specifically).
 
 ## Tech Stack
 
@@ -62,7 +62,7 @@ pip install -e .
 
 Install directly from a GitHub release tag:
 ```bash
-pip install "git+https://github.com/dclfbk/LTSBikePlan.git@v2.2.5"
+pip install "git+https://github.com/dclfbk/LTSBikePlan.git@v3.0.0"
 ```
 
 After installing, use the CLI from any shell:
@@ -137,49 +137,9 @@ Run tests:
 python -m unittest discover -s tests -p "test_*.py"
 ```
 
-## Web Viewer
+## Web Viewer & Deployment
 
-Publicly, the viewer presents itself as **"Stress in bici"** (`web/i18n.js`'s `aboutHeading`) rather than the repo/package name - same underlying tool, product-facing branding for the live site. `web/index.html` is a static [MapLibre GL JS](https://maplibre.org) page (all JavaScript lives in `web/app.js`, not inline) that renders an area's LTS export as a clickable vector layer, with a switchable basemap (dark by default, or light/summer/cycling via the panel - all from [maptoolkit.org](https://styles.maptoolkit.org)) and, stacked as native map widgets under the zoom +/- control, fullscreen, a Nominatim place search restricted to Italy (magnifying-glass icon, expands to a search field), a 3D terrain toggle (🏔️, backed by [Mapterhorn](https://mapterhorn.com) - the same elevation source used for the slope calculation itself), and a PDF export button that renders the current map view, legend, title, comune name, map centre coordinates, and cartographic scale into a real downloadable PDF (via [jsPDF](https://github.com/parallax/jsPDF), not the browser print dialog). The LTS legend doubles as a filter: click a class to hide/show it. Comfort-framed, not stress-framed: LTS 1-4 read "molto tranquillo" → "molto impegnativo" (and equivalents in en/de/fr) with a matching face indicator and a colour ramp that also gets progressively thicker on the map - LTS 1-2 draw thin and light, LTS 3-4 thicker and bolder, so severity reads at a glance without needing the legend. The ramp itself (`#0E8A72` teal → `#A99000` gold → `#B75218` orange → `#7B4B9E` purple, `web/app.js`'s `LTS_COLORS`) is validated colorblind-safe (deuteranopia/protanopia/tritanopia, all-pairs) and deliberately avoids red for LTS 4 - a lot of what lands there is a structural street nobody's about to reroute, so "danger red" would read as an alarm with no fix rather than "this one needs a separated bike/foot facility," the actual intervention. `LTS 0` (not cyclable at all - motorways, excluded private/service roads) uses one grey (`#6B6B6B`) that reads on both the light and dark basemap, and is hidden from the map by default (still one legend click away) so it doesn't compete for attention with the streets a rider could actually choose between. Line rendering uses round joins/caps rather than MapLibre's default miter/butt, so winding rural/hillside roads trace a smooth curve at low zoom instead of a spiky zig-zag.
-
-The language switcher at the top of the panel covers the whole UI (Italiano/English/Deutsch/Français) via `web/i18n.js` - one object per language with the same key set, including all 48 LTS decision-rule sentences keyed by `rule` code (mirroring `code/ltsbikeplan/assets/LTS_decisionrule_dict.json`'s `rule_message_dict`), so the "LTS rationale" in a popup is looked up in the current language rather than only showing the Italian sentence baked in at `compute-lts` time. Every rule sentence is plain description, not raw OSM syntax - "è un'autostrada," not `highway='motorway'`. Add a language by adding one more top-level key to `I18N` with the same shape.
-
-Clicking a road (only above `MIN_CLICK_ZOOM` - zoom 14 by default, a single constant near the top of `web/index.html` if you want to retune it; streets are too close together to click reliably below that) shows its name, comune, LTS level (with the same emoji/colour as the legend), surface, and cycleway type. These read as plain sentences ("Strada asfaltata.", "Asphalt road.", "Straße mit Asphaltbelag.", "Route avec un revêtement en asphalte.") built from each language's `surface`/`cycleway`/`slope` phrase tables plus `surfaceTemplate`/`cyclewayTemplate` in `web/i18n.js` - a raw OSM value not in those dicts is simply omitted rather than shown verbatim, since tags like "sett" or "opposite_track" mean nothing to a non-mapper. If the street is flagged `is_gap_edge` (see below), the popup shows a 🔍 next to its name and, right under the LTS badge (not hidden in "Advanced details"), the same urgency + centrality explanation the priority list shows - so clicking any one street tells you on the spot whether/why it matters, not just its LTS number. Plus a collapsible "Advanced details" section with maxspeed/lanes/slope/length/rule.
-
-The **"Tratti da valutare"** ("segments to evaluate" - not "priority interventions": not every flagged street necessarily has a feasible fix, especially at LTS 3) button opens a list of concrete streets to look at, scoped to what's currently on screen and gated by the same `MIN_CLICK_ZOOM` threshold as popup clicks (button disabled below it, with a "zoom in" hint if the panel is already open). It reads the high-stress segments that touch a *substantial* low-stress network (`is_gap_edge`, computed server-side by `domain/gap_analysis.py::annotate_gap_components` from low-stress *edges* directly, not from node LTS, so a boundary node isn't dropped by both sides - and downgraded back to `False` if the only island it touches is smaller than `MIN_GAP_ISLAND_LENGTH_KM` in `pipeline/compute_lts.py`, currently 1km, so a 2-edge residential loop in an isolated hamlet doesn't compete with a real urban gap) directly off the rendered map via `map.queryRenderedFeatures()` - no separate fetch, no Turf.js - aggregates them by street name (a real street is usually split into many OSM way segments) and ranks worst-first: highest LTS first, then highest betweenness centrality (`domain/network_centrality.py::annotate_edge_centrality`, sampled via networkx - how many shortest paths in the whole area are forced through that street, so "why does this matter" isn't just the LTS colour), then longest. Each row shows the street name/length/LTS plus a second line combining an LTS-based urgency word ("Intervento prioritario" for LTS 4, "Da valutare" for LTS 3) and a plain-language centrality phrase ("an almost mandatory passage to cross this area" down to "a minor link in the network", bucketed by quantile within the area's own distribution). Clicking a row highlights the street on the map and flies there (a real geographic buffer polygon around the selected street's own geometry, capped at zoom 21) and the list live-updates as you pan/zoom. This replaced an earlier "low-stress islands" design (graph-theory connected components) that turned out to be unreadable in practice - one Trento component alone listed 1374 undifferentiated edge fragments with no way to prioritize among them. The high-stress segments aren't drawn on the map on their own anymore (an unexplained purple overview wasn't earning its place) - they stay a real, queryable layer (`gap-edges`) at zero opacity, so the only purple a viewer sees is the highlight buffer around a segment actually picked from the list.
-
-`web/` also ships the usual static-site SEO/sharing assets for `stressinbici.it`: `favicon.ico`, `robots.txt`, `sitemap.xml`, and `social-preview.png` (used by the Open Graph/Twitter meta tags in `index.html`'s `<head>`).
-
-The URL mirrors the full view state (`area`, `zoom`, `lat`, `lon`, `pitch`, `bearing`, `bg`, `lts`, `terrain`, `gap`, `lang`) via `history.replaceState`, so a copied link reopens to the same camera position, basemap, active LTS filter, 3D terrain state, gap panel state, and language.
-
-A site-level `<header>` sits above the map (title + current area, language switcher, and nav buttons) - separate from the map-level controls panel (legend, basemap, terrain, gap toggle) that floats over the map itself. The **"About"** nav button opens a panel with a short project blurb and the citation for the paper the tool is based on (Venturoso et al., 2026 - same reference as the Citation section above), with a link to the DOI. The **"FAQ"** nav button opens an accordion of common questions (what LTS means, what "Tratti da valutare" is and isn't, data sources, limitations). The **"Cookie"** nav button opens a placeholder panel - the site sets no cookies or tracking today, so there's nothing to consent to yet, but the panel is there to be filled in if that changes. All are same-page modals (`.info-panel` in `web/index.html`), not separate pages, wired through a small reusable `setupInfoPanel()` helper so another nav link reuses the same pattern.
-
-1. Build a PMTiles tileset from one or more areas' `compute-lts` output (requires [`tippecanoe`](https://github.com/felt/tippecanoe) and [`pmtiles`](https://github.com/protomaps/go-pmtiles) on `PATH`):
-   ```bash
-   scripts/build_tiles.sh Trento              # single area -> web/data/Trento_lts.pmtiles
-   scripts/build_national_tiles.sh            # every area processed so far -> web/data/italia_lts.pmtiles
-   ```
-   Rerun `build_national_tiles.sh` any time after processing more areas to fold them into the merged tileset.
-
-   `italia_lts.pmtiles` is capped at `--maximum-zoom=11` - a whole-Italy tileset at full street-level detail measured 23.6GB, unworkable to serve/edge-cache. `web/app.js` makes up the difference: past `COMUNE_SWAP_MIN_ZOOM` (12) in the merged `italia` view, it adds the relevant per-comune `<slug>_lts.pmtiles` (still built to z16 by `build_tiles.sh`) as extra map sources for whatever comuni are on screen, keyed by viewport-bbox overlap against `web/data/comuni_index.json` (built by `scripts/build_comuni_index.py`, which pairs `data/_cache/comuni_progress.tsv` with the osmit-estratti comuni boundary polygons for each comune's bbox). A single-area page (`?area=Trento`) skips all of this - it already *is* the per-comune tileset, at full z4-16 range.
-
-   For an unattended full-Italy rebuild (e.g. a weekly cron job on the machine serving `web/`), `scripts/build_italy_map_cron.sh` runs `fetch`+`compute-lts`+`build_tiles.sh` for every Italian provincia (`scripts/list_province.py` gets the ~107 names straight from osmit-estratti's own index, not a hardcoded list) and finishes with `build_national_tiles.sh` - one provincia failing is logged and skipped, not fatal to the run. Since it writes directly into `web/data/`, regenerating *is* publishing when the server already serves `web/` in place - no separate transfer step. `fetch`'s own downloads (each provincia's `.osm.pbf` extract + DEM mosaic) are cached under `data/_cache/` and deleted right after that provincia's `compute-lts` succeeds by default (`scripts/cleanup_area_cache.py`); set `LTSBP_CLEANUP_CACHE=0` to keep the cache instead, trading disk space for not re-downloading on the next run.
-
-   Network centrality (`domain/network_centrality.py`, part of `compute-lts`) is sampled but still scales with graph size, and a provincia-sized graph makes it impractically slow. `scripts/build_italy_map_comuni_cron.sh` runs the same rebuild at COMUNE granularity instead (~7893 units, `scripts/list_comuni.py` from the same osmit-estratti index) - but a full pass at that count would take days in one run, so it's **incremental**: progress is tracked in `data/_cache/comuni_progress.tsv` (one line per successfully completed comune), and each invocation only processes the next `LTSBP_COMUNI_BATCH_SIZE` (default 150) comuni not yet done, so it's meant to be re-run often (e.g. every 1-2h) rather than weekly. A comune is marked done only after `compute-lts` succeeds, so a failure is naturally retried on a later run instead of being skipped forever. `LTSBP_COMUNI_PARALLEL_JOBS` (default 4) processes that many comuni concurrently within a batch - per-comune work is mostly network I/O (osmit-estratti extract, Mapterhorn DEM tiles), so this is a real speedup, not just spreading CPU work around; set to `1` for the old strictly-sequential behaviour. This is the script wired into the systemd timer below.
-2. Serve `web/` with a static server that supports HTTP Range requests (PMTiles needs byte-range serving; Python's built-in `python -m http.server` does **not** support this - use `npx http-server web -c-1` or any CDN/object storage instead):
-   ```bash
-   npx http-server web -c-1
-   ```
-3. Open `http://localhost:8080/index.html?area=Trento` (single area) or `?area=italia` (merged tileset, also the default with no `?area=`) in a browser.
-
-## Deployment (production, Ubuntu + nginx)
-
-For a real deployment that also keeps itself up to date (rather than the local `npx http-server` dev setup above), `deploy/` and `scripts/setup_server.sh` provision an Ubuntu box that serves `web/` via nginx and rebuilds the national tileset incrementally, every 2 hours:
-
-1. `sudo scripts/setup_server.sh [deploy_root]` (default `/opt/stressinbici`) - installs apt build dependencies, builds `tippecanoe` and installs `pmtiles` from their upstream releases (neither is in Ubuntu's apt repos), clones the repo, and creates the `.venv` with `requirements.lock.txt` + `requirements-geo.lock.txt` + `pip install -e .`. Safe to re-run for updates (`git pull` + reinstall).
-2. `deploy/nginx-stressinbici.conf` - nginx site config for `web/`, with `.pmtiles` served ungzipped (gzip breaks the byte-range reads the PMTiles client relies on) and short, distinct cache lifetimes for tiles/data vs. HTML/JS so both a data rebuild and a code deploy (`git pull`) become visible without a manual cache purge.
-3. `deploy/ltsbikeplan-rebuild.service` + `deploy/ltsbikeplan-rebuild.timer` - a systemd timer running `scripts/build_italy_map_comuni_cron.sh` every 2 hours. Each run only processes one incremental batch of comuni (`LTSBP_COMUNI_BATCH_SIZE`, default 150) - the full ~7893-comune pass takes many runs over several days, not one long weekly one, since network centrality in `compute-lts` scales with graph size and per-comune batches keep it fast. Each file's header comments have the exact install commands.
-
-Code updates (new features/fixes) are a separate step from data rebuilds: `git -C /opt/stressinbici/LTSBikePlan pull && sudo systemctl restart nginx` picks up `web/` changes; re-run `scripts/setup_server.sh` if `pyproject.toml`/the lockfiles changed too.
+This README covers the data pipeline only. The public site built on top of it (`web/`) - the MapLibre viewer, the stats drill-down pages, tileset building, and the production nginx/systemd deployment - has its own doc: **[WEB.md](WEB.md)**. The client-side bike-routing engine specifically is documented separately in **[ROUTING.md](ROUTING.md)**.
 
 ## Manual Inputs
 
@@ -207,12 +167,14 @@ LTSBikePlan/
 ├── scripts/build_italy_map_comuni_cron.sh  # same, at comune granularity, incremental/resumable
 ├── scripts/setup_server.sh           # one-time Ubuntu provisioning for production deploy
 ├── deploy/                           # nginx site config + systemd timer for production
-├── web/                               # static MapLibre GL JS + PMTiles viewer
+├── web/                               # static MapLibre GL JS + PMTiles viewer (see WEB.md)
 ├── tests/                            # unit and smoke tests
 ├── pyproject.toml                    # package metadata + entrypoints
 ├── requirements.lock.txt             # pinned core dependencies
 ├── requirements-geo.lock.txt         # pinned geospatial dependencies
-└── README.md
+├── README.md                         # this file - data pipeline
+├── WEB.md                            # web viewer, stats site, tileset builds, deployment
+└── ROUTING.md                        # client-side bike-routing engine
 ```
 
 Note: there is currently no `.github/workflows/` CI configuration in this repository despite earlier docs referencing one - tests are run manually (`python -m unittest discover -s tests -p "test_*.py"`).

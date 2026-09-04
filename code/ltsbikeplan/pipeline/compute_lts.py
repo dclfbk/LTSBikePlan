@@ -184,6 +184,39 @@ def run_compute_lts(data_dir: str, area: AreaSpec, include_report_exports: bool 
         coverage_threshold=PARALLEL_CYCLEWAY_COVERAGE_THRESHOLD,
     )
 
+    # osmnx's default graph simplification merges the original OSM ways
+    # between two real intersections into one edge, and represents any tag
+    # that DIFFERS across the merged ways as a list of the per-way values
+    # (osmid, lanes, maxspeed, ref, name, surface, highway all do this) -
+    # only for edges that actually got merged, so each such column ends up
+    # a per-row mix of plain scalars and lists (object dtype). geopandas/
+    # pyarrow can't infer one Arrow type for that mix ("cannot mix list
+    # and non-list, non-null values" / "Expected bytes, got a 'int'
+    # object"), so to_parquet crashes - reproduced 2026-09-04 on Lestizza/
+    # Precenicco (Udine), fetched via plain OSMnx/Overpass rather than the
+    # usual osmit-estratti/pyrosm extracts because their osmit-estratti
+    # .osm.pbf 404s upstream (this fallback path had apparently never
+    # exported a comune before). Take the first value for a merged edge,
+    # same normalization services/osm_pbf_service.py already applies to
+    # "osmid" when using it to backfill a missing street name (see its
+    # `_lookup`) - these are informational/descriptive tags, not
+    # computational keys (routing's node-identity join key is the
+    # separate, always-scalar node "osmid" below, not this edge one).
+    # Flattening the list case alone isn't enough for a raw OSM tag column
+    # like "lanes" - some ways tag it "2" (str, the normal case) and OSMnx
+    # parses others as a bare int, so even after delisting, the column is
+    # still a str/int mix pyarrow rejects ("Expected bytes, got a 'int'
+    # object"). These are display/attribute fields (LTS itself was already
+    # computed earlier from the original values), so stringifying is safe.
+    def _flatten_tag(v):
+        if isinstance(v, list):
+            v = v[0] if v else None
+        return None if v is None or (isinstance(v, float) and pd.isna(v)) else str(v)
+
+    for col in ("osmid", "lanes", "maxspeed", "ref", "name", "surface", "highway"):
+        if col in all_lts.columns:
+            all_lts[col] = all_lts[col].apply(_flatten_tag)
+
     lts_parquet = os.path.join(area_dir, f"{area_slug}_all_lts.parquet")
     lts_geojson = os.path.join(area_dir, f"{area_slug}_all_lts.geojson")
     stats_json = os.path.join(area_dir, f"{area_slug}_stats.json")

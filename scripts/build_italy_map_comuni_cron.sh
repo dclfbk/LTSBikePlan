@@ -188,7 +188,13 @@ if [ "${LTSBP_SKIP_NATIONAL_REBUILD:-0}" = "1" ]; then
   log "LTSBP_SKIP_NATIONAL_REBUILD=1 - skipping italia_lts.pmtiles/comuni_index.json rebuild this batch (remember to run both by hand once the whole pass is done)"
 else
   log "Rebuilding merged national tileset..."
-  if ! scripts/build_national_tiles.sh "$DATA_DIR"; then
+  # No $DATA_DIR argument: since the 2026-09-04 rewrite, build_national_tiles.sh
+  # merges already-built web/data/<slug>_lts.pmtiles directly (not raw
+  # data/<slug>/ GeoJSON) - its one positional argument is now the web/data
+  # path (which it already defaults to correctly on its own), unrelated to
+  # this script's $DATA_DIR. Passing $DATA_DIR here would silently point it
+  # at the wrong directory and find zero comuni to merge.
+  if ! scripts/build_national_tiles.sh; then
     log "ERROR: national tileset rebuild failed - this batch's comuni were processed but web/data/italia_lts.pmtiles was NOT updated"
     TILE_BUILD_FAILED=1
   fi

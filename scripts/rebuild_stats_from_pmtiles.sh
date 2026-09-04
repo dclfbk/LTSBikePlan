@@ -92,14 +92,23 @@ fi
 DATA_DIR="${1:-${LTSBP_DATA_DIR:-$REPO_ROOT/data}}"
 log "Using data_dir: $DATA_DIR"
 
-log "Step 1/3: rebuilding web/data/italia_comuni_stats.json..."
+log "Step 1/4: rebuilding web/data/italia_comuni_stats.json..."
 run_low_priority python3 scripts/build_comuni_stats.py "$DATA_DIR"
 
-log "Step 2/3: rebuilding web/data/italia_{provincia,regione}_stats.json..."
+log "Step 2/4: rebuilding web/data/italia_{provincia,regione}_stats.json..."
 run_low_priority python3 scripts/build_regional_stats.py "$DATA_DIR"
 
-log "Step 3/3: rebuilding web/data/interventions/*.json..."
+log "Step 3/4: rebuilding web/data/interventions/*.json..."
 run_low_priority python3 scripts/build_comuni_interventions.py "$DATA_DIR"
+
+# Reads italia_comuni_stats.json (step 1's output) rather than pmtiles
+# directly - no per-comune reconstruction here, just k-means over numbers
+# already in that file, so this step is fast regardless of data_dir/pmtiles
+# state. No data_dir argument: paths are fixed relative to the repo root
+# (web/data/italia_comuni_stats.json in, web/data/italia_comuni_clusters.json
+# out) - see the script's own module docstring.
+log "Step 4/4: rebuilding web/data/italia_comuni_clusters.json..."
+run_low_priority python3 scripts/build_comuni_clusters.py
 
 log "Done."
 python3 - <<'PY'

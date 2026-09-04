@@ -331,7 +331,6 @@ function applyStaticTranslations() {
   document.documentElement.lang = lang;
   document.getElementById("lang-select").value = lang;
   document.title = `Stress in bici - ${t("statsNavLink")}`;
-  document.getElementById("comuni-link").textContent = t("comuniNavLink");
   document.getElementById("stats-link").textContent = t("statsNavLink");
   document.getElementById("footer-credit").innerHTML = t("footerCredit");
   document.getElementById("footer-hosting-text").textContent = t("footerHosting");

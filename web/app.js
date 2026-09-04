@@ -1,3 +1,9 @@
+// Shown small at the bottom of the About panel - no build step ties this
+// static site to code/pyproject.toml's own `version`, so it's a plain
+// literal here that has to be bumped by hand alongside that file's own
+// bump, not derived automatically.
+const APP_VERSION = "3.0.0";
+
 // Below this zoom, individual streets are too close together on screen to
 // click reliably, and the point of a click is to inspect ONE street - a
 // single named constant so the threshold is easy to retune later.
@@ -306,6 +312,7 @@ function applyUiTranslations() {
   // in i18n.js (headings/bold/links), not user- or API-derived, so
   // there's nothing here to sanitize against.
   document.getElementById("about-body").innerHTML = t("aboutBody");
+  document.getElementById("about-version").textContent = t("aboutVersionTemplate")(APP_VERSION);
   document.getElementById("faq-toggle").textContent = t("faqToggle");
   document.getElementById("faq-heading").textContent = t("faqHeading");
   renderFaq();
@@ -325,6 +332,7 @@ function applyUiTranslations() {
   document.getElementById("credits-heading").textContent = t("creditsHeading");
   document.getElementById("credits-body").innerHTML = t("creditsBody");
   document.getElementById("credits-ai-note").textContent = aiNote;
+  document.getElementById("stats-link").textContent = t("statsNavLink");
   document.getElementById("credits-ai-note").classList.toggle("hidden", !aiNote);
   document.getElementById("share-heading").textContent = t("shareModalHeading");
   document.getElementById("share-url-label").textContent = t("shareUrlLabel");

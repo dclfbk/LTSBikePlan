@@ -26,6 +26,24 @@ def _load_network(area: AreaSpec, cache_dir: str):
     """
     graph_loader = GraphLoaderService()
 
+    if area.boundary_geojson:
+        import geopandas as gpd
+        from shapely.ops import unary_union
+
+        boundary = gpd.read_file(area.boundary_geojson)
+        if boundary.crs is not None and str(boundary.crs) != "EPSG:4326":
+            boundary = boundary.to_crs("EPSG:4326")
+        polygon = unary_union(boundary.geometry)
+
+        _, gdf_nodes, gdf_edges = graph_loader.download_graph_from_polygon(polygon)
+        gdf_edges = graph_loader.filter_major_roads(gdf_edges)
+        gdf_edges = normalize_edge_columns(gdf_edges)
+        gdf_buildings = graph_loader.fetch_building_data_from_polygon(polygon, area.name)
+        if area.bbox is None:
+            west, south, east, north = gdf_edges.total_bounds
+            area = area.with_bbox((west, south, east, north))
+        return gdf_nodes, gdf_edges, gdf_buildings, area
+
     if area.source == "osmnx":
         _, gdf_nodes, gdf_edges = graph_loader.download_graph(area.place_query)
         gdf_edges = graph_loader.filter_major_roads(gdf_edges)

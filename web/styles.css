@@ -435,6 +435,7 @@ h1 { font-weight: 700; }
 }
 #about-subtitle { font-style: italic; color: #555; margin: 0 0 10px; }
 .ai-note { font-style: italic; font-size: 11px; color: #999; margin: 0 0 6px; text-align: left; }
+.app-version { font-size: 11px; color: #999; margin: 14px 0 0; text-align: left; }
 
 /* Share modal (#share-panel, a plain .info-panel like About/FAQ/Privacy
    above - see ShareControl in app.js). Each row pairs a readonly text

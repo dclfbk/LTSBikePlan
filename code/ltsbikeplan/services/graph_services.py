@@ -1,11 +1,42 @@
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import geopandas as gpd
 import osmnx as ox
 from sklearn.neighbors import NearestNeighbors
 
 from ltsbikeplan.domain.crs import WORKING_CRS, chunked_to_crs
+
+# osmnx's default Overpass endpoint (overpass-api.de) has no failover to
+# any of the other public community mirrors when it's down/refusing
+# connections - confirmed 2026-09-04 (ConnectionRefusedError while
+# reprocessing the Friuli backlog via LTSBP_NO_OSMIT_ESTRATTI=1). Set this
+# to switch mirrors (e.g. "https://overpass.private.coffee/api" - base
+# URL, no trailing "/interpreter": osmnx's own _overpass.py appends that
+# itself - verified reachable that day when overpass-api.de and
+# overpass.kumi.systems both weren't) without touching code. The setting
+# is named overpass_url, not overpass_endpoint, in this osmnx version
+# (2.1.0) - ox.settings otherwise silently accepts and ignores any
+# attribute name, so a typo here fails silent, not loud.
+_OVERPASS_URL = os.environ.get("LTSBP_OVERPASS_URL")
+if _OVERPASS_URL:
+    ox.settings.overpass_url = _OVERPASS_URL
+    # osmnx paces itself by polling the endpoint's own /status page and
+    # parsing a specific line of it (_overpass._get_overpass_pause) to
+    # decide how long to wait for a free slot - written against
+    # overpass-api.de's exact status format. maps.mail.ru's /status has a
+    # differently-shaped line in that same position ("Rate limit: 0"
+    # where overpass-api.de has a numeric "N slots available" line),
+    # which osmnx's parser reads as "a query is currently running" and
+    # recurses every 5s to recheck - forever, since that line never
+    # changes. Reproduced 2026-09-04: an 8+ minute hang on Ampezzo with
+    # zero output, not a slow query - the graph_from_place call never
+    # even reached Overpass. Disabling the whole rate-limit dance instead
+    # of trying to keep it working across mirrors with different status
+    # formats.
+    ox.settings.overpass_rate_limit = False
 
 # Tags BikePathAnalysis reads that aren't in osmnx's default
 # useful_tags_way - without these, they'd silently never reach the domain
@@ -23,11 +54,24 @@ _EXTRA_USEFUL_TAGS_WAY = ["motorroad", "sac_scale", "zone:maxspeed"]
 
 
 class GraphLoaderService:
-    def download_graph(self, city: str):
+    def _ensure_extra_tags(self) -> None:
         missing_tags = [tag for tag in _EXTRA_USEFUL_TAGS_WAY if tag not in ox.settings.useful_tags_way]
         if missing_tags:
             ox.settings.useful_tags_way = ox.settings.useful_tags_way + missing_tags
+
+    def download_graph(self, city: str):
+        self._ensure_extra_tags()
         graph = ox.graph_from_place(city, network_type="all")
+        gdf_nodes, gdf_edges = ox.graph_to_gdfs(graph)
+        return graph, gdf_nodes, gdf_edges
+
+    def download_graph_from_polygon(self, polygon):
+        """Same as download_graph, but bypasses Nominatim place-name
+        resolution entirely - for the rare comune with no administrative
+        boundary relation in OSM at all (see AreaSpec.boundary_geojson),
+        where graph_from_place has nothing to resolve the name to."""
+        self._ensure_extra_tags()
+        graph = ox.graph_from_polygon(polygon, network_type="all")
         gdf_nodes, gdf_edges = ox.graph_to_gdfs(graph)
         return graph, gdf_nodes, gdf_edges
 
@@ -67,6 +111,12 @@ class GraphLoaderService:
     def fetch_building_data(self, city: str):
         print(f"Fetching building data for {city}...")
         buildings = ox.features_from_place(city, tags={"building": True})
+        print(f"Number of buildings fetched: {len(buildings)}")
+        return buildings
+
+    def fetch_building_data_from_polygon(self, polygon, name: str):
+        print(f"Fetching building data for {name}...")
+        buildings = ox.features_from_polygon(polygon, tags={"building": True})
         print(f"Number of buildings fetched: {len(buildings)}")
         return buildings
 

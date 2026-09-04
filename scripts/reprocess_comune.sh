@@ -24,6 +24,16 @@
 # Example (Palermo, istat 082053):
 #   scripts/reprocess_comune.sh Palermo 082053
 #
+# LTSBP_NO_OSMIT_ESTRATTI=1 fetches/computes via live OSMnx/Overpass by
+# plain area name instead of the osmit-estratti pre-built extracts (istat
+# is then ignored - see cli.py's own note on that). For the rare comune
+# whose osmit-estratti index entry is itself broken (found 2026-09-04:
+# Pietramelara, istat 061058, has name=None and no .osm.pbf/.gpkg in
+# data/_cache/osmit_index/limits_IT_municipalities.json - not a slug/istat
+# mismatch, the upstream extract just has nothing for it), not for
+# everyday reprocessing (osmit-estratti is faster and disambiguates by
+# istat, which plain Overpass-by-name can't).
+#
 # Skips the two whole-Italy rebuild steps at the end (national tileset +
 # comuni_index.json) when LTSBP_SKIP_NATIONAL_REBUILD=1 - set it while
 # reprocessing several comuni back to back on a slow box, so each one
@@ -51,10 +61,18 @@ source .venv/bin/activate 2>/dev/null || true  # harmless if already active / us
 
 log "--- $AREA_NAME ($SLUG, istat=$ISTAT) ---"
 
-PYTHONPATH=code python3 code/cli.py fetch --area "$AREA_NAME" --area-level comune --istat "$ISTAT" --osmit-estratti
-PYTHONPATH=code python3 code/cli.py compute-lts --area "$AREA_NAME" --area-level comune --istat "$ISTAT" --osmit-estratti
+if [ "${LTSBP_NO_OSMIT_ESTRATTI:-0}" = "1" ]; then
+  log "LTSBP_NO_OSMIT_ESTRATTI=1 - resolving \"$AREA_NAME\" via live OSMnx/Overpass instead of osmit-estratti"
+  PYTHONPATH=code python3 code/cli.py fetch --area "$AREA_NAME"
+  PYTHONPATH=code python3 code/cli.py compute-lts --area "$AREA_NAME"
+else
+  PYTHONPATH=code python3 code/cli.py fetch --area "$AREA_NAME" --area-level comune --istat "$ISTAT" --osmit-estratti
+  PYTHONPATH=code python3 code/cli.py compute-lts --area "$AREA_NAME" --area-level comune --istat "$ISTAT" --osmit-estratti
+fi
 
-if [ "${LTSBP_CLEANUP_CACHE:-1}" = "1" ]; then
+if [ "${LTSBP_NO_OSMIT_ESTRATTI:-0}" = "1" ]; then
+  log "LTSBP_NO_OSMIT_ESTRATTI=1 - skipping cache cleanup (cleanup_area_cache.py resolves via the same osmit-estratti AreaResolver, not the live-Overpass cache this run actually used)"
+elif [ "${LTSBP_CLEANUP_CACHE:-1}" = "1" ]; then
   PYTHONPATH=code python3 scripts/cleanup_area_cache.py "$AREA_NAME" --area-level comune --istat "$ISTAT" "$DATA_DIR" \
     || log "WARNING: cache cleanup failed for $AREA_NAME (LTS data itself is unaffected)"
 fi
@@ -69,7 +87,10 @@ if [ "${LTSBP_SKIP_NATIONAL_REBUILD:-0}" = "1" ]; then
   log "  scripts/build_national_tiles.sh && python3 scripts/build_comuni_index.py"
 else
   log "Rebuilding merged national tileset..."
-  scripts/build_national_tiles.sh "$DATA_DIR"
+  # No $DATA_DIR: build_national_tiles.sh's positional argument is
+  # web/data (which it already defaults to correctly), not the raw
+  # data_dir, since its 2026-09-04 rewrite - see that script's own header.
+  scripts/build_national_tiles.sh
   log "Rebuilding comuni index (istat/slug/bbox/has_routing)..."
   python3 scripts/build_comuni_index.py "$DATA_DIR"
   log "Done - $AREA_NAME's new data is live."
