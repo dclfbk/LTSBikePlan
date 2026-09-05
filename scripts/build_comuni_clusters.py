@@ -185,13 +185,30 @@ def _summarize(record: dict) -> dict:
     return {field: record.get(field) for field in SUMMARY_FIELDS}
 
 
-def _cluster_output(label: str, members: list, population: np.ndarray, superficie: np.ndarray) -> dict:
+def _cluster_output(
+    label: str,
+    members: list,
+    population: np.ndarray,
+    superficie: np.ndarray,
+    popolazione_soglia_min: int | None = None,
+    popolazione_soglia_max: int | None = None,
+) -> dict:
+    """popolazione_soglia_min/max are the REAL defining threshold for the
+    3 fixed-population tiers (Metropoli/Grandi città/Città grandi) -
+    None for the 6 k-means tiers below them, which have no such rule (see
+    module docstring). The UI (web/stats/stats.js) prefers these over
+    popolazione_p25/p75 when present: for a fixed tier, "50.000-200.000
+    abitanti" (the actual rule) is more meaningful than "57.776-97.510"
+    (the interquartile range of whoever happens to be in it right now,
+    which reads like an approximation of something that's actually exact)."""
     members = sorted(members, key=lambda r: r["low_stress_share"], reverse=True)
     return {
         "label": label,
         "comuni_count": len(members),
         "popolazione_p25": round(float(np.percentile(population, 25))),
         "popolazione_p75": round(float(np.percentile(population, 75))),
+        "popolazione_soglia_min": popolazione_soglia_min,
+        "popolazione_soglia_max": popolazione_soglia_max,
         "superficie_p25": round(float(np.percentile(superficie, 25)), 1),
         "superficie_p75": round(float(np.percentile(superficie, 75)), 1),
         "top": [_summarize(r) for r in members[:TOP_N]],
@@ -242,18 +259,24 @@ def main() -> None:
             metropoli,
             np.array([r["popolazione"] for r in metropoli], dtype=float),
             np.array([r["superficie_km2"] for r in metropoli], dtype=float),
+            popolazione_soglia_min=METROPOLI_MIN_POPOLAZIONE,
+            popolazione_soglia_max=None,  # open-ended - Roma is the real max, but stating that as a "threshold" would misrepresent it as a rule rather than just where the data happens to end
         ),
         _cluster_output(
             GRANDI_CITTA_LABEL,
             grandi_citta,
             np.array([r["popolazione"] for r in grandi_citta], dtype=float),
             np.array([r["superficie_km2"] for r in grandi_citta], dtype=float),
+            popolazione_soglia_min=GRANDI_CITTA_MIN_POPOLAZIONE,
+            popolazione_soglia_max=METROPOLI_MIN_POPOLAZIONE,
         ),
         _cluster_output(
             CITTA_GRANDI_LABEL,
             citta_grandi,
             np.array([r["popolazione"] for r in citta_grandi], dtype=float),
             np.array([r["superficie_km2"] for r in citta_grandi], dtype=float),
+            popolazione_soglia_min=CITTA_GRANDI_MIN_POPOLAZIONE,
+            popolazione_soglia_max=GRANDI_CITTA_MIN_POPOLAZIONE,
         ),
     ]
 

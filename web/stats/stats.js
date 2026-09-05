@@ -641,10 +641,24 @@ function renderClustersSection(root) {
   state.clusters.forEach((cluster) => {
     const card = document.createElement("div");
     card.className = "card-panel";
+    // Metropoli/Grandi città/Città grandi are defined by a REAL fixed
+    // population threshold (build_comuni_clusters.py's own
+    // popolazione_soglia_min/max) - state that exact rule rather than
+    // the interquartile range, which for these 3 reads like an
+    // approximation of something that's actually an exact cutoff. The
+    // 6 k-means tiers have no such rule (see that script's own
+    // docstring), so they keep the percentile-based "circa" phrasing -
+    // the only honest description available for a cluster shaped by the
+    // current comuni set rather than a fixed definition.
+    const rangeText = cluster.popolazione_soglia_min != null
+      ? cluster.popolazione_soglia_max != null
+        ? t("statsClusterThresholdRangeTemplate")(fmtInt(cluster.popolazione_soglia_min), fmtInt(cluster.popolazione_soglia_max), cluster.superficie_p25, cluster.superficie_p75)
+        : t("statsClusterThresholdMinTemplate")(fmtInt(cluster.popolazione_soglia_min), cluster.superficie_p25, cluster.superficie_p75)
+      : t("statsClusterRangeTemplate")(fmtInt(cluster.popolazione_p25), fmtInt(cluster.popolazione_p75), cluster.superficie_p25, cluster.superficie_p75);
     card.innerHTML = `
       <h2>${cluster.label}</h2>
       <p class="chart-note">
-        ${t("statsClusterRangeTemplate")(fmtInt(cluster.popolazione_p25), fmtInt(cluster.popolazione_p75), cluster.superficie_p25, cluster.superficie_p75)}
+        ${rangeText}
         · ${t("statsClusterCountTemplate")(fmtInt(cluster.comuni_count))}
       </p>
       <div class="cluster-lists">
@@ -674,11 +688,22 @@ function renderClustersSection(root) {
     const downBtn = card.querySelector('.cluster-pager button[data-dir="1"]');
     const maxOffset = Math.max(0, cluster.top.length - CLUSTER_PAGE_SIZE);
     let offset = 0;
+    // The rank/name/% swap instantly on click - correct, but with no
+    // motion or highlight at all it read as "nothing happened" (reported
+    // live: pressing the pager didn't look like it did anything, even
+    // though the list content was in fact updating). A brief fade
+    // (CSS transition on .cluster-list's opacity, see index.html) makes
+    // the update visible without a real scroll animation, which wouldn't
+    // fit "jump to the next block of 3" anyway.
     function renderPage() {
+      [topList, bottomList].forEach((el) => el.classList.add("cluster-list-updating"));
       renderClusterList(topList, cluster.top.slice(offset, offset + CLUSTER_PAGE_SIZE), true, offset, cluster.comuni_count);
       renderClusterList(bottomList, cluster.bottom.slice(offset, offset + CLUSTER_PAGE_SIZE), false, offset, cluster.comuni_count);
       upBtn.disabled = offset <= 0;
       downBtn.disabled = offset >= maxOffset;
+      requestAnimationFrame(() => {
+        [topList, bottomList].forEach((el) => el.classList.remove("cluster-list-updating"));
+      });
     }
     upBtn.addEventListener("click", () => {
       offset = Math.max(0, offset - CLUSTER_PAGE_SIZE);
@@ -1147,8 +1172,8 @@ function levelColumns(level) {
   if (level === "comune") {
     return [
       { key: "comune", label: t("statsColComune"), isName: true },
-      { key: "provincia", label: t("statsColProvincia") },
-      { key: "regione", label: t("statsColRegione") },
+      { key: "provincia", label: t("statsColProvincia"), isText: true },
+      { key: "regione", label: t("statsColRegione"), isText: true },
       ...common,
     ];
   }
@@ -1156,7 +1181,7 @@ function levelColumns(level) {
   if (level === "provincia") {
     return [
       { key: "area", label: t("statsColProvincia"), isName: true },
-      { key: "regione", label: t("statsColRegione") },
+      { key: "regione", label: t("statsColRegione"), isText: true },
       ...common,
       coverageCol,
     ];
@@ -1233,6 +1258,7 @@ function renderTable(root, items, level) {
     for (const col of columns) {
       const th = document.createElement("th");
       th.textContent = col.label;
+      if (col.isName || col.isText) th.classList.add("col-text");
       if (col.key === sortKey) {
         th.classList.add("sorted");
         th.setAttribute("data-arrow", sortAsc ? "▲" : "▼");
@@ -1293,6 +1319,7 @@ function renderTable(root, items, level) {
 
       columns.forEach((col) => {
         const td = document.createElement("td");
+        if (col.isName || col.isText) td.classList.add("col-text");
         if (col.isName) {
           const badges = row.capoluogo_regione
             ? `<span class="badge">${t("statsBadgeCapoluogoRegione")}</span>`
