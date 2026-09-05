@@ -16,6 +16,9 @@
      stays Italian-only and shorter, closer to Google's ~155-character
      display limit. -->
 <meta name="description" content="Stress in bici è una mappa delle strade italiane vista dalla prospettiva di chi le percorre in bicicletta: ogni tratto riceve un valore di stress da 1 a 4." />
+<meta name="keywords" content="LTS, level of traffic stress, ciclabilità, piste ciclabili, mappa ciclabile, stress da traffico, sicurezza ciclabile, bicicletta, mobilità sostenibile, OpenStreetMap, Italia" />
+<meta name="author" content="Maurizio Napolitano" />
+<meta name="robots" content="index, follow" />
 <link rel="canonical" href="https://stressinbici.it/" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Stress in bici" />
@@ -30,6 +33,24 @@
 <meta name="twitter:title" content="Stress in bici" />
 <meta name="twitter:description" content="Stress in bici è una mappa delle strade italiane vista dalla prospettiva di chi le percorre in bicicletta: ogni tratto riceve un valore di stress da 1 a 4. An LTS-based cycling stress map of Italian roads." />
 <meta name="twitter:image" content="https://stressinbici.it/social-preview.png" />
+<!-- Structured data (schema.org) - helps a general search engine
+     understand what this page IS (a website/app), distinct from the
+     Dataset markup on the stats page below, which targets Google
+     Dataset Search specifically for the downloadable CSV. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Stress in bici",
+  "url": "https://stressinbici.it/",
+  "description": "Mappa delle strade italiane vista dalla prospettiva di chi le percorre in bicicletta, classificate per livello di stress da traffico (LTS - Level of Traffic Stress).",
+  "inLanguage": ["it", "en", "de", "fr"],
+  "creator": [
+    { "@type": "Person", "name": "Maurizio Napolitano" },
+    { "@type": "Person", "name": "Leonardo Venturoso" }
+  ]
+}
+</script>
 <!-- Vendored locally at a pinned exact version rather than CDN "@major"
      floating tags (see web/assets/vendor/README.md) - unpkg's `@5`/`@6`/etc.
      resolve to whatever the latest matching release is AT REQUEST TIME,

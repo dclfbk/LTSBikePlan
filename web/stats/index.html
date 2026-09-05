@@ -5,6 +5,61 @@
 <title>Stress in bici - Statistiche</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="icon" href="../favicon.ico" sizes="any" />
+
+<!-- SEO + social preview - same convention as web/index.html's own
+     (see that file's comment): image sits next to this index.html, so
+     it deploys to stressinbici.it/stats/social-preview.png. Own
+     title/description/image, not the main site's - a link shared from
+     here should preview the statistics, not the map. -->
+<meta name="description" content="Statistiche sulla rete ciclabile italiana: km per livello di stress (LTS), quota a basso stress, priorità di intervento, confrontabili per comune, provincia e regione." />
+<meta name="keywords" content="statistiche ciclabilità, open data, dati aperti, LTS Italia, dataset ciclabile, km piste ciclabili, comuni ciclabili, ODbL, OpenStreetMap, mobilità ciclistica" />
+<meta name="author" content="Maurizio Napolitano" />
+<meta name="robots" content="index, follow" />
+<link rel="canonical" href="https://stressinbici.it/stats/index.html" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Stress in bici" />
+<meta property="og:title" content="Stress in bici - Statistiche" />
+<meta property="og:description" content="Statistiche sulla rete ciclabile italiana: km per livello di stress (LTS), quota a basso stress, priorità di intervento, confrontabili per comune, provincia e regione. Cycling-network statistics for Italy, by municipality, province and region." />
+<meta property="og:image" content="https://stressinbici.it/stats/social-preview.png" />
+<meta property="og:image:width" content="2400" />
+<meta property="og:image:height" content="1260" />
+<meta property="og:url" content="https://stressinbici.it/stats/index.html" />
+<meta property="og:locale" content="it_IT" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Stress in bici - Statistiche" />
+<meta name="twitter:description" content="Statistiche sulla rete ciclabile italiana: km per livello di stress (LTS), quota a basso stress, priorità di intervento, confrontabili per comune, provincia e regione. Cycling-network statistics for Italy, by municipality, province and region." />
+<meta name="twitter:image" content="https://stressinbici.it/stats/social-preview.png" />
+<!-- Structured data (schema.org Dataset) - this page's own "Scarica il
+     dataset completo" button (see #dataset-download in the body, and
+     scripts/build_comuni_stats_csv.py) is a real downloadable, ODbL-
+     licensed dataset, which is exactly what Google Dataset Search
+     indexes on: a Dataset entry with a distribution.contentUrl. Absolute
+     URL for contentUrl, not the page's own relative "../data/..." href -
+     web/ is the site root, so the file actually lives one level up from
+     this page's own URL, at stressinbici.it/data/..., not .../stats/data/...  -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "name": "Statistiche LTS della rete ciclabile italiana",
+  "description": "Statistiche comunali, provinciali e regionali sul livello di stress da traffico (LTS) della rete stradale italiana: km per classe LTS, quota di rete a basso stress, km di intervento prioritario, superficie e popolazione.",
+  "url": "https://stressinbici.it/stats/index.html",
+  "license": "https://opendatacommons.org/licenses/odbl/summary/",
+  "isAccessibleForFree": true,
+  "creator": [
+    { "@type": "Person", "name": "Maurizio Napolitano" },
+    { "@type": "Person", "name": "Leonardo Venturoso" }
+  ],
+  "spatialCoverage": { "@type": "Place", "name": "Italia" },
+  "keywords": ["LTS", "level of traffic stress", "ciclabilità", "open data", "OpenStreetMap", "Italia"],
+  "distribution": {
+    "@type": "DataDownload",
+    "encodingFormat": "application/zip",
+    "contentUrl": "https://stressinbici.it/data/italia_comuni_stats.csv.zip"
+  }
+}
+</script>
+
 <script src="../i18n.js"></script>
 <script src="../assets/vendor/echarts-6.1.0.min.js"></script>
 <style>
