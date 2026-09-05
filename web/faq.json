@@ -72,6 +72,10 @@
     "a": "<p>Ogni tratto di strada riceve il proprio LTS in modo indipendente, in base alle sue sole caratteristiche - non in base a cosa lo circonda.</p><p>Questo significa che un tratto può avere un LTS 1-4 anche se, nella rete effettivamente percorribile in bici, è raggiungibile solo attraversando una strada classificata come <strong>non ciclabile</strong> (LTS 0, per esempio un'autostrada): sulla mappa appare colorato come qualunque altro tratto, ma di fatto è isolato dal resto della rete a basso stress.</p><p>Il calcolo del percorso non userà mai questi tratti per collegare due punti, perché non attraversa mai strade non ciclabili (vedi la domanda precedente).</p><p>Non è necessariamente un errore: a volte è un limite reale del territorio, altre volte un'informazione mancante su OpenStreetMap (una strada di collegamento non ancora mappata, o taggata in modo da escluderla per sbaglio). Se sospetti quest'ultimo caso, vale la stessa indicazione della domanda su una strada classificata male: la correzione va fatta su OpenStreetMap.</p>"
   },
   {
+    "q": "Sono disponibili delle statistiche sui dati?",
+    "a": "<p>Sì: a partire dagli stessi dati usati per la mappa abbiamo elaborato una sezione dedicata di <a href=\"stats/index.html\"><strong>statistiche</strong></a>, con viste a livello di comune, provincia, regione e Italia nel complesso.</p><p>Ci sono i chilometri di rete a basso e alto stress, le priorità di intervento, il confronto fra aree geografiche e un raggruppamento dei comuni per tipologia e dimensione, così un piccolo borgo non viene mai messo a confronto con una grande città. Nella pagina delle statistiche trovi FAQ e informazioni dedicate, più approfondite su questo aspetto.</p>"
+  },
+  {
     "q": "Posso segnalare un problema o proporre un miglioramento?",
     "a": "<p>Sì, ed è proprio uno degli obiettivi di un progetto aperto.</p>\n<p>Per una strada classificata male vale quanto detto sopra: si corregge su OpenStreetMap, non qui.</p>\n<p>Per tutto il resto - <strong>l'algoritmo, il calcolo o il software</strong> - il codice pubblico permette di verificare il funzionamento e contribuire al suo miglioramento.</p>"
   }

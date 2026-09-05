@@ -228,15 +228,20 @@ function setupInfoPanel(toggleId, panelId, closeId) {
   return setOpen;
 }
 
-// Same faq.json (one level up from stats/) and cache-once shape as
-// web/app.js's ensureFaqLoaded - the FAQ content itself isn't stats-page
-// specific, so it isn't duplicated.
+// Own web/stats/faq.json, NOT the main site's web/faq.json - this page's
+// FAQ goes deeper into stats-specific questions (cluster methodology,
+// what "quota a basso stress" means, how priority streets are picked,
+// data licensing) that don't belong on the main map's own FAQ. Same
+// cache-once shape as web/app.js's ensureFaqLoaded otherwise. Italian
+// only, same convention as the main site's faq.json (see that file's own
+// "Italian only for now" comment in i18n.js) - not covered by
+// aiTranslationNote, since it isn't translated at all yet.
 let faqItems = null;
 let faqItemsPromise = null;
 function ensureFaqLoaded() {
   if (faqItems) return Promise.resolve(faqItems);
   if (!faqItemsPromise) {
-    faqItemsPromise = fetch(new URL("../faq.json", window.location.href))
+    faqItemsPromise = fetch(new URL("faq.json", window.location.href))
       .then((response) => response.json())
       .then((data) => {
         faqItems = data;
@@ -337,15 +342,24 @@ function applyStaticTranslations() {
   document.getElementById("page-title").textContent = t("statsPageTitle");
   document.getElementById("page-subtitle").textContent = t("statsPageSubtitle");
   document.getElementById("comune-search").placeholder = t("statsSearchPlaceholder");
+  // Authored, static content from i18n.js (the OpenStreetMap link), not
+  // user- or API-derived - same "nothing to sanitize" reasoning as
+  // aboutBody/creditsBody's own innerHTML assignments below.
+  document.getElementById("stats-data-note").innerHTML = t("statsDataNote");
   renderCoverageNote();
 
+  // Dedicated stats*-prefixed keys, NOT the main site's aboutToggle/
+  // aboutHeading/aboutSubtitle/aboutBody - this page's About references
+  // the main project (link back) and explains what statistics are
+  // computed here; it deliberately doesn't retell the project's own
+  // history, already told on the main site's About.
   document.getElementById("about-toggle").textContent = t("aboutToggle");
-  document.getElementById("about-heading").textContent = t("aboutHeading");
-  document.getElementById("about-subtitle").textContent = t("aboutSubtitle");
+  document.getElementById("about-heading").textContent = t("statsAboutHeading");
+  document.getElementById("about-subtitle").textContent = t("statsAboutSubtitle");
   // aboutBody/faqItems[].a/creditsBody/footerCredit are the only innerHTML
   // assignments here - authored, static content from i18n.js, not user-
   // or API-derived, so there's nothing to sanitize against.
-  document.getElementById("about-body").innerHTML = t("aboutBody");
+  document.getElementById("about-body").innerHTML = t("statsAboutBody");
   document.getElementById("faq-toggle").textContent = t("faqToggle");
   document.getElementById("faq-heading").textContent = t("faqHeading");
   renderFaq();
@@ -599,12 +613,14 @@ function render() {
 
 // --- Peer-comuni clusters (Italia root view only) --------------------
 //
-// scripts/build_comuni_clusters.py groups comuni into 5 size-based peer
-// groups (k-means on log-population/log-superficie) so "best/worst by
-// low_stress_share" is a comparison between genuinely similar comuni
-// instead of a single national ranking Roma would trivially dominate or
-// vanish into. Purely presentational here - all the grouping/ranking
-// already happened in Python; this just renders what's in the file.
+// scripts/build_comuni_clusters.py groups comuni into size-based peer
+// groups - two fixed population tiers ("Grandi città", "Città grandi")
+// plus 5 k-means tiers (on log-population/log-superficie) for everyone
+// smaller - so "best/worst by low_stress_share" is a comparison between
+// genuinely similar comuni instead of a single national ranking Roma
+// would trivially dominate or vanish into. Purely presentational here -
+// all the grouping/ranking already happened in Python; this just renders
+// whatever tiers are in the file (state.clusters.length, not a fixed 5).
 function renderClustersSection(root) {
   if (!state.clusters.length) return;
 

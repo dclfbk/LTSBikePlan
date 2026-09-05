@@ -1,0 +1,30 @@
+[
+  {
+    "q": "Da dove vengono questi dati e ogni quanto vengono aggiornati?",
+    "a": "<p>Le statistiche derivano dallo stesso calcolo LTS (Level of Traffic Stress) usato dalla mappa di <a href=\"../index.html\"><strong>Stress in bici</strong></a>, a sua volta basato sulle caratteristiche stradali descritte su <a href=\"https://www.openstreetmap.org\" target=\"_blank\" rel=\"noopener\">OpenStreetMap</a> - tipo di strada, infrastrutture ciclabili, limiti di velocità, numero di corsie, pendenza del terreno.</p><p>Sono <strong>dati sperimentali</strong>: il rilevamento nazionale è ancora in corso comune per comune (vedi la nota di copertura in cima alla pagina) e i numeri qui vengono ricalcolati periodicamente, non in tempo reale. Una correzione fatta su OpenStreetMap oggi si riflette solo nell'aggiornamento successivo, non immediatamente.</p><p>Se noti un dato mancante, incompleto o poco accurato per una strada, il modo più efficace per migliorarlo è correggerlo direttamente su OpenStreetMap: la correzione beneficerà sia la mappa sia queste statistiche.</p>"
+  },
+  {
+    "q": "Come funziona il raggruppamento dei comuni per tipologia (i \"cluster\")?",
+    "a": "<p>Nella vista Italia, i comuni vengono raggruppati in categorie di dimensione simile (per popolazione e superficie) prima di essere messi a confronto: non avrebbe senso mettere un borgo di poche centinaia di abitanti accanto a una grande città, i due non sono paragonabili.</p><p>Le grandi città (oltre 200.000 abitanti) e le città medio-grandi (tra 50.000 e 200.000 abitanti, la fascia a cui appartengono per esempio Trento o Bolzano) formano due categorie a soglia fissa, scelte a mano perché sono poche e ben riconoscibili. Tutti gli altri comuni - la grande maggioranza - vengono invece suddivisi automaticamente in 5 categorie in base a popolazione e superficie, dai piccoli borghi ai comuni medio-piccoli più estesi.</p><p>All'interno di ogni categoria i comuni sono ordinati per quota di rete a basso stress, così puoi vedere i migliori e i peggiori tra comuni realmente comparabili.</p>"
+  },
+  {
+    "q": "Cosa significa \"quota a basso stress\"?",
+    "a": "<p>È la percentuale di rete stradale ciclabile classificata <strong>LTS 1 o LTS 2</strong> (le due classi meno stressanti) sul totale della rete ciclabile di quell'area. Un valore alto indica un'area dove è possibile spostarsi in bicicletta restando per la maggior parte del tragitto su strade tranquille.</p><p>Non è un giudizio assoluto sulla ciclabilità di un comune: un comune piccolo e con poche strade trafficate può avere una quota molto alta semplicemente perché ha una rete stradale limitata, non necessariamente perché ha investito in infrastrutture ciclabili. Per questo motivo il confronto viene sempre fatto tra comuni di dimensione simile (vedi la domanda sui cluster).</p>"
+  },
+  {
+    "q": "Come vengono scelte le strade indicate come prioritarie per un intervento?",
+    "a": "<p>È lo stesso criterio della funzione <strong>\"Tratti da valutare\"</strong> della mappa principale: vengono segnalati i tratti che combinano un LTS elevato con un ruolo importante nella connettività della rete, cioè i punti dove un intervento avrebbe l'effetto più ampio sulla continuità della rete a basso stress, non necessariamente le strade con l'LTS più alto in assoluto.</p><p>Aprendo il dettaglio di un comune trovi l'elenco delle vie prioritarie con una mappa dedicata: cliccando su una via la mappa si centra su quel tratto specifico.</p>"
+  },
+  {
+    "q": "Posso confrontare due comuni, due province o due regioni tra loro?",
+    "a": "<p>Sì, tramite il tasto di confronto disponibile in ogni vista. Il confronto è sempre tra elementi dello stesso livello - comune con comune, provincia con provincia, regione con regione - non è possibile mescolare livelli diversi, perché altrimenti il confronto perderebbe di significato.</p>"
+  },
+  {
+    "q": "Posso scaricare o riutilizzare questi dati?",
+    "a": "<p>Il codice che produce queste statistiche è pubblico, nello stesso <a href=\"https://github.com/dclfbk/LTSBikePlan\" target=\"_blank\" rel=\"noopener\">repository</a> del progetto <strong>Stress in bici</strong>. I dati derivati da OpenStreetMap sono distribuiti con licenza <a href=\"https://opendatacommons.org/licenses/odbl/summary/\" target=\"_blank\" rel=\"noopener\">ODbL</a>, con attribuzione a <strong>© OpenStreetMap contributors</strong>.</p>"
+  },
+  {
+    "q": "Perché alcuni comuni non hanno ancora statistiche disponibili?",
+    "a": "<p>Il rilevamento copre l'Italia comune per comune ed è tuttora in corso: la nota in cima alla pagina indica quanti comuni, province e regioni sono già disponibili rispetto al totale nazionale. I comuni non ancora elaborati compariranno non appena il rilevamento li raggiungerà.</p>"
+  }
+]

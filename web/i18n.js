@@ -114,6 +114,8 @@ const I18N = {
 <p>OpenStreetMap è collaborativa: se un'informazione è mancante o sbagliata può essere corretta dalla comunità.</p>
 <p><strong>Stress in bici non si aggiorna però in tempo reale.</strong> La mappa viene ricalcolata periodicamente, quindi le modifiche fatte su OpenStreetMap potranno essere recepite negli aggiornamenti successivi.</p>
 <p>I dati derivati da OpenStreetMap sono distribuiti con licenza <a href="https://opendatacommons.org/licenses/odbl/summary/" target="_blank" rel="noopener"><strong>ODbL</strong></a>, con attribuzione a <strong>© OpenStreetMap contributors</strong>.</p>
+<h3>Le statistiche</h3>
+<p>Dagli stessi dati usati per la mappa abbiamo ricavato anche una sezione di <a href="stats/index.html"><strong>statistiche</strong></a>: km di rete a basso e alto stress, priorità di intervento e confronti fra comuni, province e regioni, con la possibilità di raggruppare i comuni per tipologia e dimensione.</p>
 <h3>Da dove nasce il progetto</h3>
 <p><strong>Stress in bici</strong> non nasce da zero.</p>
 <p>Alla base ci sono gli studi sulle <strong>reti ciclabili a basso stress</strong>, tra cui i lavori di <a href="https://peterfurth.sites.northeastern.edu/" target="_blank" rel="noopener"><strong>Peter Furth</strong></a>, e l'esperienza di <a href="https://bikeottawa.ca/" target="_blank" rel="noopener"><strong>BikeOttawa</strong></a>, che ha sviluppato un <a href="https://maps.bikeottawa.ca/lts/" target="_blank" rel="noopener"><strong>modello aperto</strong></a> per classificare le strade utilizzando OpenStreetMap.</p>
@@ -283,6 +285,22 @@ const I18N = {
     statsPageSubtitle: "Esplora la rete ciclabile a bassa e alta tensione (LTS) rilevata in Italia, dal livello nazionale fino al singolo comune.",
     statsCoverageNoteTemplate: (processed, totalComuni, provinceCount, totalProvince, regioniCount, totalRegioni) =>
       `Dati disponibili per ${processed} comuni su ${totalComuni} (${provinceCount}/${totalProvince} province e città metropolitane, ${regioniCount}/${totalRegioni} regioni) - il rilevamento nazionale è in corso, i numeri qui sotto crescono nel tempo.`,
+    statsDataNote: `Dati sperimentali - ultimo aggiornamento: 4 settembre 2026. Le statistiche derivano dal calcolo di <strong>LTS-BikePlan</strong> e dalle caratteristiche stradali descritte su <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>: se noti dati mancanti o poco accurati, puoi contribuire a <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> per migliorarli negli aggiornamenti successivi.`,
+    statsAboutHeading: "Le statistiche",
+    statsAboutSubtitle: "Numeri e confronti sulla rete ciclabile italiana, comune per comune.",
+    statsAboutBody: `<p>Questa pagina fa parte di <a href="../index.html"><strong>Stress in bici</strong></a>, il progetto che classifica le strade italiane in base al livello di stress da traffico (LTS) percepito da chi le percorre in bicicletta. Qui trovi le stesse informazioni della mappa, aggregate in forma di statistiche per confrontare comuni, province e regioni tra loro.</p>
+<h3>Cosa trovi qui</h3>
+<p>Per ogni comune, provincia e regione mostriamo:</p>
+<ul>
+<li>i chilometri di rete stradale per ciascuna classe LTS, dal più tranquillo (LTS 1) al più stressante (LTS 4), oltre ai tratti non ciclabili;</li>
+<li>la <strong>quota di rete a basso stress</strong> (LTS 1-2), un'unica percentuale che sintetizza quanto è tranquilla la rete ciclabile di un'area;</li>
+<li>i chilometri di piste e corsie ciclabili separate dal traffico;</li>
+<li>l'elenco delle strade indicate come prioritarie per un intervento, con lo stesso criterio della funzione "Tratti da valutare" della mappa;</li>
+<li>indicatori normalizzati per densità (km di rete per km²) e per popolazione (km per 1.000 abitanti), così il comune più esteso o più popoloso non è sempre in cima a ogni classifica.</li>
+</ul>
+<h3>Confronti tra comuni simili</h3>
+<p>Nella vista Italia i comuni sono raggruppati per tipologia dimensionale (popolazione e superficie): un piccolo borgo e una grande città non sono comparabili, quindi ogni comune viene messo a confronto solo con i suoi "pari" per dimensione.</p>
+<p>Le statistiche sono <strong>sperimentali</strong> e derivano dallo stesso calcolo LTS descritto sulla pagina principale del progetto, basato sulle caratteristiche stradali di OpenStreetMap. Per i dettagli su affidabilità, metodo di raggruppamento e frequenza di aggiornamento, consulta le <a href="#" class="open-faq-link">FAQ</a> di questa pagina.</p>`,
     statsSearchPlaceholder: "Cerca un comune...",
     statsSearchNoResults: "Nessun comune trovato",
     statsBreadcrumbItalia: "Italia",
@@ -530,6 +548,8 @@ const I18N = {
 <p>And there's an interesting consequence: <strong>if a piece of data in OpenStreetMap is wrong or incomplete, it can be fixed</strong>.</p>
 <p>The map is updated periodically, so an improvement in OSM data can be reflected in later calculations. The quality and completeness of OpenStreetMap are in fact one of the factors that influence the result.</p>
 <p>Data derived from OpenStreetMap is distributed under the <strong>ODbL</strong> licence, with attribution to <strong>&copy; OpenStreetMap contributors</strong>.</p>
+<h3>The statistics</h3>
+<p>The same data behind the map also feeds a dedicated <a href="stats/index.html"><strong>statistics</strong></a> section: low- and high-stress network length, priority intervention points, and comparisons across comuni, provinces and regions, with municipalities grouped by size so the comparisons stay meaningful.</p>
 <h3>What about collisions?</h3>
 <p>A road that's calm to ride isn't automatically a road without collisions.</p>
 <p><strong>LTS and collision rates are two different things.</strong></p>
@@ -694,6 +714,22 @@ const I18N = {
     statsPageSubtitle: "Explore Italy's low- and high-stress (LTS) cycling network, from the national level down to a single municipality.",
     statsCoverageNoteTemplate: (processed, totalComuni, provinceCount, totalProvince, regioniCount, totalRegioni) =>
       `Data available for ${processed} of ${totalComuni} municipalities (${provinceCount}/${totalProvince} provinces and metropolitan cities, ${regioniCount}/${totalRegioni} regions) - the national survey is ongoing, the numbers below grow over time.`,
+    statsDataNote: `Experimental data - last updated: 4 September 2026. These statistics come from <strong>LTS-BikePlan</strong>'s own calculation and from the road characteristics described on <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>: if you notice missing or inaccurate data, you can contribute to <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> to improve it in a future update.`,
+    statsAboutHeading: "The statistics",
+    statsAboutSubtitle: "Numbers and comparisons on the Italian cycling network, municipality by municipality.",
+    statsAboutBody: `<p>This page is part of <a href="../index.html"><strong>Stress in bici</strong></a>, the project that classifies Italian roads by the level of traffic stress (LTS) perceived by people riding them by bike. Here you find the same information as the map, aggregated into statistics so comuni, provinces and regions can be compared with one another.</p>
+<h3>What you'll find here</h3>
+<p>For every comune, province and region we show:</p>
+<ul>
+<li>the length of the road network in each LTS class, from the calmest (LTS 1) to the most demanding (LTS 4), plus the stretches that aren't cycle-accessible at all;</li>
+<li>the <strong>low-stress network share</strong> (LTS 1-2), a single percentage that summarises how calm an area's cycling network is;</li>
+<li>the length of cycle paths and lanes separated from traffic;</li>
+<li>the list of streets flagged as priority intervention points, using the same criteria as the map's own "Segments to evaluate" feature;</li>
+<li>density- and population-normalised indicators (km of network per km², km per 1,000 residents), so the biggest or most populous comune isn't always at the top of every ranking.</li>
+</ul>
+<h3>Comparing similar municipalities</h3>
+<p>In the Italy-wide view, comuni are grouped by size (population and area): a tiny village and a big city aren't comparable, so each comune is only ranked against its size "peers".</p>
+<p>These statistics are <strong>experimental</strong> and come from the same LTS calculation described on the project's main page, based on OpenStreetMap's road characteristics. For details on reliability, the grouping method and how often data is updated, see this page's own <a href="#" class="open-faq-link">FAQ</a>.</p>`,
     statsSearchPlaceholder: "Search a municipality...",
     statsSearchNoResults: "No municipality found",
     statsBreadcrumbItalia: "Italy",
@@ -941,6 +977,8 @@ const I18N = {
 <p>Und daraus ergibt sich eine interessante Konsequenz: <strong>Wenn ein Datum in OpenStreetMap falsch oder unvollständig ist, kann es korrigiert werden</strong>.</p>
 <p>Die Karte wird regelmäßig aktualisiert, sodass sich eine Verbesserung der OSM-Daten in späteren Berechnungen niederschlagen kann. Die Qualität und Vollständigkeit von OpenStreetMap sind tatsächlich einer der Faktoren, die das Ergebnis beeinflussen.</p>
 <p>Die von OpenStreetMap abgeleiteten Daten werden unter der Lizenz <strong>ODbL</strong> mit Namensnennung <strong>&copy; OpenStreetMap contributors</strong> weitergegeben.</p>
+<h3>Die Statistiken</h3>
+<p>Aus denselben Daten, die auch der Karte zugrunde liegen, entsteht eine eigene <a href="stats/index.html"><strong>Statistik-Sektion</strong></a>: Länge des Netzes mit niedrigem und hohem Stress, prioritäre Maßnahmenpunkte und Vergleiche zwischen Gemeinden, Provinzen und Regionen - mit einer Gruppierung der Gemeinden nach Größe, damit die Vergleiche aussagekräftig bleiben.</p>
 <h3>Und die Unfälle?</h3>
 <p>Eine entspannt befahrbare Straße ist nicht automatisch eine Straße ohne Unfälle.</p>
 <p><strong>LTS und Unfallhäufigkeit sind zwei verschiedene Dinge.</strong></p>
@@ -1105,6 +1143,22 @@ const I18N = {
     statsPageSubtitle: "Erkunden Sie das italienische Radnetz nach Stressniveau (LTS), von der nationalen Ebene bis zur einzelnen Gemeinde.",
     statsCoverageNoteTemplate: (processed, totalComuni, provinceCount, totalProvince, regioniCount, totalRegioni) =>
       `Daten verfügbar für ${processed} von ${totalComuni} Gemeinden (${provinceCount}/${totalProvince} Provinzen und Metropolstädte, ${regioniCount}/${totalRegioni} Regionen) - die landesweite Erhebung läuft, die Zahlen unten wachsen mit der Zeit.`,
+    statsDataNote: `Experimentelle Daten - letzte Aktualisierung: 4. September 2026. Diese Statistiken stammen aus der Berechnung von <strong>LTS-BikePlan</strong> und aus den auf <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> beschriebenen Straßenmerkmalen: Wenn Ihnen fehlende oder ungenaue Daten auffallen, können Sie zu <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> beitragen, um sie in einer künftigen Aktualisierung zu verbessern.`,
+    statsAboutHeading: "Die Statistiken",
+    statsAboutSubtitle: "Zahlen und Vergleiche zum italienischen Radnetz, Gemeinde für Gemeinde.",
+    statsAboutBody: `<p>Diese Seite ist Teil von <a href="../index.html"><strong>Stress in bici</strong></a>, dem Projekt, das italienische Straßen nach dem von Radfahrenden wahrgenommenen Verkehrsstressniveau (LTS) einstuft. Hier finden Sie dieselben Informationen wie auf der Karte, aber als Statistiken aufbereitet, um Gemeinden, Provinzen und Regionen miteinander zu vergleichen.</p>
+<h3>Was Sie hier finden</h3>
+<p>Für jede Gemeinde, Provinz und Region zeigen wir:</p>
+<ul>
+<li>die Länge des Straßennetzes je LTS-Klasse, von der ruhigsten (LTS 1) bis zur anspruchsvollsten (LTS 4), sowie die nicht mit dem Rad befahrbaren Abschnitte;</li>
+<li>den <strong>Anteil des Netzes mit niedrigem Stress</strong> (LTS 1-2), eine einzige Prozentzahl, die zusammenfasst, wie ruhig das Radnetz eines Gebiets ist;</li>
+<li>die Länge der vom Verkehr getrennten Radwege und -streifen;</li>
+<li>die Liste der als prioritär markierten Straßen für Maßnahmen, nach demselben Kriterium wie die Funktion "Zu bewertende Abschnitte" der Karte;</li>
+<li>nach Dichte und Bevölkerung normalisierte Kennzahlen (km Netz pro km², km pro 1.000 Einwohner), damit nicht immer die größte oder bevölkerungsreichste Gemeinde jede Rangliste anführt.</li>
+</ul>
+<h3>Vergleiche zwischen ähnlichen Gemeinden</h3>
+<p>In der Italien-Ansicht werden Gemeinden nach Größe gruppiert (Einwohnerzahl und Fläche): ein kleines Dorf und eine Großstadt sind nicht vergleichbar, daher wird jede Gemeinde nur mit ihren Größen-"Peers" verglichen.</p>
+<p>Diese Statistiken sind <strong>experimentell</strong> und stammen aus derselben LTS-Berechnung, die auf der Hauptseite des Projekts beschrieben wird, basierend auf den Straßenmerkmalen von OpenStreetMap. Details zu Zuverlässigkeit, Gruppierungsmethode und Aktualisierungshäufigkeit finden Sie in den <a href="#" class="open-faq-link">FAQ</a> dieser Seite.</p>`,
     statsSearchPlaceholder: "Gemeinde suchen...",
     statsSearchNoResults: "Keine Gemeinde gefunden",
     statsBreadcrumbItalia: "Italien",
@@ -1352,6 +1406,8 @@ const I18N = {
 <p>Et cela a une cons&eacute;quence int&eacute;ressante&nbsp;: <strong>si une donn&eacute;e d'OpenStreetMap est erron&eacute;e ou incompl&egrave;te, elle peut &ecirc;tre corrig&eacute;e</strong>.</p>
 <p>La carte est mise &agrave; jour p&eacute;riodiquement, si bien qu'une am&eacute;lioration des donn&eacute;es OSM peut se r&eacute;percuter sur les calculs suivants. La qualit&eacute; et l'exhaustivit&eacute; d'OpenStreetMap sont d'ailleurs l'un des &eacute;l&eacute;ments qui influencent le r&eacute;sultat.</p>
 <p>Les donn&eacute;es d&eacute;riv&eacute;es d'OpenStreetMap sont distribu&eacute;es sous licence <strong>ODbL</strong>, avec attribution &agrave; <strong>&copy; OpenStreetMap contributors</strong>.</p>
+<h3>Les statistiques</h3>
+<p>Les m&ecirc;mes donn&eacute;es qui alimentent la carte servent aussi &agrave; une section d&eacute;di&eacute;e aux <a href="stats/index.html"><strong>statistiques</strong></a>&nbsp;: kilom&egrave;tres de r&eacute;seau &agrave; faible et fort stress, points d'intervention prioritaires et comparaisons entre communes, provinces et r&eacute;gions, avec un regroupement des communes par taille pour que les comparaisons restent pertinentes.</p>
 <h3>Et les accidents&nbsp;?</h3>
 <p>Une route tranquille &agrave; parcourir n'est pas automatiquement une route sans accidents.</p>
 <p><strong>Le LTS et l'accidentalit&eacute; sont deux choses diff&eacute;rentes.</strong></p>
@@ -1516,6 +1572,22 @@ const I18N = {
     statsPageSubtitle: "Explorez le réseau cyclable italien selon le niveau de stress (LTS), du niveau national jusqu'à la commune.",
     statsCoverageNoteTemplate: (processed, totalComuni, provinceCount, totalProvince, regioniCount, totalRegioni) =>
       `Données disponibles pour ${processed} communes sur ${totalComuni} (${provinceCount}/${totalProvince} provinces et villes métropolitaines, ${regioniCount}/${totalRegioni} régions) - le relevé national est en cours, les chiffres ci-dessous augmentent avec le temps.`,
+    statsDataNote: `Données expérimentales - dernière mise à jour : 4 septembre 2026. Ces statistiques proviennent du calcul de <strong>LTS-BikePlan</strong> et des caractéristiques routières décrites sur <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> : si vous remarquez des données manquantes ou peu précises, vous pouvez contribuer à <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> pour les améliorer lors d'une prochaine mise à jour.`,
+    statsAboutHeading: "Les statistiques",
+    statsAboutSubtitle: "Chiffres et comparaisons sur le réseau cyclable italien, commune par commune.",
+    statsAboutBody: `<p>Cette page fait partie de <a href="../index.html"><strong>Stress in bici</strong></a>, le projet qui classe les routes italiennes selon le niveau de stress lié au trafic (LTS) perçu par les personnes qui les parcourent à vélo. Vous retrouvez ici les mêmes informations que sur la carte, mais agrégées sous forme de statistiques pour comparer communes, provinces et régions entre elles.</p>
+<h3>Ce que vous trouverez ici</h3>
+<p>Pour chaque commune, province et région, nous montrons :</p>
+<ul>
+<li>les kilomètres de réseau routier pour chaque classe LTS, du plus tranquille (LTS 1) au plus stressant (LTS 4), ainsi que les tronçons non accessibles à vélo ;</li>
+<li>la <strong>part du réseau à faible stress</strong> (LTS 1-2), un pourcentage unique qui résume à quel point le réseau cyclable d'une zone est tranquille ;</li>
+<li>les kilomètres de pistes et bandes cyclables séparées du trafic ;</li>
+<li>la liste des rues signalées comme prioritaires pour une intervention, selon le même critère que la fonction "Tronçons à évaluer" de la carte ;</li>
+<li>des indicateurs normalisés par densité (km de réseau par km²) et par population (km pour 1 000 habitants), afin que la commune la plus étendue ou la plus peuplée ne soit pas toujours en tête de chaque classement.</li>
+</ul>
+<h3>Comparer des communes similaires</h3>
+<p>Dans la vue Italie, les communes sont regroupées par taille (population et superficie) : un petit village et une grande ville ne sont pas comparables, chaque commune n'est donc comparée qu'à ses "pairs" de taille similaire.</p>
+<p>Ces statistiques sont <strong>expérimentales</strong> et proviennent du même calcul LTS décrit sur la page principale du projet, basé sur les caractéristiques routières d'OpenStreetMap. Pour les détails sur la fiabilité, la méthode de regroupement et la fréquence de mise à jour, consultez la <a href="#" class="open-faq-link">FAQ</a> de cette page.</p>`,
     statsSearchPlaceholder: "Rechercher une commune...",
     statsSearchNoResults: "Aucune commune trouvée",
     statsBreadcrumbItalia: "Italie",
