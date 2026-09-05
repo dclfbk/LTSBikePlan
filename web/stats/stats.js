@@ -2155,11 +2155,18 @@ function openCompareModal() {
 
   const ltsChart = getChart("chart-compare-lts");
   applyChartOption(ltsChart, {
+    // legend.top:20 used to sit almost directly under the title (default
+    // top ~0, ~13px tall) with no real gap between them - at this
+    // chart's width the 5 LTS legend entries fit on one line, so the two
+    // texts just overlapped outright (reported live: title strikethrough
+    // by the legend). Pushed the legend down and the grid down to match,
+    // with enough clearance left for the legend to wrap to two lines on
+    // a narrower viewport without also colliding with the plot area.
     title: { text: t("statsCompareLtsChartTitle"), left: "center", textStyle: { fontSize: 13 } },
-    grid: { left: 140, right: 40, top: 40, bottom: 20 },
+    grid: { left: 140, right: 40, top: 64, bottom: 20 },
     xAxis: { type: "value", axisLabel: { formatter: (v) => `${v} km` } },
     yAxis: { type: "category", data: rows.map((r) => itemName(r, level)) },
-    legend: { top: 20 },
+    legend: { top: 28 },
     series: ["0", "1", "2", "3", "4"].map((cls) => ({
       name: ltsLabel(cls),
       type: "bar",
