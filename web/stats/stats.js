@@ -532,7 +532,19 @@ function applyChartOption(chart, option, { dataZoom = false } = {}) {
     const categoryCount = (option.yAxis && option.yAxis.data && option.yAxis.data.length) || 0;
     const end = categoryCount > DATAZOOM_VISIBLE_BY_DEFAULT ? (DATAZOOM_VISIBLE_BY_DEFAULT / categoryCount) * 100 : 100;
     merged.dataZoom = [
-      { type: "slider", yAxisIndex: 0, width: 10, right: 8, top: 28, bottom: 8, start: 0, end, showDetail: false },
+      {
+        type: "slider", yAxisIndex: 0, width: 10, right: 8, top: 28, bottom: 8, start: 0, end, showDetail: false,
+        // ECharts' own defaults (a saturated blue track/handle) clash
+        // with the site's muted palette - restyled to the same accent
+        // (#3B4A7A) used for buttons/links/headers elsewhere on this
+        // page, at low opacity for the track so it reads as a scrollbar
+        // rather than another data series.
+        backgroundColor: "#f0f0f0",
+        fillerColor: "rgba(59, 74, 122, 0.18)",
+        borderColor: "#e0e0e0",
+        handleStyle: { color: "#3B4A7A", borderColor: "#3B4A7A" },
+        moveHandleStyle: { color: "#3B4A7A", opacity: 0.6 },
+      },
       { type: "inside", yAxisIndex: 0, start: 0, end },
     ];
   }
