@@ -701,15 +701,28 @@ function renderClusterList(listEl, items, isBest, offset, comuniCount) {
       const rank = isBest ? offset + i + 1 : comuniCount - offset - i;
       const trophy = isBest && rank === 1 ? `<span title="${t("statsClusterTrophyTitle")}">🏆</span> ` : "";
       // Two comuni can both round to "92%" (fmtPercent has no decimals) -
-      // the precise value only shows on hover (native title tooltip, no
-      // extra UI needed) so it's there when someone wonders why a tied-
-      // looking #1 and #2 aren't in the order they expected.
+      // the precise value, PLUS the actual km it represents (not exported
+      // per-cluster-member, so derived from the two fields that are:
+      // total_km * low_stress_share), only shows on hover (native title
+      // tooltip, no extra UI needed) so it's there when someone wonders
+      // why a tied-looking #1 and #2 aren't in the order they expected,
+      // or just wants the absolute km behind the percentage.
       const preciseShare = item.low_stress_share != null ? `${(item.low_stress_share * 100).toFixed(3)}%` : "-";
+      const shareTitle =
+        item.low_stress_share != null && item.total_km != null
+          ? t("statsClusterShareTooltipTemplate")(preciseShare, fmtKm(item.total_km * item.low_stress_share), fmtKm(item.total_km))
+          : preciseShare;
+      // Same idea for the comune name - population/superficie aren't
+      // shown anywhere in this compact row (that's what makes the
+      // cluster comparable at all, see the card's own range note above),
+      // but are one hover away for whoever wants the absolute numbers
+      // behind "this comune, this cluster".
+      const nameTitle = t("statsClusterNameTooltipTemplate")(fmtInt(item.popolazione), fmtKm2(item.superficie_km2));
       return `<li>
         <span class="cluster-item-rank">${rank}</span>
-        <span class="cluster-item-name">${trophy}${item.comune}</span>
+        <span class="cluster-item-name" title="${nameTitle}">${trophy}${item.comune}</span>
         <span class="cluster-item-meta">
-          <span class="cluster-item-provincia" data-idx="${i}">${item.provincia}</span> · <span title="${preciseShare}">${fmtPercent(item.low_stress_share)}</span>
+          <span class="cluster-item-provincia" data-idx="${i}">${item.provincia}</span> · <span title="${shareTitle}">${fmtPercent(item.low_stress_share)}</span>
         </span>
       </li>`;
     })
