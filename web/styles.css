@@ -167,6 +167,38 @@ h1 { font-weight: 700; }
 .routing-disclaimer { font-size: 11px; color: #777; }
 .routing-disclaimer summary { cursor: pointer; color: #3B4A7A; }
 .routing-disclaimer p { margin: 4px 0 0; }
+/* Opt-in "3 alternative routes" checkbox (RoutingControl._altToggle) -
+   off by default, so this row is the only thing that changes for someone
+   who never checks it; see routing-alt-list/route-card below for what
+   appears once it's on. */
+.routing-alt-toggle-row {
+  display: flex; align-items: center; gap: 6px; font-size: 12px; color: #333;
+  cursor: pointer;
+}
+.routing-alt-toggle-row input { margin: 0; width: auto; height: auto; flex: 0 0 auto; }
+.routing-alt-list { display: flex; flex-direction: column; gap: 6px; }
+.routing-alt-list.hidden { display: none; }
+/* One card per computed variant (RoutingControl._renderVariantList) -
+   --route-color is set inline per card from ROUTE_ALT_COLORS (app.js),
+   the same LTS-palette shades used for the map overlay, so the card's
+   left edge/dot match the line the card corresponds to on the map. */
+.route-card {
+  display: flex; gap: 8px; border: 1.5px solid #e4e1d9; border-radius: 6px;
+  padding: 8px; cursor: pointer; background: white; text-align: left;
+}
+.route-card:hover { border-color: var(--route-color); }
+.route-card.selected { border-color: var(--route-color); background: color-mix(in srgb, var(--route-color) 8%, white); }
+.route-card-swatch { width: 4px; border-radius: 2px; background: var(--route-color); flex: none; }
+.route-card-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto; }
+.route-card-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.route-card-label { font-size: 12px; font-weight: 600; color: #222; }
+.stress-pill {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600;
+  padding: 2px 7px 2px 5px; border-radius: 999px; white-space: nowrap; background: #f0f0f0; color: #555;
+}
+.stress-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.route-card-stats { font-size: 11px; color: #555; }
+.route-card-desc { font-size: 10.5px; color: #777; line-height: 1.4; margin: 0; }
 /* Replaces the old "Scegli sulla mappa" buttons: a click on the map
    itself sets whichever of start/end isn't set yet (see
    routingNextPickTarget in app.js) - these rows are just status display,

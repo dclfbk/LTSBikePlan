@@ -933,6 +933,11 @@ let routingHasEverRouted = false; // gates fitBounds to "first route only" - see
 // computed route disappearing "and that's not ok"). Updated in
 // RoutingControl._applyRoute, reset in _clear.
 let lastRouteFeatureCollection = { type: "FeatureCollection", features: [] };
+// Same restore-after-basemap-switch reasoning as lastRouteFeatureCollection
+// above, for the "routing-path-alt" source - only populated while the
+// opt-in "Mostra percorsi alternativi" checkbox is on (RoutingControl's
+// _drawVariantLines), empty otherwise.
+let lastRouteAltFeatureCollection = { type: "FeatureCollection", features: [] };
 let routingControlInstance = null; // set by RoutingControl.onAdd, so the click handler can hand picked points back to the panel
 const routingFileCache = new Map(); // slug -> decodeRoutingGraphBinary() result for <slug>_routing.bin (never caches a failed fetch, so a transient network error can be retried)
 // sorted-slugs key -> mergeRoutingGraphs() result. Populating one ngraph.graph
@@ -1322,6 +1327,11 @@ class RoutingControl {
         <summary>${t("routingDisclaimerSummary")}</summary>
         <p>${t("routingDisclaimerBody")}</p>
       </details>
+      <label class="routing-alt-toggle-row">
+        <input type="checkbox" id="routing-alt-toggle">
+        ${t("routingAltRoutesToggle")}
+      </label>
+      <div id="routing-alt-list" class="routing-alt-list hidden"></div>
       <div id="routing-summary" class="hidden">
         <div id="routing-lts-bar" class="routing-stacked-bar"></div>
         <div class="routing-mini-download">
@@ -1387,6 +1397,24 @@ class RoutingControl {
     this._facilityLegend = this._panel.querySelector("#routing-facility-legend");
     this._elevationChart = this._panel.querySelector("#routing-elevation-chart");
     this._runs = []; // current route's runs (buildRouteRuns) - feeds the 3 download buttons
+    this._altToggle = this._panel.querySelector("#routing-alt-toggle");
+    this._altList = this._panel.querySelector("#routing-alt-list");
+    this._altRoutesEnabled = false; // opt-in, off by default - see the checkbox's own comment in _findRoute
+    this._variants = null; // set by _computeVariants while the checkbox is on
+    this._selectedVariantIndex = 0;
+    // Own "first render only" gate for the variants overlay - deliberately
+    // NOT reusing routingHasEverRouted: toggling the checkbox ON after a
+    // single route is already on screen (the common case - compute a
+    // route, then compare alternatives) finds that flag already true, so
+    // reusing it here would silently skip the fit and potentially leave a
+    // meaningfully different "direct" variant cropped out of view (real
+    // bug, caught via Playwright screenshot testing on a Trento ->
+    // Pergine Valsugana example before this flag existed).
+    this._variantsBoundsFit = false;
+    this._altToggle.addEventListener("change", () => {
+      this._altRoutesEnabled = this._altToggle.checked;
+      if (routingStart && routingEnd) this._findRoute();
+    });
 
     this._clearBtn.addEventListener("click", () => this._clear());
     this._closeBtn.addEventListener("click", () => this._close());
@@ -1617,6 +1645,7 @@ class RoutingControl {
     const marginsDeg = [0.02, 0.08, 0.25];
     let bestPartial = null;
     let bestResult = null;
+    let bestMerged = null; // the {graph, coordByOsmId} that produced bestResult - reused below to compute the opt-in alternative-route variants without any extra fetch
     let bestCost = Infinity;
     for (let i = 0; i < marginsDeg.length; i++) {
       const slugs = candidateComuniForRoute(routingStart, routingEnd, comuniIndexData, marginsDeg[i]);
@@ -1639,23 +1668,41 @@ class RoutingControl {
         if (cost < bestCost) {
           bestCost = cost;
           bestResult = result;
+          bestMerged = merged;
         }
         if (i >= 1) break; // already compared at least two tiers - see comment above
       }
       if (result && result.partial) bestPartial = result;
     }
     if (bestResult) {
-      this._applyRoute(bestResult);
+      if (this._altRoutesEnabled) {
+        // Reuses bestMerged - the same merged graph already fetched above -
+        // so turning this on costs two more in-memory A* searches, no
+        // network I/O (see routing.js's ROUTE_PROFILES and this class's
+        // own _computeVariants).
+        this._variants = this._computeVariants(bestResult, bestMerged);
+        this._selectedVariantIndex = 0;
+        this._variantsBoundsFit = false; // fresh search - see this flag's own comment in onAdd
+        this._selectVariant(0);
+      } else {
+        this._clearVariants();
+        this._applyRoute(bestResult);
+      }
       this._setStatus("");
       return;
     }
     if (bestPartial) {
+      // Alternative routes only make sense for a FULL result - a partial
+      // one already means "this is as far as the cyclable network goes",
+      // not a real choice between 3 ways to get there.
+      this._clearVariants();
       this._applyRoute(bestPartial);
       const lastCoord = bestPartial.feature.geometry.coordinates[bestPartial.feature.geometry.coordinates.length - 1];
       const remainingKm = approxMetersBetween(lastCoord, [routingEnd.lng, routingEnd.lat]) / 1000;
       this._setStatus(t("routingPartialRouteTemplate")(remainingKm.toFixed(1)));
       return;
     }
+    this._clearVariants();
     this._setStatus(t("routingNoRoute"));
   }
 
@@ -1714,6 +1761,120 @@ class RoutingControl {
     // looking current while the new one is still being computed.
     this._estimatedTimeEl.classList.add("hidden");
     this._renderElevationProfile(result.feature, this._runs);
+  }
+
+  // Opt-in "3 alternative routes" feature (routing-alt-toggle). Runs the
+  // two extra ngraph.path searches (routing.js's "balanced"/"direct"
+  // ROUTE_PROFILES) against the SAME merged graph `resultA`/`merged` were
+  // already found on - in-memory only, no extra fetch - and reduces each
+  // to the bits the card list/map overlay need. A profile that finds no
+  // FULL route (rare - e.g. "direct" reaching a dead end the low-stress
+  // search routed around) is kept in the array with `result: null` so its
+  // position/colour stay stable, but _renderVariantList/_drawVariantLines
+  // both skip it.
+  _computeVariants(resultA, merged) {
+    const specs = [
+      { key: "lowStress", color: ROUTE_ALT_COLORS.lowStress, labelKey: "routingVariantLowStressLabel", descKey: "routingVariantLowStressDesc", profile: ROUTE_PROFILES.lowStress, result: resultA },
+      { key: "balanced", color: ROUTE_ALT_COLORS.balanced, labelKey: "routingVariantBalancedLabel", descKey: "routingVariantBalancedDesc", profile: ROUTE_PROFILES.balanced },
+      { key: "direct", color: ROUTE_ALT_COLORS.direct, labelKey: "routingVariantDirectLabel", descKey: "routingVariantDirectDesc", profile: ROUTE_PROFILES.direct },
+    ];
+    return specs.map((spec) => {
+      const result = spec.result || findRoute(routingStart, routingEnd, merged.graph, merged.coordByOsmId, spec.profile);
+      if (!result || result.partial) return { key: spec.key, color: spec.color, labelKey: spec.labelKey, descKey: spec.descKey, result: null };
+      const runs = buildRouteRuns(result.segments, result.feature.geometry.coordinates);
+      const totalKm = runs.reduce((sum, r) => sum + r.lengthM, 0) / 1000;
+      const lowStressKm = runs.filter((r) => r.lts <= 2).reduce((sum, r) => sum + r.lengthM, 0) / 1000;
+      const lowStressPct = totalKm > 0 ? Math.round((lowStressKm / totalKm) * 100) : 0;
+      return { key: spec.key, color: spec.color, labelKey: spec.labelKey, descKey: spec.descKey, result, runs, totalKm, lowStressPct };
+    });
+  }
+
+  _renderVariantList() {
+    this._altList.innerHTML = "";
+    this._variants.forEach((variant, i) => {
+      if (!variant.result) return; // this profile found no full route - see _computeVariants
+      const card = document.createElement("div");
+      card.className = "route-card" + (i === this._selectedVariantIndex ? " selected" : "");
+      card.style.setProperty("--route-color", variant.color);
+      card.innerHTML = `
+        <div class="route-card-swatch"></div>
+        <div class="route-card-body">
+          <div class="route-card-head">
+            <span class="route-card-label">${t(variant.labelKey)}</span>
+            <span class="stress-pill"><span class="stress-dot" style="background:${variant.color}"></span>${t("routingVariantLowStressPillTemplate")(variant.lowStressPct)}</span>
+          </div>
+          <div class="route-card-stats">${variant.totalKm.toFixed(1)} km</div>
+          <p class="route-card-desc">${t(variant.descKey)}</p>
+        </div>
+      `;
+      card.addEventListener("click", () => this._selectVariant(i));
+      this._altList.appendChild(card);
+    });
+    this._altList.classList.remove("hidden");
+  }
+
+  // Selects one of the 3 computed variants: redraws the map overlay
+  // (_drawVariantLines, all 3 shown, this one cased/highlighted) and feeds
+  // its runs through the SAME summary/elevation/download rendering a
+  // single non-variant route uses (_renderRouteSummary/
+  // _renderElevationProfile, this._runs) - a card's "full breakdown" is
+  // exactly today's single-route panel, just fed by whichever variant was
+  // clicked.
+  _selectVariant(i) {
+    const variant = this._variants[i];
+    if (!variant || !variant.result) return;
+    this._selectedVariantIndex = i;
+    this._renderVariantList();
+    this._drawVariantLines();
+    this._runs = variant.runs;
+    this._renderRouteSummary(this._runs);
+    this._updateCompactPanelMaxHeight();
+    this._estimatedTimeEl.classList.add("hidden");
+    this._renderElevationProfile(variant.result.feature, this._runs);
+  }
+
+  // Draws all 3 variants at once (map overlay only - see ROUTE_ALT_COLORS'
+  // own comment for why this is a flat identity colour per route rather
+  // than routing-path-line's per-segment LTS colouring: with 3 routes on
+  // screen at once, "which of the 3 is this" matters more than "which LTS
+  // class is this particular metre"). The single-route "routing-path"
+  // source/summary bar still shows per-segment LTS colour for whichever
+  // one is selected, via _renderRouteSummary/_renderElevationProfile.
+  _drawVariantLines() {
+    const features = this._variants
+      .filter((v) => v.result)
+      .map((v) => ({
+        type: "Feature",
+        properties: { variant: v.key, selected: this._variants.indexOf(v) === this._selectedVariantIndex },
+        geometry: v.result.feature.geometry,
+      }));
+    const featureCollection = { type: "FeatureCollection", features };
+    lastRouteAltFeatureCollection = featureCollection;
+    if (map.getSource("routing-path-alt")) map.getSource("routing-path-alt").setData(featureCollection);
+    if (map.getSource("routing-path")) map.getSource("routing-path").setData(EMPTY_FEATURE_COLLECTION); // per-segment single line hidden while all 3 variants are shown instead
+    lastRouteFeatureCollection = EMPTY_FEATURE_COLLECTION;
+
+    if (!this._variantsBoundsFit) {
+      const bounds = boundsForFeatures(features);
+      if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 60, maxZoom: MAX_MAP_ZOOM });
+      this._variantsBoundsFit = true;
+      routingHasEverRouted = true; // keep the single-route flag in sync too, so toggling back off doesn't immediately re-fit either
+    }
+  }
+
+  // Turns the alternative-routes UI back off: hides the card list, clears
+  // the map overlay, and drops the computed variants - called whenever the
+  // checkbox is unchecked, the route is cleared, or a route is only
+  // partial (see _findRoute). Does NOT touch the checkbox itself - the
+  // user's on/off choice persists across a _clear() within the same
+  // session, only the computed routes are dropped.
+  _clearVariants() {
+    this._variants = null;
+    this._variantsBoundsFit = false;
+    this._altList.innerHTML = "";
+    this._altList.classList.add("hidden");
+    lastRouteAltFeatureCollection = EMPTY_FEATURE_COLLECTION;
+    if (map.getSource("routing-path-alt")) map.getSource("routing-path-alt").setData(EMPTY_FEATURE_COLLECTION);
   }
 
   _renderRouteSummary(runs) {
@@ -1995,6 +2156,7 @@ class RoutingControl {
     if (routingPartialEndMarker) { routingPartialEndMarker.remove(); routingPartialEndMarker = null; }
     lastRouteFeatureCollection = EMPTY_FEATURE_COLLECTION;
     if (map.getSource("routing-path")) map.getSource("routing-path").setData(EMPTY_FEATURE_COLLECTION);
+    this._clearVariants();
     this._runs = [];
     this._summary.classList.add("hidden");
     this._elevationChart.innerHTML = "";
@@ -2107,6 +2269,19 @@ const LTS_FALLBACK_COLOR = "#BDBDBD";
 // palest = LTS 4. Off-map UI (the routing panel's own summary bar) keeps
 // LTS_COLORS instead - no basemap to clash with there.
 const ROUTE_LTS_COLORS = { "1": "#0D47A1", "2": "#1565C0", "3": "#1E88E5", "4": "#90CAF9" };
+
+// Route-IDENTITY colours for the opt-in "3 alternative routes" feature
+// (RoutingControl's routing-alt-toggle) - one flat colour per variant
+// (A/B/C, see routing.js's ROUTE_PROFILES), shown simultaneously on the
+// map so they're comparable at a glance. Reuses LTS_COLORS' own palette
+// shades (not ROUTE_LTS_COLORS' blues, and not arbitrary categorical
+// colours) so the colour itself communicates roughly how stressful each
+// whole route is - "lowStress" = LTS_COLORS["1"], "balanced" =
+// LTS_COLORS["2"], "direct" = LTS_COLORS["3"] - approved design (see
+// three_routes_mockup_v2 in this feature's design review; first draft
+// used unrelated blue/purple/orange-red, changed after explicit feedback
+// to "keep it in the LTS colour language").
+const ROUTE_ALT_COLORS = { lowStress: LTS_COLORS["1"], balanced: LTS_COLORS["2"], direct: LTS_COLORS["3"] };
 
 // Road-type mix bar colours (RoutingControl's summary panel) - 3 new
 // categorical colours, deliberately not green/orange/red (already mean
@@ -2712,6 +2887,46 @@ function addDataLayers() {
           ROUTE_LTS_COLORS["4"],
         ],
         "line-width": 5,
+      },
+    });
+  }
+
+  // The opt-in "3 alternative routes" overlay (RoutingControl's
+  // routing-alt-toggle, see web/routing.js's ROUTE_PROFILES) - own
+  // source/layers, empty whenever the checkbox is off. Two layers, same
+  // "dark casing under a colour" pattern as gap-edge-selected-case/
+  // gap-edge-selected above: a dark case ONLY under the selected variant
+  // (the `filter`) makes it pop out, while the other two variants still
+  // show as thinner, semi-transparent lines in their own identity colour
+  // for comparison. Seeded from lastRouteAltFeatureCollection for the same
+  // basemap-switch-survival reason as "routing-path" above.
+  if (!map.getSource("routing-path-alt")) {
+    map.addSource("routing-path-alt", { type: "geojson", data: lastRouteAltFeatureCollection });
+  }
+  if (!map.getLayer("routing-path-alt-case")) {
+    map.addLayer({
+      id: "routing-path-alt-case",
+      type: "line",
+      source: "routing-path-alt",
+      filter: ["==", ["get", "selected"], true],
+      layout: { "line-join": "round", "line-cap": "round" },
+      paint: { "line-color": "#1A1A1A", "line-width": 9 },
+    });
+  }
+  if (!map.getLayer("routing-path-alt-line")) {
+    map.addLayer({
+      id: "routing-path-alt-line",
+      type: "line",
+      source: "routing-path-alt",
+      layout: { "line-join": "round", "line-cap": "round" },
+      paint: {
+        "line-color": [
+          "match", ["get", "variant"],
+          "lowStress", ROUTE_ALT_COLORS.lowStress, "balanced", ROUTE_ALT_COLORS.balanced, "direct", ROUTE_ALT_COLORS.direct,
+          ROUTE_ALT_COLORS.lowStress,
+        ],
+        "line-width": ["case", ["get", "selected"], 5, 3],
+        "line-opacity": ["case", ["get", "selected"], 1, 0.55],
       },
     });
   }

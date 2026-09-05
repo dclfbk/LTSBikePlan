@@ -79,8 +79,17 @@ const STRESS_RUN_PENALTY = [1.0, 1.0, 1.15, 1.35, 1.6];
 // 1=moderate, 2=severe).
 const SURFACE_FATIGUE_PENALTY = [1.0, 1.3, 1.8];
 
-function edgeCost(lts, lengthM, slopeClassCode, stressRunCode, surfaceClassCode) {
-  const ltsMultiplier = LTS_PENALTY[lts] ?? LTS_PENALTY[4];
+// `profile` (optional) overrides which LTS_PENALTY table applies, or
+// bypasses all four multipliers entirely - see ROUTE_PROFILES below and
+// RoutingControl's "3 alternative routes" opt-in feature (web/app.js).
+// Omitted, edgeCost is exactly the production single-route cost this
+// module always used before that feature existed - every existing call
+// site (findRoute's own default, _totalRouteCost's widen-retry
+// comparison) keeps behaving identically.
+function edgeCost(lts, lengthM, slopeClassCode, stressRunCode, surfaceClassCode, profile) {
+  if (profile && profile.shortest) return lengthM; // "direct" variant: pure distance, ignores LTS/fatigue/stress/surface entirely
+  const ltsTable = (profile && profile.ltsPenalty) || LTS_PENALTY;
+  const ltsMultiplier = ltsTable[lts] ?? ltsTable[4];
   const fatigueMultiplier =
     slopeClassCode !== undefined && slopeClassCode !== UNKNOWN_SLOPE_CLASS_CODE
       ? FATIGUE_PENALTY[slopeClassCode] ?? 1.0
@@ -101,6 +110,43 @@ function edgeCost(lts, lengthM, slopeClassCode, stressRunCode, surfaceClassCode)
 // edge MORE expensive, never cheaper), so this bound stays valid without
 // folding any of them into it too.
 const _MIN_PENALTY = Math.min(...Object.values(LTS_PENALTY));
+
+// Minimum possible per-meter cost under a given profile - same
+// admissibility reasoning as _MIN_PENALTY above, generalized so findRoute's
+// A* heuristic stays valid for every profile below, not just the default.
+function _minPenaltyForProfile(profile) {
+  if (profile && profile.shortest) return 1.0;
+  const ltsTable = (profile && profile.ltsPenalty) || LTS_PENALTY;
+  return Math.min(...Object.values(ltsTable));
+}
+
+// The three cost-function variants behind RoutingControl's opt-in
+// "Mostra percorsi alternativi" checkbox (web/app.js) - approved design,
+// see three_routes_mockup_v2 in this session's scratchpad. Only
+// LTS_PENALTY (and, for "direct", every multiplier) differs between
+// variants; FATIGUE_PENALTY/STRESS_RUN_PENALTY/SURFACE_FATIGUE_PENALTY
+// stay the production values for all three - varying just the traffic-
+// stress axis (and, for "direct", dropping stress entirely) is what
+// produces meaningfully different real routes without re-litigating the
+// fatigue tuning validated separately (see FATIGUE_PENALTY's own comment).
+//
+// "lowStress" has no override (undefined profile = production edgeCost,
+// see that function's own comment) - kept here anyway so callers can
+// address all three uniformly by name.
+const ROUTE_PROFILES = {
+  lowStress: undefined,
+  // Softened LTS gaps (was 1.0/1.2/1.6/3.0) - narrowed the same way
+  // LTS_PENALTY itself was narrowed once already (see that table's own
+  // comment), just further, so a moderately-busy street stops being
+  // avoided at nearly any distance cost the way "lowStress" deliberately
+  // does.
+  balanced: { ltsPenalty: { 1: 1.0, 2: 1.1, 3: 1.3, 4: 1.8 } },
+  // Pure shortest-path: edgeCost above returns lengthM alone, so this is
+  // exactly what Valhalla/OSRM's plain "bicycle, fastest" profile would
+  // find on the same graph - the natural "what if it just ignored stress"
+  // comparison point for the other two.
+  direct: { shortest: true },
+};
 
 // Flat-earth approximation - fine at comune/adjacent-comune scale (a few
 // km at most), not meant for long-haul geodesy.
@@ -281,11 +327,11 @@ function mergeRoutingGraphs(routingFiles) {
 // carriageway) - used to recover which link's {lts, name, ...} a found
 // path segment actually corresponds to, since ngraph.path's result is a
 // list of NODES, not the links between them.
-function _bestLinkBetween(graph, fromId, toId) {
+function _bestLinkBetween(graph, fromId, toId, profile) {
   let best = null;
   let bestCost = Infinity;
   const consider = (link) => {
-    const cost = edgeCost(link.data.lts, link.data.lengthM, link.data.slopeClass, link.data.stressRunCode, link.data.surfaceClass);
+    const cost = edgeCost(link.data.lts, link.data.lengthM, link.data.slopeClass, link.data.stressRunCode, link.data.surfaceClass, profile);
     if (cost < bestCost) {
       bestCost = cost;
       best = link;
@@ -356,11 +402,11 @@ function _nearestReachableNode(graph, fromId, targetLngLat, coordByOsmId) {
 // hands back the node sequence - the {lts, name, ...} data lives on the
 // LINKS between them, recovered per consecutive pair via
 // _bestLinkBetween (same "cheapest wins" rule A* implicitly used).
-function _buildRouteResult(pathNodes, mergedGraph, partial) {
+function _buildRouteResult(pathNodes, mergedGraph, partial, profile) {
   const coordinates = pathNodes.map((node) => node.data);
   const segments = [];
   for (let i = 0; i < pathNodes.length - 1; i++) {
-    const link = _bestLinkBetween(mergedGraph, pathNodes[i].id, pathNodes[i + 1].id);
+    const link = _bestLinkBetween(mergedGraph, pathNodes[i].id, pathNodes[i + 1].id, profile);
     segments.push(
       link
         ? {
@@ -418,21 +464,28 @@ function _buildRouteResult(pathNodes, mergedGraph, partial) {
 // Returns null (not { feature: null, ... }) only when there is truly
 // nothing to show - start and end snap to the same node, or start itself
 // has no reachable neighbours at all - the definitive "no route" signal.
-function findRoute(startLngLat, endLngLat, mergedGraph, coordByOsmId) {
+// `profile` (optional, one of ROUTE_PROFILES' values) selects which cost
+// function A* minimizes - omitted, this is exactly the production
+// low-stress search every existing call site already relies on. Used by
+// RoutingControl to compute the "balanced"/"direct" alternative routes
+// against the SAME merged graph the default search already fetched, no
+// extra network I/O.
+function findRoute(startLngLat, endLngLat, mergedGraph, coordByOsmId, profile) {
   const startId = _nearestNode(startLngLat, coordByOsmId);
   const endId = _nearestNode(endLngLat, coordByOsmId);
   if (startId === null || endId === null || startId === endId) return null;
 
+  const minPenalty = _minPenaltyForProfile(profile);
   const pathFinder = ngraphPath.aStar(mergedGraph, {
-    heuristic: (fromNode, toNode) => approxMetersBetween(fromNode.data, toNode.data) * _MIN_PENALTY,
-    distance: (fromNode, toNode, link) => edgeCost(link.data.lts, link.data.lengthM, link.data.slopeClass, link.data.stressRunCode, link.data.surfaceClass),
+    heuristic: (fromNode, toNode) => approxMetersBetween(fromNode.data, toNode.data) * minPenalty,
+    distance: (fromNode, toNode, link) => edgeCost(link.data.lts, link.data.lengthM, link.data.slopeClass, link.data.stressRunCode, link.data.surfaceClass, profile),
   });
 
   const found = pathFinder.find(startId, endId);
   if (found && found.length >= 2) {
     // ngraph.path returns the path from `toId` back to `fromId` - reverse
     // to get start -> end order for drawing.
-    return _buildRouteResult(found.reverse(), mergedGraph, false);
+    return _buildRouteResult(found.reverse(), mergedGraph, false, profile);
   }
 
   const nearestId = _nearestReachableNode(mergedGraph, startId, endLngLat, coordByOsmId);
@@ -440,5 +493,5 @@ function findRoute(startLngLat, endLngLat, mergedGraph, coordByOsmId) {
 
   const partialFound = pathFinder.find(startId, nearestId);
   if (!partialFound || partialFound.length < 2) return null;
-  return _buildRouteResult(partialFound.reverse(), mergedGraph, true);
+  return _buildRouteResult(partialFound.reverse(), mergedGraph, true, profile);
 }
