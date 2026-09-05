@@ -535,15 +535,23 @@ function applyChartOption(chart, option, { dataZoom = false } = {}) {
       {
         type: "slider", yAxisIndex: 0, width: 10, right: 8, top: 28, bottom: 8, start: 0, end, showDetail: false,
         // ECharts' own defaults (a saturated blue track/handle) clash
-        // with the site's muted palette - restyled to the same accent
-        // (#3B4A7A) used for buttons/links/headers elsewhere on this
-        // page, at low opacity for the track so it reads as a scrollbar
-        // rather than another data series.
-        backgroundColor: "#f0f0f0",
-        fillerColor: "rgba(59, 74, 122, 0.18)",
-        borderColor: "#e0e0e0",
-        handleStyle: { color: "#3B4A7A", borderColor: "#3B4A7A" },
-        moveHandleStyle: { color: "#3B4A7A", opacity: 0.6 },
+        // with the site's muted palette - restyled to solid, distinct
+        // colors instead of a low-opacity accent blend (the blend read
+        // as a muddy grey-purple, not clearly "the site's navy" or
+        // anything else on purpose): navy border/handles matching the
+        // site's own buttons, cream/latte fill for the track so it reads
+        // as a light scrollbar rather than another data series.
+        backgroundColor: "#F5EFE6",
+        fillerColor: "#F5EFE6",
+        borderColor: "#3B4A7A",
+        // opacity:1 explicit on both - ECharts' own default for
+        // moveHandleStyle in particular is a partial opacity (a subtle-
+        // grip look out of the box), which blends this navy down toward
+        // the cream fill underneath and renders as a visibly different,
+        // slightly muddier shade (#404f7d) at the handle's small size -
+        // not a second color anyone chose, just alpha blending.
+        handleStyle: { color: "#3B4A7A", borderColor: "#3B4A7A", opacity: 1 },
+        moveHandleStyle: { color: "#3B4A7A", opacity: 1 },
       },
       { type: "inside", yAxisIndex: 0, start: 0, end },
     ];
