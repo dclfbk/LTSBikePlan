@@ -644,6 +644,17 @@ function renderClustersSection(root) {
   const grid = section.querySelector("#clusters-grid");
   const CLUSTER_PAGE_SIZE = 3;
   state.clusters.forEach((cluster) => {
+    // Defensive against a stale-cache window, not just malformed data:
+    // web/stats/stats.js (short cache, ~5 min) and
+    // italia_comuni_clusters.json (long cache, ~1h) can update at
+    // different times behind Cloudflare - a visitor can genuinely load
+    // new JS against an old cached JSON that predates the "ranking"
+    // field this code expects (confirmed live: exactly this happened
+    // once). Skipping just this one card instead of throwing keeps the
+    // rest of the page - including the other 8 cluster cards - working
+    // during that window, rather than the whole section's fetch .catch
+    // upstream discarding all of state.clusters over one stale entry.
+    if (!Array.isArray(cluster.ranking)) return;
     const card = document.createElement("div");
     card.className = "card-panel";
     // Metropoli/Grandi città/Città grandi are defined by a REAL fixed
