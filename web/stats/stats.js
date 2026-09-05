@@ -347,6 +347,9 @@ function applyStaticTranslations() {
   // aboutBody/creditsBody's own innerHTML assignments below.
   document.getElementById("stats-data-note").innerHTML = t("statsDataNote");
   renderCoverageNote();
+  document.getElementById("dataset-download-title").textContent = t("statsDatasetDownloadTitle");
+  document.getElementById("dataset-download-note").innerHTML = t("statsDatasetDownloadNote");
+  document.getElementById("dataset-download-label").textContent = t("statsDatasetDownloadButton");
 
   // Dedicated stats*-prefixed keys, NOT the main site's aboutToggle/
   // aboutHeading/aboutSubtitle/aboutBody - this page's About references
@@ -1625,6 +1628,8 @@ function renderComuneDetail(root, istatCode) {
     .join("");
   root.appendChild(kpiRow);
 
+  root.appendChild(buildCompareWithControl(comune));
+
   const grid = document.createElement("div");
   grid.className = "charts-grid";
   grid.innerHTML = `
@@ -1824,6 +1829,77 @@ function renderInterventions(panel, data) {
   renderRows();
 }
 
+// --- "Confronta con" (comune detail page) ---------------------------------
+//
+// The direct route into the compare modal from a single comune's own
+// page - approved mockup (see this feature's own design review):
+// https://claude.ai/code/artifact/8cfe4623-986d-4d06-b888-c0adf8f8a9bc.
+// Reuses the exact addToCompare/openCompareModal machinery the
+// checkbox-table compare (setupSort's row checkboxes, elsewhere in this
+// file) already relies on - this is only a friendlier way to reach it
+// than "go back to a list, tick two boxes". Rebuilt fresh on every
+// renderComuneDetail() call (own DOM, not reused across comuni) so
+// `comune` is always the one currently on screen, never a stale closure
+// from a previous drill-down.
+function buildCompareWithControl(comune) {
+  const wrap = document.createElement("div");
+  wrap.className = "compare-with-row";
+  wrap.innerHTML = `
+    <label class="compare-with-label" for="compare-with-input">${t("statsCompareWithLabel")}</label>
+    <div class="compare-with-input-wrap">
+      <input type="text" id="compare-with-input" autocomplete="off" placeholder="${t("statsSearchPlaceholder")}">
+      <div class="compare-with-results hidden"></div>
+    </div>
+  `;
+  const input = wrap.querySelector("#compare-with-input");
+  const results = wrap.querySelector(".compare-with-results");
+
+  const pickComune = (other) => {
+    addToCompare("comune", comune.istat_code, comune.comune, comune);
+    addToCompare("comune", other.istat_code, other.comune, other);
+    input.value = "";
+    results.classList.add("hidden");
+    openCompareModal();
+  };
+
+  input.addEventListener("input", () => {
+    const q = input.value.trim().toLowerCase();
+    if (q.length < 2) {
+      results.classList.add("hidden");
+      return;
+    }
+    const matches = state.comuni
+      .filter((c) => c.istat_code !== comune.istat_code && c.comune.toLowerCase().includes(q))
+      .slice(0, 8);
+    if (!matches.length) {
+      results.innerHTML = `<div class="compare-with-empty">${t("statsSearchNoResults")}</div>`;
+      results.classList.remove("hidden");
+      return;
+    }
+    results.innerHTML = matches
+      .map((c, i) => `<div data-idx="${i}"><strong>${c.comune}</strong> <span class="sr-meta">${c.provincia} · ${c.regione}</span></div>`)
+      .join("");
+    results.classList.remove("hidden");
+    results.querySelectorAll("div[data-idx]").forEach((div) => {
+      div.addEventListener("click", () => pickComune(matches[Number(div.dataset.idx)]));
+    });
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const first = results.querySelector("div[data-idx]");
+    if (first) first.click();
+  });
+  // blur-with-delay, not a document-level click listener: this control
+  // is rebuilt on every comune drill-down (unlike setupSearch's, which
+  // is wired once at page load) - a document listener added here would
+  // accumulate a new one per visit and never get removed.
+  input.addEventListener("blur", () => {
+    window.setTimeout(() => results.classList.add("hidden"), 150);
+  });
+
+  return wrap;
+}
+
 // --- Search box ----------------------------------------------------------
 
 function setupSearch() {
@@ -1975,7 +2051,20 @@ function openCompareModal() {
   const level = state.compare.level;
   document.getElementById("compare-modal-title").textContent = t("statsCompareModalTitleTemplate")(compareLevelLabel());
   const body = document.getElementById("compare-modal-body");
+  // KPI table first, charts below - same fields as #kpi-row on a
+  // comune's own page (present at regione/provincia level too, see
+  // scripts/build_regional_stats.py's own SUMMARY_FIELDS), so the raw
+  // numbers are readable before anyone has to interpret a bar.
   body.innerHTML = `
+    <table id="compare-kpi-table">
+      <thead><tr><th></th>${rows.map((r) => `<th>${itemName(r, level)}</th>`).join("")}</tr></thead>
+      <tbody>
+        <tr><td>${t("statsKpiPopolazione")}</td>${rows.map((r) => `<td>${fmtInt(r.popolazione)}</td>`).join("")}</tr>
+        <tr><td>${t("statsKpiSuperficie")}</td>${rows.map((r) => `<td>${fmtKm2(r.superficie_km2)}</td>`).join("")}</tr>
+        <tr><td>${t("statsKpiKmRete")}</td>${rows.map((r) => `<td>${fmtKm(r.total_km)}</td>`).join("")}</tr>
+        <tr><td>${t("statsKpiKmPrioritario")}</td>${rows.map((r) => `<td>${fmtKm(r.priority_intervention_km)}</td>`).join("")}</tr>
+      </tbody>
+    </table>
     <div id="chart-compare-share" class="chart-box" style="height:${Math.max(160, rows.length * 34)}px"></div>
     <div id="chart-compare-lts" class="chart-box" style="height:${Math.max(160, rows.length * 34)}px;margin-top:20px"></div>
   `;

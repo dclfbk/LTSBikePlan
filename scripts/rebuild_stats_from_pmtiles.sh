@@ -92,13 +92,13 @@ fi
 DATA_DIR="${1:-${LTSBP_DATA_DIR:-$REPO_ROOT/data}}"
 log "Using data_dir: $DATA_DIR"
 
-log "Step 1/4: rebuilding web/data/italia_comuni_stats.json..."
+log "Step 1/5: rebuilding web/data/italia_comuni_stats.json..."
 run_low_priority python3 scripts/build_comuni_stats.py "$DATA_DIR"
 
-log "Step 2/4: rebuilding web/data/italia_{provincia,regione}_stats.json..."
+log "Step 2/5: rebuilding web/data/italia_{provincia,regione}_stats.json..."
 run_low_priority python3 scripts/build_regional_stats.py "$DATA_DIR"
 
-log "Step 3/4: rebuilding web/data/interventions/*.json..."
+log "Step 3/5: rebuilding web/data/interventions/*.json..."
 run_low_priority python3 scripts/build_comuni_interventions.py "$DATA_DIR"
 
 # Reads italia_comuni_stats.json (step 1's output) rather than pmtiles
@@ -107,8 +107,14 @@ run_low_priority python3 scripts/build_comuni_interventions.py "$DATA_DIR"
 # state. No data_dir argument: paths are fixed relative to the repo root
 # (web/data/italia_comuni_stats.json in, web/data/italia_comuni_clusters.json
 # out) - see the script's own module docstring.
-log "Step 4/4: rebuilding web/data/italia_comuni_clusters.json..."
+log "Step 4/5: rebuilding web/data/italia_comuni_clusters.json..."
 run_low_priority python3 scripts/build_comuni_clusters.py
+
+# Same "reads step 1's output, no pmtiles/data_dir involved" reasoning as
+# step 4 - the stats page's own "Scarica il dataset completo" button
+# (web/stats/index.html) downloads this zip directly.
+log "Step 5/5: rebuilding web/data/italia_comuni_stats.csv.zip..."
+run_low_priority python3 scripts/build_comuni_stats_csv.py
 
 log "Done."
 python3 - <<'PY'

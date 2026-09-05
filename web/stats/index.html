@@ -70,6 +70,35 @@
   #search-results .sr-meta { color: #888; font-size: 11px; }
   .hidden { display: none !important; }
 
+  /* "Confronta con" on a comune's own detail page (stats.js's
+     buildCompareWithControl) - same look as #search-wrap/#search-results
+     above, just narrower and inline next to its own label, since it
+     lives among the KPI cards rather than at the top of the page. */
+  .compare-with-row { display: flex; align-items: center; gap: 8px; margin: -6px 0 16px; flex-wrap: wrap; }
+  .compare-with-label { font-size: 12px; font-weight: 600; color: #555; white-space: nowrap; }
+  .compare-with-input-wrap { position: relative; flex: 1 1 220px; max-width: 320px; }
+  #compare-with-input {
+    width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; padding: 6px 9px;
+    border: 1px solid #ccc; border-radius: 6px;
+  }
+  .compare-with-results {
+    position: absolute; top: 100%; left: 0; right: 0; background: white;
+    border: 1px solid #ccc; border-top: none; border-radius: 0 0 6px 6px;
+    max-height: 240px; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 15;
+  }
+  .compare-with-results div { padding: 7px 10px; cursor: pointer; }
+  .compare-with-results div:hover { background: #eaf1fa; }
+  .compare-with-empty { color: #888; cursor: default !important; }
+
+  /* KPI-side-by-side table at the top of the compare modal (stats.js's
+     openCompareModal) - sits above the two existing bar charts, same
+     idea as #kpi-row's cards but tabular since it's now N columns (one
+     per compared item) instead of one. */
+  #compare-kpi-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 4px; }
+  #compare-kpi-table th, #compare-kpi-table td { padding: 5px 8px; text-align: right; border-bottom: 1px solid #eee; }
+  #compare-kpi-table th:first-child, #compare-kpi-table td:first-child { text-align: left; color: #555; }
+  #compare-kpi-table thead th { font-size: 10.5px; text-transform: uppercase; letter-spacing: .02em; color: #888; font-weight: 600; }
+
   #breadcrumb { margin: 0 0 14px; font-size: 14px; }
   #breadcrumb button {
     font: inherit; background: none; border: none; color: #3B4A7A; cursor: pointer;
@@ -81,7 +110,19 @@
   .card-panel { background: white; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); padding: 14px 16px; margin-bottom: 16px; }
   .card-panel h2 { font-size: 15px; margin: 0 0 4px; }
   .card-panel .chart-note { color: #777; font-size: 11px; margin: 0 0 8px; }
+  .card-panel .chart-note a { color: #3B4A7A; }
   .chart-box { width: 100%; }
+
+  /* Full-dataset download (stats.js's applyStaticTranslations) - own
+     accent-filled button, not .nav-link, since it's the one real call
+     to action on this card rather than chrome/navigation. */
+  #dataset-download { margin-top: 28px; }
+  .download-button {
+    display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 13px; font-weight: 700;
+    padding: 8px 16px; border-radius: 6px; background: #3B4A7A; color: white; text-decoration: none;
+  }
+  .download-button:hover { background: #2f3c63; }
+  .download-button::before { content: "⬇"; }
   /* !important throughout: echarts sets an inline `position: relative`
      on this same element (both at init AND again on every chart.resize()
      call - confirmed by testing, not just at mount time), which would
@@ -376,6 +417,14 @@
   <nav id="breadcrumb"></nav>
 
   <div id="view-root"></div>
+
+  <div class="card-panel" id="dataset-download">
+    <h2 id="dataset-download-title"></h2>
+    <p class="chart-note" id="dataset-download-note"></p>
+    <a id="dataset-download-link" class="download-button" href="../data/italia_comuni_stats.csv.zip" download>
+      <span id="dataset-download-label"></span>
+    </a>
+  </div>
 </main>
 
 <div id="compare-tray" class="hidden">
