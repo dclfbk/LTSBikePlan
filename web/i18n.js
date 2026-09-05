@@ -285,7 +285,7 @@ const I18N = {
     statsPageSubtitle: "Esplora la rete ciclabile a bassa e alta tensione (LTS) rilevata in Italia, dal livello nazionale fino al singolo comune.",
     statsCoverageNoteTemplate: (processed, totalComuni, provinceCount, totalProvince, regioniCount, totalRegioni) =>
       `Dati disponibili per ${processed} comuni su ${totalComuni} (${provinceCount}/${totalProvince} province e città metropolitane, ${regioniCount}/${totalRegioni} regioni) - il rilevamento nazionale è in corso, i numeri qui sotto crescono nel tempo.`,
-    statsDataNote: `Dati sperimentali - ultimo aggiornamento: 4 settembre 2026. Le statistiche derivano dal calcolo di <strong>LTS-BikePlan</strong> e dalle caratteristiche stradali descritte su <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>: se noti dati mancanti o poco accurati, puoi contribuire a <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> per migliorarli negli aggiornamenti successivi.`,
+    statsDataNote: `Dati sperimentali - ultimo aggiornamento: 4 settembre 2026. Le statistiche derivano dal calcolo di <strong>LTS-BikePlan</strong> e dalle caratteristiche stradali descritte su <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>: se noti dati mancanti o poco accurati, puoi contribuire a <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> per migliorarli negli aggiornamenti successivi. I dati demografici (popolazione) provengono da <strong>ISTAT</strong> e sono aggiornati al 2026.`,
     statsAboutHeading: "Le statistiche",
     statsAboutSubtitle: "Numeri e confronti sulla rete ciclabile italiana, comune per comune.",
     statsAboutBody: `<p>Questa pagina fa parte di <a href="../index.html"><strong>Stress in bici</strong></a>, il progetto che classifica le strade italiane in base al livello di stress da traffico (LTS) percepito da chi le percorre in bicicletta. Qui trovi le stesse informazioni della mappa, aggregate in forma di statistiche per confrontare comuni, province e regioni tra loro.</p>
@@ -347,7 +347,6 @@ const I18N = {
     statsKpiIsole: "Isole a basso stress",
     statsKpiIsoleHelp: "Un gruppo di strade a basso stress (LTS 1-2) collegate fra loro, ma raggiungibile dal resto della rete comoda solo attraversando un tratto più stressante (LTS 3-4). Più isole ci sono, più la rete a basso stress è frammentata invece che continua.",
     statsComuneLtsTitle: "Composizione km per classe LTS",
-    statsComuneExcludedTitle: "Km esclusi dal calcolo, per motivo",
     statsInterventionsTitle: "Vie con interventi prioritari",
     statsInterventionsLoading: "Caricamento in corso...",
     statsInterventionsUnavailable: "Dati non disponibili per questo comune.",
@@ -714,7 +713,7 @@ const I18N = {
     statsPageSubtitle: "Explore Italy's low- and high-stress (LTS) cycling network, from the national level down to a single municipality.",
     statsCoverageNoteTemplate: (processed, totalComuni, provinceCount, totalProvince, regioniCount, totalRegioni) =>
       `Data available for ${processed} of ${totalComuni} municipalities (${provinceCount}/${totalProvince} provinces and metropolitan cities, ${regioniCount}/${totalRegioni} regions) - the national survey is ongoing, the numbers below grow over time.`,
-    statsDataNote: `Experimental data - last updated: 4 September 2026. These statistics come from <strong>LTS-BikePlan</strong>'s own calculation and from the road characteristics described on <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>: if you notice missing or inaccurate data, you can contribute to <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> to improve it in a future update.`,
+    statsDataNote: `Experimental data - last updated: 4 September 2026. These statistics come from <strong>LTS-BikePlan</strong>'s own calculation and from the road characteristics described on <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>: if you notice missing or inaccurate data, you can contribute to <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> to improve it in a future update. Population data comes from <strong>ISTAT</strong> and is current as of 2026.`,
     statsAboutHeading: "The statistics",
     statsAboutSubtitle: "Numbers and comparisons on the Italian cycling network, municipality by municipality.",
     statsAboutBody: `<p>This page is part of <a href="../index.html"><strong>Stress in bici</strong></a>, the project that classifies Italian roads by the level of traffic stress (LTS) perceived by people riding them by bike. Here you find the same information as the map, aggregated into statistics so comuni, provinces and regions can be compared with one another.</p>
@@ -776,7 +775,6 @@ const I18N = {
     statsKpiIsole: "Low-stress islands",
     statsKpiIsoleHelp: "A group of low-stress streets (LTS 1-2) connected to each other, but reachable from the rest of the comfortable network only by crossing a more stressful stretch (LTS 3-4). The more islands there are, the more fragmented the low-stress network is, rather than continuous.",
     statsComuneLtsTitle: "Km composition by LTS class",
-    statsComuneExcludedTitle: "Km excluded from the calculation, by reason",
     statsInterventionsTitle: "Streets needing priority intervention",
     statsInterventionsLoading: "Loading...",
     statsInterventionsUnavailable: "Data not available for this municipality.",
@@ -1143,7 +1141,7 @@ const I18N = {
     statsPageSubtitle: "Erkunden Sie das italienische Radnetz nach Stressniveau (LTS), von der nationalen Ebene bis zur einzelnen Gemeinde.",
     statsCoverageNoteTemplate: (processed, totalComuni, provinceCount, totalProvince, regioniCount, totalRegioni) =>
       `Daten verfügbar für ${processed} von ${totalComuni} Gemeinden (${provinceCount}/${totalProvince} Provinzen und Metropolstädte, ${regioniCount}/${totalRegioni} Regionen) - die landesweite Erhebung läuft, die Zahlen unten wachsen mit der Zeit.`,
-    statsDataNote: `Experimentelle Daten - letzte Aktualisierung: 4. September 2026. Diese Statistiken stammen aus der Berechnung von <strong>LTS-BikePlan</strong> und aus den auf <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> beschriebenen Straßenmerkmalen: Wenn Ihnen fehlende oder ungenaue Daten auffallen, können Sie zu <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> beitragen, um sie in einer künftigen Aktualisierung zu verbessern.`,
+    statsDataNote: `Experimentelle Daten - letzte Aktualisierung: 4. September 2026. Diese Statistiken stammen aus der Berechnung von <strong>LTS-BikePlan</strong> und aus den auf <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> beschriebenen Straßenmerkmalen: Wenn Ihnen fehlende oder ungenaue Daten auffallen, können Sie zu <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> beitragen, um sie in einer künftigen Aktualisierung zu verbessern. Die Bevölkerungsdaten stammen von <strong>ISTAT</strong> und sind auf dem Stand von 2026.`,
     statsAboutHeading: "Die Statistiken",
     statsAboutSubtitle: "Zahlen und Vergleiche zum italienischen Radnetz, Gemeinde für Gemeinde.",
     statsAboutBody: `<p>Diese Seite ist Teil von <a href="../index.html"><strong>Stress in bici</strong></a>, dem Projekt, das italienische Straßen nach dem von Radfahrenden wahrgenommenen Verkehrsstressniveau (LTS) einstuft. Hier finden Sie dieselben Informationen wie auf der Karte, aber als Statistiken aufbereitet, um Gemeinden, Provinzen und Regionen miteinander zu vergleichen.</p>
@@ -1205,7 +1203,6 @@ const I18N = {
     statsKpiIsole: "Inseln mit niedrigem Stress",
     statsKpiIsoleHelp: "Eine Gruppe von Straßen mit niedrigem Stress (LTS 1-2), die untereinander verbunden sind, aber vom Rest des komfortablen Netzes nur durch Überqueren eines stressigeren Abschnitts (LTS 3-4) erreichbar sind. Je mehr Inseln es gibt, desto fragmentierter ist das Netz mit niedrigem Stress, statt durchgängig.",
     statsComuneLtsTitle: "Km-Zusammensetzung nach LTS-Klasse",
-    statsComuneExcludedTitle: "Von der Berechnung ausgeschlossene Km, nach Grund",
     statsInterventionsTitle: "Straßen mit prioritärem Handlungsbedarf",
     statsInterventionsLoading: "Wird geladen...",
     statsInterventionsUnavailable: "Für diese Gemeinde sind keine Daten verfügbar.",
@@ -1572,7 +1569,7 @@ const I18N = {
     statsPageSubtitle: "Explorez le réseau cyclable italien selon le niveau de stress (LTS), du niveau national jusqu'à la commune.",
     statsCoverageNoteTemplate: (processed, totalComuni, provinceCount, totalProvince, regioniCount, totalRegioni) =>
       `Données disponibles pour ${processed} communes sur ${totalComuni} (${provinceCount}/${totalProvince} provinces et villes métropolitaines, ${regioniCount}/${totalRegioni} régions) - le relevé national est en cours, les chiffres ci-dessous augmentent avec le temps.`,
-    statsDataNote: `Données expérimentales - dernière mise à jour : 4 septembre 2026. Ces statistiques proviennent du calcul de <strong>LTS-BikePlan</strong> et des caractéristiques routières décrites sur <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> : si vous remarquez des données manquantes ou peu précises, vous pouvez contribuer à <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> pour les améliorer lors d'une prochaine mise à jour.`,
+    statsDataNote: `Données expérimentales - dernière mise à jour : 4 septembre 2026. Ces statistiques proviennent du calcul de <strong>LTS-BikePlan</strong> et des caractéristiques routières décrites sur <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> : si vous remarquez des données manquantes ou peu précises, vous pouvez contribuer à <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> pour les améliorer lors d'une prochaine mise à jour. Les données démographiques proviennent de l'<strong>ISTAT</strong> et sont à jour au 2026.`,
     statsAboutHeading: "Les statistiques",
     statsAboutSubtitle: "Chiffres et comparaisons sur le réseau cyclable italien, commune par commune.",
     statsAboutBody: `<p>Cette page fait partie de <a href="../index.html"><strong>Stress in bici</strong></a>, le projet qui classe les routes italiennes selon le niveau de stress lié au trafic (LTS) perçu par les personnes qui les parcourent à vélo. Vous retrouvez ici les mêmes informations que sur la carte, mais agrégées sous forme de statistiques pour comparer communes, provinces et régions entre elles.</p>
@@ -1634,7 +1631,6 @@ const I18N = {
     statsKpiIsole: "Îlots à faible stress",
     statsKpiIsoleHelp: "Un groupe de rues à faible stress (LTS 1-2) reliées entre elles, mais accessible depuis le reste du réseau confortable seulement en traversant un tronçon plus stressant (LTS 3-4). Plus il y a d'îlots, plus le réseau à faible stress est fragmenté au lieu d'être continu.",
     statsComuneLtsTitle: "Composition des km par classe LTS",
-    statsComuneExcludedTitle: "Km exclus du calcul, par motif",
     statsInterventionsTitle: "Rues nécessitant une intervention prioritaire",
     statsInterventionsLoading: "Chargement en cours...",
     statsInterventionsUnavailable: "Données non disponibles pour cette commune.",

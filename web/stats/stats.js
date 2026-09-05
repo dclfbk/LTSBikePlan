@@ -1620,7 +1620,8 @@ function renderComuneDetail(root, istatCode) {
       <div id="chart-comune-lts" class="chart-box" style="height:230px"></div>
     </div>
     <div class="card-panel">
-      <h2>${t("statsComuneExcludedTitle")}</h2>
+      <h2>${t("statsChartExcludedTitle")}</h2>
+      <p class="chart-note">${t("statsChartExcludedNote")}</p>
       <div id="chart-comune-excluded" class="chart-box" style="height:230px"></div>
     </div>
   `;

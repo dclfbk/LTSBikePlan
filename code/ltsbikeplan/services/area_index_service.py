@@ -169,12 +169,38 @@ def compute_comuni_superficie_km2(cache_dir: str) -> dict:
     computing area - verified against Trento's real-world ~157.9 km²: this
     gives ~159.7 km² (~1% off, OSM boundary precision vs. cadastral -
     acceptable for a comparison-page indicator, not survey-grade).
+
+    18 comuni (small islands - Capri, Procida, Ponza, Ventotene, Isole
+    Tremiti - plus a handful of others: Campione d'Italia, Claviere,
+    Vajont, Brunate, Blello, Solza, Miagliano, Sueglio, Pero, Calceranica
+    al Lago, Cavizzana, Samone, San Paolo Bel Sito) have a properties
+    entry in this same topojson (AreaResolver.resolve() can find them by
+    name/istat just fine, which is how they were already extracted and
+    processed - see NOT the same problem) but GDAL's topojson driver
+    decodes no usable geometry for them here, for reasons never tracked
+    down (degenerate/dropped arcs at this topojson's simplification
+    level, unrelated to OSM extraction). comuni_superficie_patch.json
+    fills in exactly those 18 codes, computed once (2026-09) from ISTAT's
+    own confini amministrativi geojson (PRO_COM_T field = istat code),
+    same EPSG:3035-area method as above - see build_comuni_clusters.py's
+    git history for the one-off extraction command if this ever needs
+    redoing for a newly-discovered gap (ogr2ogr with a `-where "PRO_COM_T
+    IN (...)"` filter against the full national confini file is enough,
+    no need to load the ~300MB file into Python).
     """
     import geopandas as gpd
 
+    from ltsbikeplan.assets import asset_path
     from ltsbikeplan.domain.crs import WORKING_CRS
 
     resolver = AreaResolver(cache_dir)
     path = resolver.ensure_cached("comune")
     gdf = gpd.read_file(path).set_crs("EPSG:4326").to_crs(WORKING_CRS)
-    return {row["istat"]: round(row.geometry.area / 1_000_000, 3) for _, row in gdf.iterrows()}
+    superficie = {row["istat"]: round(row.geometry.area / 1_000_000, 3) for _, row in gdf.iterrows()}
+
+    with open(asset_path("comuni_superficie_patch.json")) as file_handle:
+        patch = json.load(file_handle)
+    for istat_code, superficie_km2 in patch.items():
+        superficie.setdefault(istat_code, superficie_km2)
+
+    return superficie
