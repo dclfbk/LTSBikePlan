@@ -5,7 +5,21 @@ cluster's members by low_stress_share - so the stats page can show
 ranking, where a small hill town and Roma are never actually comparable.
 Written for a new section on the stats page's Italia root view: one
 card per cluster, its 3 best (low_stress_share) and 3 worst, top best
-one getting a "premio" badge in the UI (web/stats/stats.js).
+one getting a "premio" badge in the UI (web/stats/stats.js), with an
+up/down pager to page further into the ranking from either end.
+
+Exports each cluster's FULL ranking (every member's istat_code, best to
+worst), not just a top/bottom-N slice - a user paging inward from both
+ends hit a real gap in the middle once a cluster ran past a fixed cap
+(e.g. rank 43 of 123 in "Città grandi" was neither near the top nor the
+bottom, and simply wasn't in the exported data at all - not a rendering
+bug, the data plainly didn't reach that far). Journalists (this page's
+actual target audience for this section) want a browsable ranking, not
+just extremes. Exporting istat_code alone (not the full comune/
+provincia/popolazione/... row) keeps this cheap: web/stats/stats.js
+already has every comune's full row loaded from italia_comuni_stats.json
+for the rest of the page, so the ranking here is just a lightweight
+lookup key into that, not a second copy of the same data.
 
 Four-stage grouping, not a single 5-way k-means:
 1. A fixed population threshold (METROPOLI_MIN_POPOLAZIONE) carves out an
@@ -135,13 +149,6 @@ CITTA_GRANDI_MIN_POPOLAZIONE = 50_000
 CITTA_GRANDI_LABEL = "Città grandi"
 
 K_MEANS_CLUSTERS = 6
-# Exported per side (best/worst), not just the 3 actually shown at once -
-# the stats page pages through these in blocks of 3 via up/down arrows
-# rather than only ever offering the fixed top-3/bottom-3. Capped well
-# below a cluster's full member count (some clusters run to ~1900
-# comuni) since the point is "browse a bit further into the ranking",
-# not ship the entire national dataset through this one JSON file.
-TOP_N = 30
 
 # Ordered largest-population-median first (for the k-means tier, i.e.
 # excluding Metropoli/Grandi città/Città grandi above) - together with
@@ -168,23 +175,6 @@ CLUSTER_LABELS = [
     "Piccoli borghi",
 ]
 
-SUMMARY_FIELDS = [
-    "istat_code",
-    "comune",
-    "provincia",
-    "regione",
-    "popolazione",
-    "superficie_km2",
-    "total_km",
-    "low_stress_share",
-    "priority_intervention_km",
-]
-
-
-def _summarize(record: dict) -> dict:
-    return {field: record.get(field) for field in SUMMARY_FIELDS}
-
-
 def _cluster_output(
     label: str,
     members: list,
@@ -209,10 +199,21 @@ def _cluster_output(
         "popolazione_p75": round(float(np.percentile(population, 75))),
         "popolazione_soglia_min": popolazione_soglia_min,
         "popolazione_soglia_max": popolazione_soglia_max,
-        "superficie_p25": round(float(np.percentile(superficie, 25)), 1),
-        "superficie_p75": round(float(np.percentile(superficie, 75)), 1),
-        "top": [_summarize(r) for r in members[:TOP_N]],
-        "bottom": [_summarize(r) for r in members[-TOP_N:][::-1]],
+        # Whole km², not round(x, 1) - a value that happens to land on a
+        # whole number (56.0) prints as "56" once this JSON round-trips
+        # through JS (no trailing ".0" in JS's default number->string),
+        # while its neighbour (234.5) keeps a decimal - the same range
+        # then reads as "56-234.5", inconsistent precision on the two
+        # ends of one range for no real reason (km² doesn't need
+        # fractional precision at this scale anyway).
+        "superficie_p25": round(float(np.percentile(superficie, 25))),
+        "superficie_p75": round(float(np.percentile(superficie, 75))),
+        # Full ranking, best to worst, istat_code only - see module
+        # docstring for why this replaced a top/bottom-30 cap: it's the
+        # join key into italia_comuni_stats.json's own already-loaded
+        # rows (web/stats/stats.js's state.comuniByIstat), not a second
+        # copy of comune/provincia/popolazione/... for every member.
+        "ranking": [r["istat_code"] for r in members],
     }
 
 

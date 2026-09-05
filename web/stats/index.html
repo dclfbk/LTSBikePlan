@@ -321,12 +321,20 @@
   .cluster-list { list-style: none; margin: 0; padding: 0; transition: opacity 0.15s ease; }
   .cluster-list.cluster-list-updating { opacity: 0.25; transition: none; }
   .cluster-list li {
-    display: flex; justify-content: space-between; gap: 8px; padding: 5px 4px;
+    display: flex; gap: 8px; padding: 5px 4px;
     border-bottom: 1px solid #f0f0f0; cursor: pointer; font-size: 12.5px;
   }
   .cluster-list li:hover { background: #f7f9fc; }
   .cluster-item-rank { color: #999; font-size: 11px; flex: none; min-width: 1.2em; }
-  .cluster-item-name { font-weight: 600; color: #3B4A7A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* No justify-content:space-between on the <li> above (removed) - it
+     pushed rank+name flush left and provincia/% flush right, leaving a
+     big empty gap in between on any short name/short comune combo, which
+     read as "the text is floating in the middle of the row" rather than
+     a left-aligned list. min-width:0 keeps the ellipsis actually able to
+     kick in for a long name (a flex item's default min-width:auto, i.e.
+     its own unwrapped text width, would otherwise override
+     white-space:nowrap + overflow:hidden and never let it shrink). */
+  .cluster-item-name { font-weight: 600; color: #3B4A7A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
   .cluster-item-meta { color: #777; white-space: nowrap; flex: none; }
   .cluster-item-provincia:hover { text-decoration: underline; color: #3B4A7A; }
 

@@ -169,6 +169,11 @@ Promise.all([
     state.regioni = regioni;
     state.province = province;
     state.comuni = comuni;
+    // O(1) istat_code -> full comune row lookup - italia_comuni_clusters.json's
+    // own "ranking" arrays (build_comuni_clusters.py) are istat_code-only,
+    // deliberately not a second copy of every comune's data already
+    // sitting in `comuni` above.
+    state.comuniByIstat = new Map(comuni.map((c) => [c.istat_code, c]));
     state.clusters = clusters;
     init();
   })
@@ -679,14 +684,26 @@ function renderClustersSection(root) {
     grid.appendChild(card);
 
     // Both columns page together (one shared offset), in blocks of
-    // CLUSTER_PAGE_SIZE, further into the same top/bottom-sorted lists
-    // build_comuni_clusters.py already exports (up to TOP_N members deep
-    // on each side) - not just the fixed top-3/bottom-3 shown before.
+    // CLUSTER_PAGE_SIZE, into the SAME full ranking (cluster.ranking,
+    // best to worst) from opposite ends - top slides down from rank 1,
+    // bottom slides up from the last rank, meeting in the middle instead
+    // of stopping at a fixed top/bottom-30 cap. That cap used to leave a
+    // real gap: a comune outside the top/bottom 30 (e.g. rank 43 of 123)
+    // wasn't reachable by paging at all, not a rendering bug - the data
+    // simply didn't go that far. Journalists browsing the full ranking
+    // want exactly this "keep pressing to reach any rank" behaviour.
     const topList = card.querySelector('[data-kind="top"]');
     const bottomList = card.querySelector('[data-kind="bottom"]');
     const upBtn = card.querySelector('.cluster-pager button[data-dir="-1"]');
     const downBtn = card.querySelector('.cluster-pager button[data-dir="1"]');
-    const maxOffset = Math.max(0, cluster.top.length - CLUSTER_PAGE_SIZE);
+    const total = cluster.ranking.length;
+    // Stops exactly where top and bottom would otherwise start repeating
+    // or crossing the same ranks (top's last rank offset+SIZE meeting
+    // bottom's first rank total-offset-SIZE+1 around the midpoint) -
+    // for an odd total/SIZE combination the two can leave a 1-rank gap
+    // exactly in the middle rather than a perfect handoff, a cosmetic
+    // rounding case not worth special-casing.
+    const maxOffset = Math.max(0, Math.floor(total / 2) - CLUSTER_PAGE_SIZE);
     let offset = 0;
     // The rank/name/% swap instantly on click - correct, but with no
     // motion or highlight at all it read as "nothing happened" (reported
@@ -697,8 +714,10 @@ function renderClustersSection(root) {
     // fit "jump to the next block of 3" anyway.
     function renderPage() {
       [topList, bottomList].forEach((el) => el.classList.add("cluster-list-updating"));
-      renderClusterList(topList, cluster.top.slice(offset, offset + CLUSTER_PAGE_SIZE), true, offset, cluster.comuni_count);
-      renderClusterList(bottomList, cluster.bottom.slice(offset, offset + CLUSTER_PAGE_SIZE), false, offset, cluster.comuni_count);
+      const topCodes = cluster.ranking.slice(offset, offset + CLUSTER_PAGE_SIZE);
+      const bottomCodes = cluster.ranking.slice(Math.max(0, total - offset - CLUSTER_PAGE_SIZE), total - offset).reverse();
+      renderClusterList(topList, topCodes, true, offset, total);
+      renderClusterList(bottomList, bottomCodes, false, offset, total);
       upBtn.disabled = offset <= 0;
       downBtn.disabled = offset >= maxOffset;
       requestAnimationFrame(() => {
@@ -717,7 +736,12 @@ function renderClustersSection(root) {
   });
 }
 
-function renderClusterList(listEl, items, isBest, offset, comuniCount) {
+function renderClusterList(listEl, istatCodes, isBest, offset, comuniCount) {
+  // cluster.ranking (build_comuni_clusters.py) is istat_code-only - the
+  // full comune row (comune/provincia/popolazione/...) it's a lookup key
+  // into is already loaded on this page, see state.comuniByIstat's own
+  // comment.
+  const items = istatCodes.map((code) => state.comuniByIstat.get(code)).filter(Boolean);
   listEl.innerHTML = items
     .map((item, i) => {
       // The "top" list is already sorted best-first, so its position in
