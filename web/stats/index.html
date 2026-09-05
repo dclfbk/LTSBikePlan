@@ -240,6 +240,12 @@
 
   .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+  /* 9 size-typology cards (scripts/build_comuni_clusters.py) - 3x3
+     reads cleaner than charts-grid's default 2 columns (which leaves an
+     odd card dangling on its own row for an odd-count grid). */
+  #clusters-grid { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 1200px) { #clusters-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 700px) { #clusters-grid { grid-template-columns: 1fr; } }
 
   #filters-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 10px; }
   #filters-row input[type="text"] { font: inherit; padding: 5px 6px; border: 1px solid #ccc; border-radius: 4px; min-width: 200px; }

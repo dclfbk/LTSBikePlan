@@ -7,12 +7,14 @@ Written for a new section on the stats page's Italia root view: one
 card per cluster, its 3 best (low_stress_share) and 3 worst, top best
 one getting a "premio" badge in the UI (web/stats/stats.js).
 
-Three-stage grouping, not a single 5-way k-means:
-1. A fixed population threshold (GRANDI_CITTA_MIN_POPOLAZIONE) carves out
-   an explicit "Grandi città" tier first.
-2. A second fixed threshold (CITTA_GRANDI_MIN_POPOLAZIONE) carves out a
-   "Città grandi" tier just below it.
-3. K-MEANS_CLUSTERS on log(popolazione)/log(superficie_km2) (z-scored)
+Four-stage grouping, not a single 5-way k-means:
+1. A fixed population threshold (METROPOLI_MIN_POPOLAZIONE) carves out an
+   explicit "Metropoli" tier first.
+2. A second fixed threshold (GRANDI_CITTA_MIN_POPOLAZIONE) carves out a
+   "Grandi città" tier just below it.
+3. A third fixed threshold (CITTA_GRANDI_MIN_POPOLAZIONE) carves out a
+   "Città grandi" tier just below that.
+4. K-MEANS_CLUSTERS on log(popolazione)/log(superficie_km2) (z-scored)
    for everyone else, giving the size typology among "normal" comuni.
 
 Why not a single k-means over everyone (the first version of this
@@ -43,6 +45,19 @@ before. Fixed the same way: a second hand-picked threshold
 (CITTA_GRANDI_MIN_POPOLAZIONE) carves that range out as its own tier
 before k-means ever sees it, so a mid-size city gets compared against
 real peers instead of against every small town in the country.
+
+And the dilution's OPPOSITE - one tier being too COARSE rather than
+diluted - showed up in the fixed "Grandi città" tier itself: a flat
+>=200k threshold with no further split put Roma (2.75M) in the same
+bucket as Catania (297k, ~9x smaller) or Padova (208k, ~13x smaller).
+There's no k-means fix for this one either (same reason as before - too
+few comuni to cluster meaningfully), so it's the same manual-threshold
+treatment one level up: METROPOLI_MIN_POPOLAZIONE carves out the
+handful of true metropoli (Roma/Milano/Napoli/Torino/Palermo/Genova)
+from the rest of "Grandi città" (Bologna down to Padova/Trieste),
+splitting at 500k - chosen because it falls in the real gap between
+Genova (566k) and Bologna (391k), so no comune sits ambiguously close
+to the line.
 
 Clusters on log(popolazione) and log(superficie_km2) ONLY, z-scored -
 not also density or km-of-network, which are largely DERIVED from these
@@ -97,10 +112,18 @@ import os
 import numpy as np
 from sklearn.cluster import KMeans
 
-# ~15 Italian comuni are above this (Roma down to Brescia, 201k) -
-# matches common-sense "le grandi città" rather than anything derived
-# from the data itself. See module docstring for why this tier is a
-# fixed threshold and not a k-means cluster like the rest.
+# The 6 true Italian metropoli (Roma, Milano, Napoli, Torino, Palermo,
+# Genova) - see the module docstring's "opposite of dilution" comment for
+# why this got carved out of "Grandi città" instead of leaving that tier
+# a single flat >=200k bucket spanning a ~13x population range.
+METROPOLI_MIN_POPOLAZIONE = 500_000
+METROPOLI_LABEL = "Metropoli"
+
+# ~15 Italian comuni are above this (Roma down to Brescia, 201k), of
+# which METROPOLI_MIN_POPOLAZIONE above carves off the top 6 - matches
+# common-sense "le grandi città" rather than anything derived from the
+# data itself. See module docstring for why this tier is a fixed
+# threshold and not a k-means cluster like the rest.
 GRANDI_CITTA_MIN_POPOLAZIONE = 200_000
 GRANDI_CITTA_LABEL = "Grandi città"
 
@@ -121,10 +144,10 @@ K_MEANS_CLUSTERS = 6
 TOP_N = 30
 
 # Ordered largest-population-median first (for the k-means tier, i.e.
-# excluding Grandi città/Città grandi above) - together with those 2
-# fixed tiers, 8 cluster cards total. If K_MEANS_CLUSTERS changes, this
-# needs matching entries - and re-verifying against real per-rank
-# area/density numbers, see the CAUTION in the module docstring.
+# excluding Metropoli/Grandi città/Città grandi above) - together with
+# those 3 fixed tiers, 9 cluster cards total. If K_MEANS_CLUSTERS
+# changes, this needs matching entries - and re-verifying against real
+# per-rank area/density numbers, see the CAUTION in the module docstring.
 #
 # Checked empirically against the actual 6-way split (not assumed from
 # the previous 5-way one, which had "estesi"/"compatti" in the opposite
@@ -196,19 +219,30 @@ def main() -> None:
     skipped = len(comuni) - len(valid)
     print(f"Clustering {len(valid)} comuni (skipped {skipped} missing popolazione/superficie/low_stress_share/provincia/regione)")
 
-    grandi_citta = [r for r in valid if r["popolazione"] >= GRANDI_CITTA_MIN_POPOLAZIONE]
+    metropoli = [r for r in valid if r["popolazione"] >= METROPOLI_MIN_POPOLAZIONE]
+    grandi_citta = [
+        r for r in valid
+        if GRANDI_CITTA_MIN_POPOLAZIONE <= r["popolazione"] < METROPOLI_MIN_POPOLAZIONE
+    ]
     citta_grandi = [
         r for r in valid
         if CITTA_GRANDI_MIN_POPOLAZIONE <= r["popolazione"] < GRANDI_CITTA_MIN_POPOLAZIONE
     ]
     rest = [r for r in valid if r["popolazione"] < CITTA_GRANDI_MIN_POPOLAZIONE]
     print(
-        f"  {len(grandi_citta)} in 'Grandi città' (>= {GRANDI_CITTA_MIN_POPOLAZIONE:,} ab.), "
+        f"  {len(metropoli)} in 'Metropoli' (>= {METROPOLI_MIN_POPOLAZIONE:,} ab.), "
+        f"{len(grandi_citta)} in 'Grandi città' ({GRANDI_CITTA_MIN_POPOLAZIONE:,}-{METROPOLI_MIN_POPOLAZIONE:,} ab.), "
         f"{len(citta_grandi)} in 'Città grandi' ({CITTA_GRANDI_MIN_POPOLAZIONE:,}-{GRANDI_CITTA_MIN_POPOLAZIONE:,} ab.), "
         f"{len(rest)} for k-means"
     )
 
     clusters_out = [
+        _cluster_output(
+            METROPOLI_LABEL,
+            metropoli,
+            np.array([r["popolazione"] for r in metropoli], dtype=float),
+            np.array([r["superficie_km2"] for r in metropoli], dtype=float),
+        ),
         _cluster_output(
             GRANDI_CITTA_LABEL,
             grandi_citta,
