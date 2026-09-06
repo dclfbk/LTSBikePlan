@@ -32,8 +32,8 @@
     "a": "<p>No.</p>\n<p>L'algoritmo non decide quale intervento realizzare.</p>\n<p>Segnala un tratto che <strong>merita attenzione</strong> per il suo livello di stress e per il ruolo che svolge nella rete.</p>\n<p>Capire se sia necessario intervenire e come farlo richiede poi una valutazione sul posto, dati aggiuntivi e competenze di pianificazione e progettazione.</p>"
   },
   {
-    "q": "Perché una strada con LTS 4 potrebbe non comparire tra i \"Tratti da valutare\"?",
-    "a": "<p>Perché avere un LTS elevato è solo una parte del problema.</p>\n<p>Una strada con LTS 4 può avere un ruolo marginale nella rete, mentre un tratto con LTS 3 può essere un passaggio fondamentale per collegare due grandi aree a basso stress.</p>\n<p>Per questo vengono considerate insieme <strong>caratteristiche della strada e struttura della rete</strong>.</p>"
+    "q": "Perché una strada con LTS 4 potrebbe non comparire tra i \"Tratti da valutare\", e perché quelle che ci sono restano colorate come alto stress sulla mappa?",
+    "a": "<p>Perché avere un LTS elevato è solo una parte del problema.</p>\n<p>Un tratto entra tra i \"Tratti da valutare\" solo se, oltre a essere ad alto stress (LTS 3 o 4), collega due zone altrimenti servite da una rete a basso stress: è quindi il collo di bottiglia che ne interrompe la continuità. Sulla mappa il tratto continua a essere colorato in base al suo LTS, come qualunque altra strada - l'etichetta \"da valutare\" descrive in più il suo ruolo nella rete, non un livello di stress diverso.</p>\n<p>Una strada con LTS 4 può avere un ruolo marginale nella rete e non comparire nell'elenco, mentre un tratto con LTS 3 può essere un passaggio fondamentale per collegare due grandi aree a basso stress e comparire come prioritario.</p>\n<p>Per questo vengono considerate insieme <strong>caratteristiche della strada e struttura della rete</strong>.</p>"
   },
   {
     "q": "Gli incidenti vengono usati per calcolare l'LTS?",

@@ -180,7 +180,7 @@ const I18N = {
     footerCredit: `Un progetto di <a href="https://github.com/napo" target="_blank" rel="noopener">Maurizio Napolitano</a> e <a href="https://leoventuroso.github.io/" target="_blank" rel="noopener">Leonardo Venturoso</a>`,
     footerHosting: "Si ringrazia TOP-IX per l'hosting",
     gapHeading: "Tratti da valutare",
-    gapHint: "Elenco dei tratti ad alto stress che interrompono la rete a basso stress, ordinati dal più critico e da quanto quella via è importante per attraversare la zona. Clicca una via per evidenziarla ed andarci. Si aggiorna in base a quello che vedi sulla mappa.",
+    gapHint: "Elenco dei tratti ad alto stress (LTS 3-4) che fanno da collo di bottiglia tra due zone servite da una rete a basso stress: metterli in sicurezza ricucirebbe quella rete. Ordinati dal più critico, in base a LTS e a quanto quella via è importante per attraversare la zona. Clicca una via per evidenziarla ed andarci. Si aggiorna in base a quello che vedi sulla mappa.",
     gapEmpty: "Nessun tratto da valutare nella vista corrente - sposta o allontana la mappa.",
     gapZoomHint: "Aumenta lo zoom per vedere i tratti da valutare in quest'area.",
     gapUrgency: { "4": "Intervento prioritario", "3": "Da valutare" },
