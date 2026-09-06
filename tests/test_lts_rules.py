@@ -346,8 +346,10 @@ class TestLtsRules(unittest.TestCase):
     def test_slope_penalty_increases_lts_for_hard_long_urban_edge(self):
         edges = pd.DataFrame(
             {
+                "osmid": ["w1"],
                 "context": ["urban"],
                 "slope_class": ["8-10: hard"],
+                "slope": [9.0],
                 "length": [700.0],
                 "lts": [2],
             }
@@ -363,8 +365,10 @@ class TestLtsRules(unittest.TestCase):
         # is noise, not a real climb, so no penalty should apply at all.
         edges = pd.DataFrame(
             {
+                "osmid": ["w2"],
                 "context": ["urban"],
                 "slope_class": ["8-10: hard"],
+                "slope": [9.0],
                 "length": [18.0],
                 "lts": [3],
             }
@@ -377,8 +381,10 @@ class TestLtsRules(unittest.TestCase):
         # had NO length floor at all (always +1 minimum, even at 2m).
         edges = pd.DataFrame(
             {
+                "osmid": ["w3"],
                 "context": ["rural"],
                 "slope_class": [">20: impossible"],
+                "slope": [25.0],
                 "length": [8.0],
                 "lts": [3],
             }
@@ -389,8 +395,10 @@ class TestLtsRules(unittest.TestCase):
     def test_slope_penalty_still_applies_to_long_extreme_rural_edge(self):
         edges = pd.DataFrame(
             {
+                "osmid": ["w4"],
                 "context": ["rural"],
                 "slope_class": [">20: impossible"],
+                "slope": [25.0],
                 "length": [600.0],
                 "lts": [2],
             }
@@ -405,14 +413,49 @@ class TestLtsRules(unittest.TestCase):
         # bumped into the 1-4 rideable scale the way a real edge would.
         edges = pd.DataFrame(
             {
+                "osmid": ["w5"],
                 "context": ["urban"],
                 "slope_class": ["10-20: extreme"],
+                "slope": [15.0],
                 "length": [700.0],
                 "lts": [0],
             }
         )
         updated = BikePathAnalysis.slope_penalty(edges)
         self.assertEqual(int(updated.iloc[0]["lts"]), 0)
+
+    def test_slope_penalty_combines_short_fragments_sharing_an_osmid(self):
+        # Regression for the real bug reported on OSM way 50240143
+        # (Arenzano): a ~503m/~12% grade tertiary road that osmnx splits
+        # into short fragments at every driveway/footway/steps crossing,
+        # each individually under MIN_RELIABLE_SLOPE_LENGTH_M so none used
+        # to qualify for a slope penalty even though the whole way does.
+        edges = pd.DataFrame(
+            {
+                "osmid": [50240143, 50240143, 50240143],
+                "context": ["urban", "urban", "urban"],
+                "slope_class": ["8-10: hard", "8-10: hard", "8-10: hard"],
+                "slope": [9.0, 9.0, 9.0],
+                "length": [200.0, 150.0, 160.0],
+                "lts": [2, 2, 2],
+            }
+        )
+        updated = BikePathAnalysis.slope_penalty(edges)
+        self.assertTrue((updated["lts"] == 4).all())
+
+    def test_slope_penalty_leaves_fragments_below_combined_threshold_alone(self):
+        edges = pd.DataFrame(
+            {
+                "osmid": [999, 999],
+                "context": ["urban", "urban"],
+                "slope_class": ["8-10: hard", "8-10: hard"],
+                "slope": [9.0, 9.0],
+                "length": [100.0, 150.0],
+                "lts": [2, 2],
+            }
+        )
+        updated = BikePathAnalysis.slope_penalty(edges)
+        self.assertTrue((updated["lts"] == 2).all())
 
     def test_surface_penalty_severe_adds_one_regardless_of_length(self):
         # Flat +1 for severe surfaces, any length - losing traction on

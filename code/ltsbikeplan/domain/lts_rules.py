@@ -605,41 +605,88 @@ class BikePathAnalysis:
         # what let a noisy 8m-long reading through).
         MIN_RELIABLE_SLOPE_LENGTH_M = 500
 
-        def length_is_reliable(row):
-            return not np.isnan(row["length"]) and row["length"] >= MIN_RELIABLE_SLOPE_LENGTH_M
+        if edges.empty:
+            return edges
 
-        def adjust_lts(row):
+        # osmnx splits a single OSM way into one graph edge per node it
+        # touches - including nodes that only exist because a driveway,
+        # footway or flight of steps crosses it, not just real branching
+        # intersections. A long, genuinely steep way can end up as a dozen+
+        # short fragments, each individually under
+        # MIN_RELIABLE_SLOPE_LENGTH_M, so no fragment ever qualified for a
+        # slope penalty even though the whole way clearly should have
+        # (reported live: OSM way 50240143 in Arenzano, a ~503m/~12% grade
+        # tertiary road split into ~15 fragments of 2.7-112m, none reaching
+        # 500m - some fragments read very high/noisy slope values, but
+        # every one was individually "unreliable"). Reliability is
+        # therefore judged on the summed length of every fragment sharing
+        # the same osmid, and the grade on their length-weighted mean
+        # (equivalent to total elevation change / total length) - not on
+        # each fragment in isolation. Same osmid normalization as
+        # pipeline/compute_lts.py's later `_flatten_tag`: a rare merged
+        # edge (multiple original ways collapsed into one by osmnx's graph
+        # simplification) can carry `osmid` as a list - the first value
+        # stands in as the group key there too.
+        def _osmid_key(value):
+            return value[0] if isinstance(value, list) and value else value
+
+        osmid_key = edges["osmid"].map(_osmid_key)
+        group_length = edges["length"].groupby(osmid_key).transform("sum")
+
+        # The weighted mean is taken only over fragments with a known
+        # slope (DEM sampling can fail per-fragment, e.g. a nodata pixel),
+        # so one NaN fragment doesn't silently drag down the group average
+        # - if every fragment in a group lacks slope data, group_slope
+        # comes out NaN and the group gets no penalty, same "don't
+        # penalize missing data" convention as elsewhere in this file.
+        slope_known = edges["slope"].notna()
+        known_length = edges["length"].where(slope_known, 0)
+        known_length_sum = known_length.groupby(osmid_key).transform("sum")
+        weighted_rise_sum = (edges["slope"] * known_length).groupby(osmid_key).transform("sum")
+        with np.errstate(invalid="ignore"):
+            group_slope = weighted_rise_sum / known_length_sum
+        group_slope = group_slope.where(known_length_sum > 0)
+        group_slope_class = pd.cut(
+            group_slope,
+            bins=[0, 3, 5, 8, 10, 20, np.inf],
+            # Same bin edges/labels as services/slope_strategies.py's
+            # _SLOPE_CLASS_BINS/_SLOPE_CLASS_LABELS (which produce the
+            # per-fragment `slope_class` this replaces for the reliability
+            # decision) - duplicated rather than imported to avoid a
+            # domain -> services dependency; keep the two in sync.
+            labels=["0-3: flat", "3-5: mild", "5-8: medium", "8-10: hard", "10-20: extreme", ">20: impossible"],
+            right=False,
+        )
+        group_reliable = group_length >= MIN_RELIABLE_SLOPE_LENGTH_M
+
+        def adjust_lts(lts, context, slope_class, reliable):
             # Same "don't touch an excluded edge" guard as surface_penalty's
             # `rideable = original_lts >= 1`: lts=0 here isn't a real comfort
             # score to escalate, it's "not applicable" (motorway, bicycle=no,
             # an s9 mountain trail too hard to ride, steps without a ramp) -
             # if bikes can't go there at all, slope doesn't matter and the
             # calculation is skipped entirely rather than run and capped.
-            if row["lts"] < 1:
-                return row["lts"]
-            if row["context"] == "urban":
-                if row["slope_class"] in ["0-3: flat", "3-5: mild"]:
-                    return row["lts"]
-                if row["slope_class"] == "5-8: medium":
-                    if length_is_reliable(row):
-                        return min(row["lts"] + 1, 4)
-                    return row["lts"]
-                if row["slope_class"] == "8-10: hard":
-                    if length_is_reliable(row):
-                        return min(row["lts"] + 2, 4)
-                    return row["lts"]
-                if row["slope_class"] in ["10-20: extreme", ">20: impossible"]:
-                    if length_is_reliable(row):
-                        return min(row["lts"] + 2, 4)
-                    return row["lts"]
-                return row["lts"]
-            if row["slope_class"] in ["8-10: hard", "10-20: extreme", ">20: impossible"]:
-                if length_is_reliable(row):
-                    return min(row["lts"] + 2, 4)
-                return row["lts"]
-            return row["lts"]
+            if lts < 1:
+                return lts
+            if context == "urban":
+                if slope_class in ["0-3: flat", "3-5: mild"]:
+                    return lts
+                if slope_class == "5-8: medium":
+                    return min(lts + 1, 4) if reliable else lts
+                if slope_class in ["8-10: hard", "10-20: extreme", ">20: impossible"]:
+                    return min(lts + 2, 4) if reliable else lts
+                return lts
+            if slope_class in ["8-10: hard", "10-20: extreme", ">20: impossible"]:
+                return min(lts + 2, 4) if reliable else lts
+            return lts
 
-        edges["lts"] = edges.apply(adjust_lts, axis=1)
+        edges = edges.copy()
+        edges["lts"] = [
+            adjust_lts(lts, context, slope_class, reliable)
+            for lts, context, slope_class, reliable in zip(
+                edges["lts"], edges["context"], group_slope_class, group_reliable
+            )
+        ]
         return edges
 
     @staticmethod

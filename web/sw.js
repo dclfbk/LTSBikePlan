@@ -28,7 +28,7 @@
 // browser's own HTTP cache exactly as it did with no service worker at
 // all - correctness over an offline map layer for now.
 
-const SHELL_VERSION = "shell-v1";
+const SHELL_VERSION = "shell-v2";
 const DATA_CACHE = "data-v1";
 
 const SHELL_ASSETS = [

@@ -2,7 +2,7 @@
 // static site to code/pyproject.toml's own `version`, so it's a plain
 // literal here that has to be bumped by hand alongside that file's own
 // bump, not derived automatically.
-const APP_VERSION = "3.0.0";
+const APP_VERSION = "3.0.1";
 
 // Below this zoom, individual streets are too close together on screen to
 // click reliably, and the point of a click is to inspect ONE street - a
