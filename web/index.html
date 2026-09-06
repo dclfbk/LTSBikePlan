@@ -3,10 +3,30 @@
 <head>
 <meta charset="utf-8" />
 <title>Stress in bici</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<!-- Basemap style (styles.maptoolkit.org, app.js's BASEMAP_STYLES) loads
+     immediately on every visit, so a real preconnect (DNS+TCP+TLS) is
+     worth it. Nominatim/mapterhorn (geocoder search, terrain toggle) only
+     fire on user interaction and may never happen in a given visit - just
+     dns-prefetch for those, cheap enough to always pay but without
+     holding open a connection nobody uses. -->
+<link rel="preconnect" href="https://styles.maptoolkit.org" crossorigin />
+<link rel="dns-prefetch" href="https://tiles.mapterhorn.com" />
+<link rel="dns-prefetch" href="https://nominatim.openstreetmap.org" />
 <!-- Same LTS-1 face design as the legend/popup indicators (ltsFaceIcon()
      below) - teal circle, calm smile - rather than a generic icon. -->
 <link rel="icon" href="favicon.ico" sizes="any" />
+<!-- PWA installability (manifest.json + sw.js, registered at the bottom
+     of body below). apple-touch-icon is separate from manifest.json's own
+     icons array because iOS's "Add to Home Screen" reads this tag, not
+     the manifest - and needs a PNG, not the SVG favicon above, since not
+     every iOS version rasterizes SVG for it. theme-color matches the logo
+     circle's own #3B4A7A, tints the browser chrome/task switcher to match
+     rather than leaving it default white/black. -->
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
+<meta name="theme-color" content="#3B4A7A" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
 
 <!-- SEO + social preview. web/ is served as the site root, so
      social-preview.png sits at the same level as index.html both here and
@@ -208,5 +228,18 @@
   </div>
 </div>
 <script src="app.js" defer></script>
+<!-- Registered on window load (not inline at parse time) so it can never
+     compete with app.js/the map's own startup fetches for bandwidth/
+     priority - the app is fully usable without this ever running, it
+     only makes a REPEAT visit faster. Feature-detected: older browsers
+     without serviceWorker support just skip it and behave exactly as
+     before this was added. -->
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js");
+  });
+}
+</script>
 </body>
 </html>

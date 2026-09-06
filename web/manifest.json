@@ -1,0 +1,15 @@
+{
+  "name": "Stress in bici",
+  "short_name": "Stress in bici",
+  "description": "Mappa delle strade italiane vista dalla prospettiva di chi le percorre in bicicletta, classificate per livello di stress da traffico (LTS).",
+  "lang": "it",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3B4A7A",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

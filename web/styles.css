@@ -38,10 +38,18 @@ h1 { font-weight: 700; }
 #map-container { position: relative; flex: 1 1 auto; min-height: 0; }
 #map { width: 100%; height: 100%; }
 
+/* padding-{bottom,left,right} pad OUT from the base 6px/16px with
+   env(safe-area-inset-*) (0 on any device without a notch/home-indicator,
+   e.g. desktop or an older phone - the fallback in each env() covers
+   browsers without safe-area support at all) so the credit/hosting-logo
+   row isn't obscured by an iPhone home-indicator or a landscape notch.
+   Needs viewport-fit=cover on index.html's own viewport meta - without
+   it these env() values are always 0 regardless of device. */
 #site-footer {
   flex: 0 0 auto;
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
-  gap: 4px 16px; padding: 6px 16px;
+  gap: 4px 16px;
+  padding: 6px calc(16px + env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px));
   background: white; box-shadow: 0 -1px 4px rgba(0,0,0,0.15);
   position: relative; z-index: 10;
   font: 12px/1.4 "Atkinson Hyperlegible Next", system-ui, sans-serif; color: #555;
@@ -52,10 +60,14 @@ h1 { font-weight: 700; }
 #footer-hosting { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #footer-logo { height: 18px; width: auto; vertical-align: middle; }
 
+/* Same safe-area reasoning as #site-footer above, plus safe-area-inset-top
+   for a notch directly above the header in portrait (the footer has no
+   top-edge equivalent to worry about). */
 #site-header {
   flex: 0 0 auto;
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
-  gap: 6px 16px; padding: 10px 16px;
+  gap: 6px 16px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) 10px calc(16px + env(safe-area-inset-left, 0px));
   background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
   position: relative; z-index: 10;
   font: 13px/1.4 "Atkinson Hyperlegible Next", system-ui, sans-serif;
@@ -296,11 +308,30 @@ h1 { font-weight: 700; }
 .nav-link:hover { background: #f0f0f0; }
 .nav-link.active { background: #3B4A7A; color: white; border-color: #3B4A7A; }
 
+/* left: safe-area-inset-left, not header/footer's calc() pattern - #panel
+   floats directly over #map-container (which runs full viewport width,
+   unlike the header/footer's own 16px base padding), so 10px is already
+   the whole margin, not a base to add on top of. */
+/* max-height: percentage, not a vh-based guess like #routing-panel below
+   uses - #panel is an absolutely-positioned child of #map-container
+   (position:relative, itself sized by the body flex column to exactly
+   "whatever's left below the header/above the footer"), so a percentage
+   height here resolves against that REAL remaining space regardless of
+   how tall the header/footer currently render (they can wrap to 1-3
+   lines depending on language/viewport - a fixed px/vh reserve would be
+   wrong for some of those, same problem #routing-panel's own comment
+   describes solving with actual measured JS px values instead; this
+   avoids needing that same JS measurement by using a CSS-only relative
+   size instead). flex column + #panel-body as the sole flexible/
+   scrolling child (below) keeps #panel-toggle ("Legenda") always visible
+   even when #panel-body's own content (basemap switcher + the "Tratti da
+   valutare" list) is what's actually overflowing. */
 #panel {
-  position: absolute; top: 10px; left: 10px; z-index: 5;
+  position: absolute; top: 10px; left: calc(10px + env(safe-area-inset-left, 0px)); z-index: 5;
   background: white; padding: 10px 14px; border-radius: 6px;
   font: 13px/1.4 "Atkinson Hyperlegible Next", system-ui, sans-serif; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-  max-width: 220px;
+  max-width: 220px; max-height: calc(100% - 20px);
+  display: flex; flex-direction: column;
 }
 /* Collapse header for #panel - a "Legenda" label/toggle shown on every
    viewport (not just phones): clicking it hides #panel-body, freeing up
@@ -315,7 +346,7 @@ h1 { font-weight: 700; }
    phone-default-closed - toggleLegendPanel() in app.js sets whichever
    one actually flips the *current* (computed, not assumed) state. */
 #panel-toggle {
-  display: block; width: 100%;
+  display: block; width: 100%; flex: none;
   font: inherit; font-weight: 600; text-align: left;
   background: none; border: none; padding: 0 20px 6px 0; margin: 0;
   cursor: pointer; color: #222; position: relative;
@@ -323,6 +354,19 @@ h1 { font-weight: 700; }
 #panel-toggle::after { content: "\2212"; position: absolute; right: 2px; top: 0; color: #999; }
 #panel.collapsed #panel-toggle::after { content: "+"; }
 #panel.collapsed #panel-body { display: none; }
+
+/* #gap-panel's own max-height/overflow-y:auto (further below) only ever
+   bounds the "Tratti da valutare" list ITSELF - it did nothing if #panel
+   as a whole (legend + basemap switcher + the expanded gap list on top of
+   all that) was taller than the available map height, which a short
+   window/phone screen makes easy to hit (GAP_LIST_PAGE_SIZE caps item
+   COUNT, not the rendered height of 10 items' worth of text). min-height:
+   0 overrides flex's own default min-height:auto on a flex item, which
+   would otherwise ignore max-height and let this child grow to its
+   content size regardless - the one part of "make a flex child
+   scrollable" that's easy to leave out and have the overflow silently do
+   nothing. */
+#panel-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
 .legend-item {
   display: flex; align-items: center; gap: 6px; margin: 2px 0;
@@ -549,6 +593,31 @@ h1 { font-weight: 700; }
     display: none !important;
   }
   body, #map-container, #map { height: 100vh !important; width: 100% !important; margin: 0; }
+}
+
+/* MapLibre's own corner containers (.maplibregl-ctrl-top-right etc., see
+   maplibre-gl-5.24.0.css) sit flush at 0/0 - fine on a rectangular screen,
+   but on a notched phone in LANDSCAPE the notch/rounded corner is on one
+   of the SIDES, not just top/bottom, so the zoom/terrain/print/geocoder/
+   routing buttons (top-right) and the scale bar (bottom-left) can end up
+   under it or the home-indicator pill. Padding, not margin, on the
+   container itself - each button/control inside keeps its own existing
+   margin from the corner, this just adds safe-area space outside that
+   without touching maplibre's own layout rules. */
+.maplibregl-ctrl-top-left { padding-left: env(safe-area-inset-left, 0px); padding-top: env(safe-area-inset-top, 0px); }
+.maplibregl-ctrl-top-right { padding-right: env(safe-area-inset-right, 0px); padding-top: env(safe-area-inset-top, 0px); }
+.maplibregl-ctrl-bottom-left { padding-left: env(safe-area-inset-left, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.maplibregl-ctrl-bottom-right { padding-right: env(safe-area-inset-right, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* Tablet / phone-landscape: the phone breakpoint below only ever fired
+   under 480px, so this range (a portrait tablet, or a phone rotated to
+   landscape - both comfortably wider than 480px) inherited the full
+   desktop header untouched, tagline included. Only the tagline-hide
+   carries over here, not #panel's tighter phone padding/collapsed-by-
+   default state - there's still comfortable room for #panel as-is at
+   these widths, unlike an actual phone screen. */
+@media (min-width: 481px) and (max-width: 768px) {
+  #site-tagline { display: none; }
 }
 
 /* Small/phone viewports: the header's tagline is decorative context, not
