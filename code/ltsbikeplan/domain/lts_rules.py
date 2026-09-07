@@ -122,27 +122,51 @@ class BikePathAnalysis:
         gdf_edges = gdf_edges.copy()
         has_bicycle_col = "bicycle" in gdf_edges.columns
         bicycle_no = (gdf_edges["bicycle"] == "no") if has_bicycle_col else False
-        bicycle_yes = (gdf_edges["bicycle"] == "yes") if has_bicycle_col else pd.Series(False, index=gdf_edges.index)
-        # Broader than bicycle_yes above (which only means "not a sidewalk
-        # exclusion" for footway_sidewalk below) - any of these values is an
-        # explicit, cycling-specific permission that should win over a
-        # general access=private/destination/... restriction or a plain
-        # highway=service exclusion (see restricted_access/service_excluded
-        # below).
+        # Any of these values is an explicit, cycling-specific permission
+        # that should win over a general access=private/destination/...
+        # restriction, a plain highway=service exclusion (see
+        # restricted_access/service_excluded below), or the footway
+        # default-deny below. `dismount` is included deliberately - it
+        # means "you may bring a bike through here, on foot," not "no
+        # bikes": still an explicit cyclist-specific permission (see
+        # BikeOttawa's tagging guide, which uses it routinely for gates,
+        # stairs, and controlled pedestrian crossings a cycle route
+        # legitimately passes through), just one is_separated_path
+        # penalizes to LTS2 (rule s10) rather than granting the full LTS1
+        # a plain bicycle=yes/designated/... gets.
         bicycle_permitted_override = (
-            gdf_edges["bicycle"].isin(["yes", "designated", "permissive", "official"])
+            gdf_edges["bicycle"].isin(["yes", "designated", "permissive", "official", "dismount"])
             if has_bicycle_col
             else pd.Series(False, index=gdf_edges.index)
         )
 
+        # highway=footway defaults to foot traffic only in OSM tagging
+        # convention (see BikeOttawa's tagging guide: every footway example
+        # meant for cyclists explicitly adds bicycle=yes) - cycling is only
+        # actually allowed where a bicycle=* tag says so. Applies to every
+        # footway regardless of the footway=sidewalk sub-tag (product
+        # feedback, Sept 2026: previously this default-deny only fired for
+        # footway=sidewalk, letting plain untagged footways through) -
+        # EXCEPT footway=crossing, exempted because it's the marked street
+        # crossing a cycleway uses to legally get across a road, almost
+        # never carries an explicit bicycle tag in practice, and is already
+        # scored as mixed-traffic LTS2 by mixed_traffic's m14 rather than
+        # treated as a separated path - excluding it here would disconnect
+        # the routing graph at those crossings instead.
+        #
+        # highway=path is deliberately NOT included here: unlike footway,
+        # OSM/router convention treats it as open to non-motorized traffic
+        # (bike included) by default - BikeOttawa's own guide tags several
+        # path-based multi-use trails with no bicycle=* tag at all. A path
+        # is still excluded by the bicycle_no check above if it explicitly
+        # carries bicycle=no.
         if "footway" in gdf_edges.columns:
-            footway_sidewalk = (
-                (gdf_edges["footway"] == "sidewalk")
-                & ~bicycle_yes
-                & ((gdf_edges["highway"] == "footway") | (gdf_edges["highway"] == "path"))
-            )
+            footway_crossing = gdf_edges["footway"] == "crossing"
         else:
-            footway_sidewalk = False
+            footway_crossing = pd.Series(False, index=gdf_edges.index)
+        footway_without_bicycle_access = (
+            (gdf_edges["highway"] == "footway") & ~footway_crossing & ~bicycle_permitted_override
+        )
 
         # `motorroad=yes` is the OSM tag Italian mappers use for
         # tangenziali/superstrade where the Codice della Strada bars slow
@@ -187,7 +211,7 @@ class BikePathAnalysis:
             (gdf_edges["highway"] == "motorway"),
             (gdf_edges["highway"] == "motorway_link"),
             (gdf_edges["highway"] == "proposed"),
-            footway_sidewalk,
+            footway_without_bicycle_access,
             trunk_motorroad,
             restricted_access,
             service_excluded,
@@ -242,6 +266,19 @@ class BikePathAnalysis:
         hard_sac_scale = gdf_edges["sac_scale"].isin(_HARD_SAC_SCALE_VALUES) if "sac_scale" in gdf_edges.columns else False
         impassable_trail = natural_trail & hard_sac_scale
         gdf_edges.loc[impassable_trail, "rule"] = "s9"
+
+        # bicycle=dismount on a path/footway (s1/s2) means "you may bring
+        # your bike through here, walking it" - not the free ride a plain
+        # bicycle=yes/designated/... gets, but not impassable either
+        # (s9, above) or excluded (biking_permitted's footway gate already
+        # lets dismount through). Reclassify to "s10": same LTS2 as a
+        # marked pedestrian crossing (mixed_traffic's m14) gets for the
+        # same reason - walking the bike, not riding it. Only applied to
+        # rows NOT already reclassified s9 - a genuinely impassable trail
+        # stays impassable regardless of a dismount tag.
+        requires_dismount = gdf_edges["bicycle"] == "dismount" if "bicycle" in gdf_edges.columns else False
+        dismount_trail = natural_trail & ~impassable_trail & requires_dismount
+        gdf_edges.loc[dismount_trail, "rule"] = "s10"
 
         separated = gdf_edges[gdf_edges["rule"] != "s0"]
         not_separated = gdf_edges[gdf_edges["rule"] == "s0"].drop(columns="rule")
@@ -514,6 +551,17 @@ class BikePathAnalysis:
             conditions.append(gdf_edges["highway"] == "pedestrian")
             values.append("m13")
 
+            # highway=living_street ("zona residenziale") is legally
+            # traffic-calmed to a walking-pace speed limit and gives
+            # pedestrians/cyclists priority over motor vehicles by
+            # definition - same LTS1 tier as m13/m17, not the mixed-
+            # traffic maxspeed/lane scoring below, which would otherwise
+            # score it LTS3 (m10) off the generic 50 km/h fallback in
+            # get_max_speed, since living_street has no entry there and
+            # rarely carries an explicit maxspeed tag itself.
+            conditions.append(gdf_edges["highway"] == "living_street")
+            values.append("m18")
+
             if "footway" in gdf_edges.columns:
                 conditions.append((gdf_edges["highway"] == "footway") & (gdf_edges["footway"] == "crossing"))
                 values.append("m14")
@@ -545,6 +593,7 @@ class BikePathAnalysis:
         rule_dict = {
             "m17": 1,
             "m13": 1,
+            "m18": 1,
             "m14": 2,
             "m2": 2,
             "m15": 2,

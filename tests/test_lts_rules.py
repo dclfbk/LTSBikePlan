@@ -149,6 +149,133 @@ class TestLtsRules(unittest.TestCase):
         self.assertEqual(len(allowed), 1)
         self.assertEqual(len(not_allowed), 0)
 
+    def test_biking_permitted_marks_footway_without_bicycle_tag_not_allowed(self):
+        # OSM default: highway=footway is foot traffic only unless a
+        # bicycle=* tag explicitly opens it up - applies regardless of the
+        # footway=sidewalk sub-tag (or its absence).
+        edges = pd.DataFrame(
+            {
+                "bicycle": [None, "no"],
+                "access": ["yes", "yes"],
+                "highway": ["footway", "footway"],
+                "footway": [None, "sidewalk"],
+            }
+        )
+
+        allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
+        self.assertEqual(len(allowed), 0)
+        self.assertEqual(len(not_allowed), 2)
+        # Row 0: no bicycle tag at all -> p5 (the new footway default-deny).
+        # Row 1: bicycle=no -> p2 takes priority (an explicit ban, checked
+        # first), same as it always has.
+        self.assertEqual(not_allowed.iloc[0]["rule"], "p5")
+        self.assertEqual(not_allowed.iloc[1]["rule"], "p2")
+
+    def test_biking_permitted_footway_allowed_with_bicycle_override(self):
+        edges = pd.DataFrame(
+            {
+                "bicycle": ["yes", "designated", "permissive", "official", "dismount"],
+                "access": ["yes"] * 5,
+                "highway": ["footway"] * 5,
+            }
+        )
+
+        allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
+        self.assertEqual(len(allowed), 5)
+        self.assertEqual(len(not_allowed), 0)
+
+    def test_biking_permitted_exempts_footway_crossing_from_bicycle_requirement(self):
+        # footway=crossing is the marked street crossing a cycleway uses to
+        # get across a road - almost never carries an explicit bicycle tag
+        # in practice, and must stay in the network (scored m14 downstream
+        # in mixed_traffic) or routing disconnects at every such crossing.
+        edges = pd.DataFrame(
+            {
+                "bicycle": [None, None],
+                "access": ["yes", "yes"],
+                "highway": ["footway", "footway"],
+                "footway": ["crossing", "sidewalk"],
+            }
+        )
+
+        allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
+        self.assertEqual(len(allowed), 1)
+        self.assertEqual(allowed.iloc[0]["footway"], "crossing")
+        self.assertEqual(len(not_allowed), 1)
+        self.assertEqual(not_allowed.iloc[0]["rule"], "p5")
+
+    def test_biking_permitted_path_allowed_without_bicycle_tag(self):
+        # Unlike footway, highway=path is open to non-motorized traffic by
+        # OSM/router convention by default - no bicycle=* tag required.
+        edges = pd.DataFrame(
+            {
+                "bicycle": [None],
+                "access": ["yes"],
+                "highway": ["path"],
+            }
+        )
+
+        allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
+        self.assertEqual(len(allowed), 1)
+        self.assertEqual(len(not_allowed), 0)
+
+    def test_biking_permitted_path_excluded_with_explicit_bicycle_no(self):
+        edges = pd.DataFrame(
+            {
+                "bicycle": ["no"],
+                "access": ["yes"],
+                "highway": ["path"],
+            }
+        )
+
+        allowed, not_allowed = BikePathAnalysis.biking_permitted(edges)
+        self.assertEqual(len(allowed), 0)
+        self.assertEqual(len(not_allowed), 1)
+        self.assertEqual(not_allowed.iloc[0]["rule"], "p2")
+
+    def test_is_separated_path_dismount_on_footway_and_path_downgrades_to_s10(self):
+        edges = pd.DataFrame(
+            {
+                "highway": ["footway", "path", "footway"],
+                "bicycle": ["dismount", "dismount", "yes"],
+            }
+        )
+
+        separated, _ = BikePathAnalysis.is_separated_path(edges)
+        self.assertListEqual(list(separated["rule"]), ["s10", "s10", "s2"])
+
+    def test_is_separated_path_dismount_does_not_override_impassable_sac_scale(self):
+        edges = pd.DataFrame(
+            {
+                "highway": ["path"],
+                "bicycle": ["dismount"],
+                "sac_scale": ["mountain_hiking"],
+            }
+        )
+
+        separated, _ = BikePathAnalysis.is_separated_path(edges)
+        self.assertEqual(separated.iloc[0]["rule"], "s9")
+
+    def test_mixed_traffic_living_street_is_lts_1(self):
+        # highway=living_street is legally traffic-calmed to a walking-pace
+        # speed limit with pedestrian/cyclist priority by definition - must
+        # not fall through to the generic maxspeed/lane scoring below
+        # (which would otherwise score it LTS3 off the 50 km/h fallback).
+        edges = pd.DataFrame(
+            {
+                "highway": ["living_street"],
+                "maxspeed": [None],
+                "lanes": [None],
+                "oneway": [False],
+                "ref": [None],
+                "zone:maxspeed": [None],
+                "service": [None],
+            }
+        )
+        result = BikePathAnalysis.mixed_traffic(edges)
+        self.assertEqual(result.iloc[0]["rule"], "m18")
+        self.assertEqual(int(result.iloc[0]["lts"]), 1)
+
     def test_mixed_traffic_tertiary_without_ref_treated_as_residential(self):
         # The actual bug this fixes: Trento's real "Strada Imperiale" -
         # tertiary, maxspeed 50, 2 lanes, no ref - is a quiet hillside

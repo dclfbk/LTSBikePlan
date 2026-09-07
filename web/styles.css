@@ -609,6 +609,15 @@ h1 { font-weight: 700; }
 .maplibregl-ctrl-bottom-left { padding-left: env(safe-area-inset-left, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 .maplibregl-ctrl-bottom-right { padding-right: env(safe-area-inset-right, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 
+/* "Find me" (GeolocateControl wrapper, app.js) - hidden by default: far
+   more useful walking/riding around with a phone than at a desktop, and
+   an icon-only button would otherwise permanently take a slot in the
+   already-long desktop top-right stack for people who'd never click it.
+   Unhidden below for phone-width/phone-landscape viewports (see the
+   @media block's own comment for why it's two conditions, not just
+   max-width). */
+#geolocate-control { display: none; }
+
 /* Tablet / phone-landscape: the phone breakpoint below only ever fired
    under 480px, so this range (a portrait tablet, or a phone rotated to
    landscape - both comfortably wider than 480px) inherited the full
@@ -627,10 +636,18 @@ h1 { font-weight: 700; }
    list) gets a tighter font/padding for the same reason: its own
    max-width already keeps it well short of full-bleed, but a plain phone
    screen is narrow enough that even 220px reads as "most of the screen",
-   so this claws back some of that without changing its layout/content. */
-@media (max-width: 480px) {
+   so this claws back some of that without changing its layout/content.
+   Two conditions, not just max-width: a phone rotated to LANDSCAPE is
+   often wider than 480px (comfortably past this rule and even the
+   481-768px tablet range above), but it's still a phone - short on
+   vertical space, touch-only - so `(max-height: 480px) and (pointer:
+   coarse)` catches that orientation too (checking the SHORT dimension,
+   whichever one that is, plus a touchscreen to exclude a merely-short
+   desktop browser window). */
+@media (max-width: 480px), (max-height: 480px) and (pointer: coarse) {
   #site-tagline { display: none; }
   #panel { padding: 8px 10px; font-size: 12px; }
+  #geolocate-control { display: block; }
 
   /* Mirror image of the desktop default above: on phones #panel-body
      starts closed instead of open, so ".expanded" (not ".collapsed") is
@@ -656,17 +673,23 @@ h1 { font-weight: 700; }
      geocoder-open, since the two controls open/close independently and a
      shared flag would let one control's close wipe out the other's open
      state. */
-  /* max-height here is a vh FRACTION, not the desktop rule's
-     calc(100vh - 90px): that value doesn't account for this panel
-     starting further down the screen (top:100%, below its icon+header,
-     whose combined height varies by language/wrapping) - on a short
-     phone viewport the box itself could extend past the visible bottom
-     edge with nothing to scroll it into view (its OWN overflow-y:auto
-     only rescues content overflowing WITHIN the box, not the box being
-     positioned partly off-screen). A safe vh fraction leaves headroom
-     below the icon regardless of the exact header height. Doesn't apply
-     to .expanded - that's fixed-positioned via JS with its own top/bottom
-     and isn't affected by this rule's lower specificity. */
-  #routing-panel { top: 100%; right: 0; margin-right: 0; margin-top: 6px; width: auto; min-width: 200px; max-height: 65vh; }
+  /* Anchored to the right edge (`right: 0`, same as the routing button's
+     own column), but `top` is no longer a CSS default here - it used to
+     be `top: 100%` (flush below the routing button itself), but that
+     button sits several icons down the top-right stack (zoom, fullscreen,
+     geolocate, geocoder, routing), burying the panel that far down a
+     phone screen regardless of which button opened it. RoutingControl's
+     _positionCompactPanel() (app.js) instead sets an inline `top` at
+     runtime, measured against the FULLSCREEN button - the first
+     icon-style widget in that stack - so the panel appears near the top
+     of the screen every time, not wherever the routing button happens to
+     be. max-height stays a vh FRACTION, not the desktop rule's
+     calc(100vh - 90px): on a short phone viewport the box could otherwise
+     extend past the visible bottom edge with nothing to scroll it into
+     view (its OWN overflow-y:auto only rescues content overflowing WITHIN
+     the box, not the box being positioned partly off-screen). Doesn't
+     apply to .expanded - that's fixed-positioned via JS with its own
+     top/bottom and isn't affected by this rule's lower specificity. */
+  #routing-panel { right: 0; margin-right: 0; margin-top: 0; width: auto; min-width: 200px; max-height: 65vh; }
   body.routing-open #panel { display: none; }
 }

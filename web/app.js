@@ -500,6 +500,50 @@ class TerrainControl {
   }
 }
 
+// Mirrors styles.css's own phone breakpoint exactly (see that file's
+// comment on the @media block for why it's two conditions, not just
+// max-width: a phone rotated to landscape is often wider than 480px but
+// is still a phone, short on vertical space and touch-only). Shared here
+// so JS positioning logic (RoutingControl._positionCompactPanel below)
+// agrees with the CSS about what counts as "phone-sized".
+const MOBILE_MEDIA_QUERY = "(max-width: 480px), (max-height: 480px) and (pointer: coarse)";
+
+// Thin wrapper around MapLibre's own built-in GeolocateControl, only to
+// tag its container with an id (#geolocate-control) that styles.css can
+// hide on desktop/tablet and show on phone-sized viewports - "find me" is
+// far more useful walking/riding around with a phone than sitting at a
+// desktop, and the button would otherwise permanently take a slot in the
+// already-long top-right stack for people who'd never click it. Calls the
+// real GeolocateControl's own onAdd/onRemove directly (the documented
+// MapLibre IControl interface, the same two methods every control here
+// implements) rather than reaching into its private internals.
+//
+// MAX_BOUNDS (Azores-Urals, see the map constructor above) already
+// clamps any pan that ends outside it via clampToMaxBounds() on
+// "moveend" - including the flyTo this control triggers - so a GPS fix
+// reported from far outside that range still lands the map somewhere
+// sane instead of flying off to a spot with no basemap context at all.
+// A fix somewhere in nearby Europe/North Africa (inside MAX_BOUNDS but
+// outside Italy, where this project's own LTS tiles have no data) isn't
+// separately guarded against - the basemap alone still renders there,
+// same as manually panning there already does.
+class GeolocateControl {
+  onAdd(mapInstance) {
+    this._inner = new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
+      fitBoundsOptions: { maxZoom: 16 },
+      trackUserLocation: false,
+      showAccuracyCircle: true,
+    });
+    this._container = this._inner.onAdd(mapInstance);
+    this._container.id = "geolocate-control";
+    return this._container;
+  }
+  onRemove() {
+    this._inner.onRemove();
+  }
+}
+
 // Same stacking pattern as TerrainControl above - a print button as a
 // native map widget. Prints via the browser's own print dialog (which
 // every browser also offers as "Save as PDF"), not a custom PDF export -
@@ -1422,7 +1466,7 @@ class RoutingControl {
     this._expandBtn.addEventListener("click", () => this._setExpanded(!this._panel.classList.contains("expanded")));
     window.addEventListener("resize", () => {
       if (this._panel.classList.contains("expanded")) this._positionExpandedPanel();
-      else this._updateCompactPanelMaxHeight();
+      else { this._updateCompactPanelMaxHeight(); this._positionCompactPanel(); }
     });
     this._panel.querySelector("#routing-download-geojson").addEventListener("click", () => {
       downloadTextFile("percorso.geojson", "application/geo+json", buildRouteGeoJson(this._runs));
@@ -1476,6 +1520,37 @@ class RoutingControl {
     routingPanelOpen = true;
     this._updateCursor();
     this._updateCompactPanelMaxHeight();
+    this._positionCompactPanel();
+  }
+
+  // On phone-sized viewports (MOBILE_MEDIA_QUERY), the compact panel no
+  // longer flies out flush below its own routing button - #routing-toggle
+  // sits several icons down the top-right stack (zoom, fullscreen,
+  // geolocate, geocoder, routing), which buried the panel that far down
+  // the screen regardless of which button opened it (reported: hard to
+  // notice/reach on a real phone). Aligning it instead with the
+  // FULLSCREEN button - the first icon-style widget in that stack, right
+  // under the native zoom control - keeps it near the top of the screen
+  // every time. Measured live via getBoundingClientRect() on both
+  // elements (not a hardcoded px offset) since the exact stack height
+  // above the fullscreen button doesn't matter here - only the delta
+  // between it and this control's own container does, and that's stable
+  // regardless of language/viewport wrapping elsewhere on the page.
+  // Desktop/tablet clear the inline override so the CSS default
+  // (top: 0, flush with this control's own button) applies. No-op while
+  // expanded - that state is positioned via top/bottom instead, see
+  // _positionExpandedPanel.
+  _positionCompactPanel() {
+    if (this._panel.classList.contains("expanded")) return;
+    if (!window.matchMedia(MOBILE_MEDIA_QUERY).matches) {
+      this._panel.style.top = "";
+      return;
+    }
+    const fullscreenButton = document.querySelector(".maplibregl-ctrl-fullscreen");
+    if (!fullscreenButton) return;
+    const targetTop = fullscreenButton.getBoundingClientRect().top;
+    const ownTop = this._container.getBoundingClientRect().top;
+    this._panel.style.top = `${targetTop - ownTop}px`;
   }
 
   // Real max-height for the compact (anchored-to-the-button) panel,
@@ -1532,8 +1607,8 @@ class RoutingControl {
       this._positionExpandedPanel();
     } else {
       this._container.appendChild(this._panel);
-      this._panel.style.top = "";
       this._panel.style.bottom = "";
+      this._positionCompactPanel(); // re-applies the phone-only top override cleared above, or clears it back to the CSS default on desktop/tablet
     }
   }
 
@@ -2169,9 +2244,11 @@ class RoutingControl {
 }
 
 // Stacking order (each addControl call appends below the previous one
-// at the same position): zoom -> fullscreen -> geocoder -> routing -> 3D -> PDF.
+// at the same position): zoom -> fullscreen -> geolocate (phone-only,
+// see #geolocate-control in styles.css) -> geocoder -> routing -> 3D -> PDF.
 map.addControl(new maplibregl.NavigationControl(), "top-right");
 map.addControl(new maplibregl.FullscreenControl(), "top-right");
+map.addControl(new GeolocateControl(), "top-right");
 map.addControl(new GeocoderControl(), "top-right");
 map.addControl(new RoutingControl(), "top-right");
 map.addControl(new TerrainControl(), "top-right");

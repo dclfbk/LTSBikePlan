@@ -125,8 +125,12 @@ def run_compute_lts(data_dir: str, area: AreaSpec, include_report_exports: bool 
     # sac_scale tag marks as a genuine mountain trail, not a comfortable
     # dedicated facility - lts=0, same "not applicable" bucket as steps
     # without a ramp, rather than the lts=1 every other separated path
-    # gets.
-    separated_edges["lts"] = np.where(separated_edges["rule"] == "s9", 0, 1)
+    # gets. "s10" is a path/footway tagged bicycle=dismount - passable,
+    # but only walking the bike, same lts=2 tier as a marked pedestrian
+    # crossing (mixed_traffic's m14).
+    separated_edges["lts"] = np.select(
+        [separated_edges["rule"] == "s9", separated_edges["rule"] == "s10"], [0, 2], default=1
+    )
 
     to_analyze, no_lane = BikePathAnalysis.is_bike_lane(unseparated_edges)
     parking_detected, parking_not_detected = BikePathAnalysis.parking_present(to_analyze)
