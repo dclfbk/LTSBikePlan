@@ -154,6 +154,39 @@ class AreaResolver:
             gpkg_url=f"{OSMIT_ESTRATTI_BASE}/{props['.gpkg']}",
         )
 
+    def get_comune_boundary_polygon(self, istat_code: str):
+        """Returns the comune's own administrative boundary as a shapely
+        (Multi)Polygon in EPSG:4326, or None if unavailable - either GDAL's
+        topojson driver decodes no usable geometry for this istat code (18
+        known comuni, mostly small islands - see
+        compute_comuni_superficie_km2's own docstring for the full list and
+        why), or the index itself couldn't be loaded/refreshed (offline,
+        istat_code not found). Used by domain/network_pruning.py to tell a
+        road network fragment genuinely isolated inside the comune (e.g. an
+        unconnected park path network) apart from one merely cut short by
+        the comune extract's own edge, which keeps flowing into the
+        neighbouring comune's own extract in reality.
+
+        None is the safe default for every failure mode here - without a
+        real boundary to test fragments against, keeping every small island
+        (this project's existing default, see osm_pbf_service.py's
+        retain_all=True comment) is safer than risking a wrong drop.
+        """
+        import geopandas as gpd
+
+        try:
+            path = self.ensure_cached("comune")
+            gdf = gpd.read_file(path)
+        except Exception:
+            return None
+        match = gdf[gdf["istat"] == istat_code]
+        if match.empty:
+            return None
+        geometry = match.iloc[0].geometry
+        if geometry is None or geometry.is_empty:
+            return None
+        return geometry
+
 
 def compute_comuni_superficie_km2(cache_dir: str) -> dict:
     """Surface area per comune (km²), keyed by ISTAT code - computed from

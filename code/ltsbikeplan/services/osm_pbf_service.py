@@ -44,6 +44,14 @@ EXTRA_NETWORK_ATTRIBUTES = [
     # Imperiale" - tagged tertiary, no ref, genuinely quiet - versus a
     # real SS/SP through-road at the same nominal speed/lane count).
     "ref",
+    # A state highway devolved to provincial/regional management can lose
+    # its live `ref` (or have it replaced by a provincial one) while still
+    # recording the former SS number here - mixed_traffic checks both `ref`
+    # and `old_ref` for an "SS" prefix, since a road's physical character
+    # doesn't change just because its maintaining body/paperwork did (real
+    # case: Bolzano's Via Sarentino, old_ref=SS508 on segments with no live
+    # `ref` at all today).
+    "old_ref",
 ]
 
 # Columns BikePathAnalysis reads unconditionally (would KeyError, not just

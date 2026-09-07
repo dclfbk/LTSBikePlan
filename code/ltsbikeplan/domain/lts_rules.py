@@ -62,6 +62,15 @@ _SEVERE_SURFACE_VALUES = {
 # genuinely tolerable).
 _MODERATE_SURFACE_LONG_THRESHOLD_M = 500.0
 
+# Surfaces that mean "historic-centre paving" (Italian centri storici,
+# piazzas, lastricato/sampietrini streets) - see BikePathAnalysis.
+# get_max_speed's assumed-speed override. Deliberately a NARROWER set
+# than _MODERATE_SURFACE_VALUES above (which also includes rural-road
+# surfaces like compacted/fine_gravel/gravel/unpaved/woodchips that say
+# nothing about being in a built-up area) - only the paved-with-stone
+# values that are a physical speed cap regardless of the posted limit.
+_HISTORIC_PAVING_SURFACES = {"sett", "cobblestone", "unhewn_cobblestone", "paving_stones"}
+
 
 class BikePathAnalysis:
     @staticmethod
@@ -343,7 +352,7 @@ class BikePathAnalysis:
         return gdf_edges
 
     @staticmethod
-    def get_max_speed(gdf_edges, national=90, local=50, motorway=130, primary=90, secondary=90, urban=50):
+    def get_max_speed(gdf_edges, national=90, local=50, motorway=130, primary=90, secondary=90, urban=50, historic_paving=30):
         # Italian "Zona 30" (and other countries' equivalent traffic-calmed
         # zones) are frequently tagged ONLY with zone:maxspeed=IT:30 - no
         # plain maxspeed at all, since the limit comes from the zone, not
@@ -367,16 +376,38 @@ class BikePathAnalysis:
 
         zone_speed = gdf_edges["zone:maxspeed"].apply(parse_zone_maxspeed)
 
+        # A cobblestone/sett/paving_stones way (typical of an Italian centro
+        # storico - piazzas, historic-centre streets) physically caps real
+        # traffic speed regardless of highway class or a missing maxspeed
+        # tag. Real case: OSM way 31101786, "Piazza Vittorio Veneto" in
+        # Santhià (VC) - highway=secondary, a genuine SP provincial road
+        # (ref=SP3, so the tertiary/unclassified/service ref-based leniency
+        # in mixed_traffic doesn't apply here), no maxspeed tag, which
+        # without this fell through to the generic secondary=90 rural
+        # default even though the way is a paved piazza inside the built-up
+        # area - understating a cycleway:right=lane on it as a stressful
+        # b3/LTS3 instead of a calm b1/LTS1. Takes priority over the
+        # highway-class defaults right below for the same reason zone_speed
+        # does (a real physical signal beats a guess from road class alone)
+        # - but not over an explicit zone_speed or a real maxspeed value,
+        # both stronger/more specific signals than a surface guess.
+        historic_paving_surface = (
+            gdf_edges["surface"].isin(_HISTORIC_PAVING_SURFACES)
+            if "surface" in gdf_edges.columns
+            else pd.Series(False, index=gdf_edges.index)
+        )
+
         conditions = [
             (gdf_edges["maxspeed"] == "national"),
             (gdf_edges["maxspeed"].isna()) & zone_speed.notna(),
+            (gdf_edges["maxspeed"].isna()) & historic_paving_surface,
             (gdf_edges["maxspeed"].isna()) & (gdf_edges["highway"] == "motorway"),
             (gdf_edges["maxspeed"].isna()) & (gdf_edges["highway"] == "primary"),
             (gdf_edges["maxspeed"].isna()) & (gdf_edges["highway"] == "secondary"),
             (gdf_edges["maxspeed"].isna()) & (gdf_edges["highway"] == "urban"),
             (gdf_edges["maxspeed"].isna()),
         ]
-        values = [national, zone_speed, motorway, primary, secondary, urban, local]
+        values = [national, zone_speed, historic_paving, motorway, primary, secondary, urban, local]
         gdf_edges["maxspeed_assumed"] = np.select(conditions, values, default=gdf_edges["maxspeed"])
 
         # OSM's implicit-speed-limit convention for Italy (see the "Default
@@ -493,20 +524,34 @@ class BikePathAnalysis:
             lambda row: BikePathAnalysis.get_average_width_based_on_highway(row["highway"], row["oneway"]), axis=1
         )
 
+        # Distinct from bike_lane_analysis_with_parking's b-series thresholds
+        # above (this function used to just duplicate them verbatim, despite
+        # LTS_decisionrule_dict.json already documenting a separate c1/c3/
+        # c4/c5/c6/c7 set - found investigating OSM way 31101786, "Piazza
+        # Vittorio Veneto" in Santhià, which stayed b3/LTS3 even after
+        # get_max_speed's historic-paving fix above corrected its assumed
+        # speed to 30 km/h, because the reused b3 width threshold (<4.1m,
+        # sized for a bike lane WITH parking - it needs the extra buffer for
+        # a car door) has no reason to apply where there's no parking at
+        # all). Two real differences from the b-series: (1) a single, much
+        # narrower width tier (c4: <1.7m, just the lane itself, LTS2 - no
+        # b4/b5-equivalent middle tiers, since there's no door-zone width to
+        # step down through) and (2) higher speed tolerance throughout (c1's
+        # low-stress baseline is <=50 km/h vs b1's <=40, c3/c5's ceiling is
+        # 65 vs b2/b7's 55) - reflecting that a bike lane free of parked
+        # cars is inherently less stressful at a given speed than the same
+        # lane squeezed against a parking row.
         conditions = [
-            (gdf_edges["lanes_assumed"] >= 3) & (gdf_edges["maxspeed_assumed"] <= 55),
-            (gdf_edges[width_column] <= 4.1),
-            (gdf_edges[width_column] <= 4.25),
-            (gdf_edges[width_column] <= 4.5) & ((gdf_edges["maxspeed_assumed"] <= 40) & (gdf_edges["highway"] == "residential")),
-            (gdf_edges["maxspeed_assumed"] > 40) & (gdf_edges["maxspeed_assumed"] <= 50),
-            (gdf_edges["maxspeed_assumed"] > 50) & (gdf_edges["maxspeed_assumed"] <= 55),
-            (gdf_edges["maxspeed_assumed"] > 55),
+            (gdf_edges["lanes_assumed"] >= 3) & (gdf_edges["maxspeed_assumed"] <= 65),
+            (gdf_edges[width_column] <= 1.7),
+            (gdf_edges["maxspeed_assumed"] > 50) & (gdf_edges["maxspeed_assumed"] <= 65),
+            (gdf_edges["maxspeed_assumed"] > 65),
             (gdf_edges["highway"] != "residential"),
         ]
 
-        values = ["b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9"]
-        gdf_edges["rule"] = np.select(conditions, values, default="b1")
-        rule_dict = {"b1": 1, "b2": 3, "b3": 3, "b4": 2, "b5": 2, "b6": 2, "b7": 3, "b8": 4, "b9": 3}
+        values = ["c3", "c4", "c5", "c6", "c7"]
+        gdf_edges["rule"] = np.select(conditions, values, default="c1")
+        rule_dict = {"c1": 1, "c3": 3, "c4": 2, "c5": 3, "c6": 4, "c7": 3}
         gdf_edges["lts"] = gdf_edges["rule"].map(rule_dict)
         return gdf_edges
 
@@ -517,30 +562,55 @@ class BikePathAnalysis:
         conditions = []
         values = []
 
-        # A real state/provincial/regional road (Italy: SS/SP/SR, similar
-        # conventions elsewhere) reliably carries a `ref`, regardless of
-        # its `highway` tag - but `highway=tertiary`/`unclassified`/
-        # `service` is also routinely used in Italian OSM mapping practice
-        # for a quiet local connector that's functionally no different
-        # from a `residential` street (same real traffic, same speed/lane
-        # count), just tagged one notch up by convention. Below, only
-        # THESE three highway values get the ref-based leniency - not
-        # every non-residential class - because the confirmed real case
-        # this fixes (Trento's "Strada Imperiale"/Civezzano's "Strada alla
-        # Fersina": tertiary, no ref, genuinely a quiet hillside road) and
-        # its confirmed counter-case (Bolzano's "Strada Statale
-        # dell'Abetone e del Brennero"/"Via Sarentino": primary and
-        # unclassified segments of the SAME real state highways, WITH a
-        # ref) are both in this set. `primary`/`secondary`/`trunk` are
-        # deliberately excluded - those functional classes reliably mean a
-        # real through-road even on the rare way that's missing its `ref`.
-        has_ref = (
-            gdf_edges["ref"].notna() & (gdf_edges["ref"].astype(str).str.strip() != "")
-            if "ref" in gdf_edges.columns
-            else pd.Series(False, index=gdf_edges.index)
+        # `highway=tertiary`/`unclassified`/`service` is routinely used in
+        # Italian OSM mapping practice for a quiet local connector that's
+        # functionally no different from a `residential` street (same real
+        # traffic, same speed/lane count), just tagged one notch up by
+        # convention - the leniency below exists to catch that. Below, only
+        # THESE three highway values get it - not every non-residential
+        # class - because the confirmed real case this fixes (Trento's
+        # "Strada Imperiale"/Civezzano's "Strada alla Fersina": tertiary, no
+        # ref, genuinely a quiet hillside road) involves exactly these.
+        # `primary`/`secondary`/`trunk` are deliberately excluded - those
+        # functional classes reliably mean a real through-road even on the
+        # rare way that's missing its `ref`.
+        #
+        # A `ref` alone used to disqualify a way from this leniency
+        # entirely, on the theory that a real state/provincial/regional
+        # road (Italy: SS/SP/SR) reliably carries one regardless of
+        # `highway` - true for the counter-case this was calibrated
+        # against (Bolzano's "Strada Statale dell'Abetone e del Brennero"/
+        # "Via Sarentino": unclassified segments of a real state highway,
+        # WITH a ref) but too broad: "SP"/"SR" denote ONLY who currently
+        # maintains a road (provincia/regione), not its actual character -
+        # Italy's rural provincial network covers everything from a real
+        # arterial down to a single-lane farm-access lane through open
+        # countryside (confirmed real case: OSM way 92403547, ref=SP90,
+        # highway=unclassified, running past a single farmhouse in open
+        # farmland near Sali Vercellese, VC - a plain has_ref check wrongly
+        # kept it out of the leniency). Now only an "SS"-prefixed ref
+        # disqualifies - a genuine national state highway reliably means a
+        # real through-road regardless of maintaining body, unlike a
+        # provincial/regional one. Checked against `old_ref` too, not just
+        # `ref`: a state highway devolved to provincial management (common
+        # in Italy, especially the two autonomous provinces of Trentino and
+        # Alto Adige, which take on region-level competencies including
+        # road maintenance - so a road there classified/renumbered as
+        # provincial can still be a genuinely major route) tends to keep a
+        # record of its former SS number in `old_ref` even after its live
+        # `ref` changes or disappears - Via Sarentino's own unclassified
+        # segments are exactly this today (old_ref=SS508, no live `ref` at
+        # all), so this still catches them.
+        def _is_major_ref(series):
+            non_null = series.notna()
+            upper = series.where(non_null, "").astype(str).str.strip().str.upper()
+            return non_null & upper.str.startswith("SS")
+
+        has_major_ref = _is_major_ref(gdf_edges["ref"] if "ref" in gdf_edges.columns else pd.Series(None, index=gdf_edges.index)) | _is_major_ref(
+            gdf_edges["old_ref"] if "old_ref" in gdf_edges.columns else pd.Series(None, index=gdf_edges.index)
         )
         residential_equivalent = (gdf_edges["highway"] == "residential") | (
-            gdf_edges["highway"].isin(["tertiary", "unclassified", "service"]) & ~has_ref
+            gdf_edges["highway"].isin(["tertiary", "unclassified", "service"]) & ~has_major_ref
         )
 
         if "motor_vehicle" in gdf_edges.columns:

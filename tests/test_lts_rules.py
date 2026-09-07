@@ -296,16 +296,17 @@ class TestLtsRules(unittest.TestCase):
         self.assertEqual(result.iloc[0]["rule"], "m9")
         self.assertEqual(int(result.iloc[0]["lts"]), 2)
 
-    def test_mixed_traffic_tertiary_with_ref_stays_strict(self):
-        # Same highway/speed/lanes as above, but WITH a real route number -
-        # a genuinely classified road, must keep the stricter m10 (LTS3).
+    def test_mixed_traffic_tertiary_with_ss_ref_stays_strict(self):
+        # An "SS" (Strada Statale) ref reliably means a genuine national
+        # through-road regardless of highway class - must keep the
+        # stricter m10 (LTS3).
         edges = pd.DataFrame(
             {
                 "highway": ["tertiary"],
                 "maxspeed": [50],
                 "lanes": [2],
                 "oneway": [False],
-                "ref": ["SP17"],
+                "ref": ["SS17"],
                 "zone:maxspeed": [None],
                 "service": [None],
             }
@@ -313,6 +314,70 @@ class TestLtsRules(unittest.TestCase):
         result = BikePathAnalysis.mixed_traffic(edges)
         self.assertEqual(result.iloc[0]["rule"], "m10")
         self.assertEqual(int(result.iloc[0]["lts"]), 3)
+
+    def test_mixed_traffic_tertiary_with_sp_ref_gets_leniency(self):
+        # Real case: OSM way 92403547, highway=unclassified, ref=SP90,
+        # running past a single farmhouse in open countryside (Sali
+        # Vercellese, VC) - "SP"/"SR" denote only who maintains a road
+        # (provincia/regione), not its character, unlike "SS". Must get
+        # the same m9 (LTS2) leniency as an otherwise-identical way with no
+        # ref at all.
+        edges = pd.DataFrame(
+            {
+                "highway": ["unclassified"],
+                "maxspeed": [50],
+                "lanes": [2],
+                "oneway": [False],
+                "ref": ["SP90"],
+                "zone:maxspeed": [None],
+                "service": [None],
+            }
+        )
+        result = BikePathAnalysis.mixed_traffic(edges)
+        self.assertEqual(result.iloc[0]["rule"], "m9")
+        self.assertEqual(int(result.iloc[0]["lts"]), 2)
+
+    def test_mixed_traffic_unclassified_with_old_ref_ss_stays_strict(self):
+        # Real case: Bolzano's Via Sarentino - unclassified segments of
+        # former state highway SS508, devolved to provincial management
+        # (Trentino-Alto Adige's two autonomous provinces take on
+        # region-level competencies including road maintenance, so a road
+        # renumbered/reclassified there can still be genuinely major).
+        # Today's live OSM data has no `ref` at all on these segments, only
+        # old_ref=SS508 - must still be caught, not wrongly softened just
+        # because the live `ref` is gone.
+        edges = pd.DataFrame(
+            {
+                "highway": ["unclassified"],
+                "maxspeed": [50],
+                "lanes": [2],
+                "oneway": [False],
+                "ref": [None],
+                "old_ref": ["SS508"],
+                "zone:maxspeed": [None],
+                "service": [None],
+            }
+        )
+        result = BikePathAnalysis.mixed_traffic(edges)
+        self.assertEqual(result.iloc[0]["rule"], "m10")
+        self.assertEqual(int(result.iloc[0]["lts"]), 3)
+
+    def test_mixed_traffic_without_old_ref_column_at_all(self):
+        # Plenty of extracts never carry the tag - shouldn't KeyError.
+        edges = pd.DataFrame(
+            {
+                "highway": ["unclassified"],
+                "maxspeed": [50],
+                "lanes": [2],
+                "oneway": [False],
+                "ref": [None],
+                "zone:maxspeed": [None],
+                "service": [None],
+            }
+        )
+        result = BikePathAnalysis.mixed_traffic(edges)
+        self.assertEqual(result.iloc[0]["rule"], "m9")
+        self.assertEqual(int(result.iloc[0]["lts"]), 2)
 
     def test_mixed_traffic_primary_without_ref_stays_strict(self):
         # The confirmed counter-case (Bolzano's SS12/SS508): `primary` is
@@ -711,6 +776,126 @@ class TestGetMaxSpeed(unittest.TestCase):
         edges = pd.DataFrame({"maxspeed": ["walk"], "highway": ["residential"], "zone:maxspeed": [None]})
         updated = BikePathAnalysis.get_max_speed(edges)
         self.assertEqual(updated.iloc[0]["maxspeed_assumed"], 50)
+
+    def test_historic_paving_surface_overrides_highway_default_when_maxspeed_missing(self):
+        # Real case: OSM way 31101786, "Piazza Vittorio Veneto" in Santhià
+        # (VC) - highway=secondary (a real SP provincial road), no maxspeed
+        # tag. Without this, secondary's generic rural default (90) applied
+        # even though the way is a paved piazza inside the built-up area.
+        edges = pd.DataFrame(
+            {"maxspeed": [None], "highway": ["secondary"], "zone:maxspeed": [None], "surface": ["sett"]}
+        )
+        updated = BikePathAnalysis.get_max_speed(edges)
+        self.assertEqual(updated.iloc[0]["maxspeed_assumed"], 30)
+
+    def test_historic_paving_surface_does_not_override_explicit_maxspeed(self):
+        edges = pd.DataFrame(
+            {"maxspeed": ["50"], "highway": ["secondary"], "zone:maxspeed": [None], "surface": ["sett"]}
+        )
+        updated = BikePathAnalysis.get_max_speed(edges)
+        self.assertEqual(updated.iloc[0]["maxspeed_assumed"], 50)
+
+    def test_historic_paving_surface_loses_to_an_explicit_zone_maxspeed(self):
+        # zone:maxspeed is a real, mapper-recorded value - a stronger signal
+        # than a surface-based guess, so it still wins.
+        edges = pd.DataFrame(
+            {"maxspeed": [None], "highway": ["secondary"], "zone:maxspeed": ["IT:20"], "surface": ["sett"]}
+        )
+        updated = BikePathAnalysis.get_max_speed(edges)
+        self.assertEqual(updated.iloc[0]["maxspeed_assumed"], 20)
+
+    def test_get_max_speed_without_surface_column(self):
+        # Plenty of extracts never carry the tag at all - shouldn't KeyError.
+        edges = pd.DataFrame({"maxspeed": [None], "highway": ["secondary"], "zone:maxspeed": [None]})
+        updated = BikePathAnalysis.get_max_speed(edges)
+        self.assertEqual(updated.iloc[0]["maxspeed_assumed"], 90)
+
+    def test_bike_lane_without_parking_baseline_is_lts_1(self):
+        edges = pd.DataFrame(
+            {
+                "highway": ["residential"],
+                "oneway": [False],
+                "maxspeed": ["50"],
+                "lanes": [2],
+                "zone:maxspeed": [None],
+            }
+        )
+        result = BikePathAnalysis.bike_lane_analysis_without_parking(edges)
+        self.assertEqual(result.iloc[0]["rule"], "c1")
+        self.assertEqual(int(result.iloc[0]["lts"]), 1)
+
+    def test_bike_lane_without_parking_narrow_lane_is_lts_2(self):
+        # c4 (<1.7m, no parking) - much narrower than b3's 4.1m threshold
+        # (with_parking), since there's no door-zone buffer to account for.
+        edges = pd.DataFrame(
+            {
+                "highway": ["residential"],
+                "oneway": [False],
+                "maxspeed": ["50"],
+                "lanes": [2],
+                "width": [1.5],
+                "zone:maxspeed": [None],
+            }
+        )
+        result = BikePathAnalysis.bike_lane_analysis_without_parking(edges)
+        self.assertEqual(result.iloc[0]["rule"], "c4")
+        self.assertEqual(int(result.iloc[0]["lts"]), 2)
+
+    def test_bike_lane_without_parking_non_residential_is_lts_3(self):
+        edges = pd.DataFrame(
+            {
+                "highway": ["secondary"],
+                "oneway": [False],
+                "maxspeed": ["50"],
+                "lanes": [2],
+                "zone:maxspeed": [None],
+            }
+        )
+        result = BikePathAnalysis.bike_lane_analysis_without_parking(edges)
+        self.assertEqual(result.iloc[0]["rule"], "c7")
+        self.assertEqual(int(result.iloc[0]["lts"]), 3)
+
+    def test_bike_lane_without_parking_moderate_speed_is_lts_3(self):
+        edges = pd.DataFrame(
+            {
+                "highway": ["residential"],
+                "oneway": [False],
+                "maxspeed": ["60"],
+                "lanes": [2],
+                "zone:maxspeed": [None],
+            }
+        )
+        result = BikePathAnalysis.bike_lane_analysis_without_parking(edges)
+        self.assertEqual(result.iloc[0]["rule"], "c5")
+        self.assertEqual(int(result.iloc[0]["lts"]), 3)
+
+    def test_bike_lane_without_parking_high_speed_is_lts_4(self):
+        edges = pd.DataFrame(
+            {
+                "highway": ["residential"],
+                "oneway": [False],
+                "maxspeed": ["70"],
+                "lanes": [2],
+                "zone:maxspeed": [None],
+            }
+        )
+        result = BikePathAnalysis.bike_lane_analysis_without_parking(edges)
+        self.assertEqual(result.iloc[0]["rule"], "c6")
+        self.assertEqual(int(result.iloc[0]["lts"]), 4)
+
+    def test_bike_lane_without_parking_many_lanes_is_lts_3(self):
+        edges = pd.DataFrame(
+            {
+                "highway": ["residential"],
+                "oneway": [False],
+                "maxspeed": ["60"],
+                "lanes": [3],
+                "zone:maxspeed": [None],
+            }
+        )
+        result = BikePathAnalysis.bike_lane_analysis_without_parking(edges)
+        self.assertEqual(result.iloc[0]["rule"], "c3")
+        self.assertEqual(int(result.iloc[0]["lts"]), 3)
 
 
 if __name__ == "__main__":

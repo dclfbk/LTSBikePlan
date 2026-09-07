@@ -47,10 +47,13 @@ if _OVERPASS_URL:
 # tagged only with zone:maxspeed=IT:30, no plain maxspeed at all - without
 # this, get_max_speed's fallback chain never sees it and assumes a bare
 # 50 km/h `local` default instead, understating how calm the street
-# actually is). mtb:scale was here too at one point - dropped along with
-# the domain rule that read it, see lts_rules.py's _HARD_SAC_SCALE_VALUES
-# comment for why.
-_EXTRA_USEFUL_TAGS_WAY = ["motorroad", "sac_scale", "zone:maxspeed"]
+# actually is; old_ref: mixed_traffic's residential_equivalent check reads
+# this alongside `ref` to catch a state highway devolved to provincial
+# management, which can lose its live `ref` while still recording the
+# former SS number here). mtb:scale was here too at one point - dropped
+# along with the domain rule that read it, see lts_rules.py's
+# _HARD_SAC_SCALE_VALUES comment for why.
+_EXTRA_USEFUL_TAGS_WAY = ["motorroad", "sac_scale", "zone:maxspeed", "old_ref"]
 
 
 class GraphLoaderService:
