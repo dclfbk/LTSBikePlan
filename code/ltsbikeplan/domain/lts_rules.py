@@ -305,6 +305,21 @@ class BikePathAnalysis:
         else:
             lane_check = gdf_edges[cycleway_tags].isin(lane_identifiers).any(axis=1)
 
+        # highway=pedestrian/living_street already get their own dedicated,
+        # unconditionally-LTS1 rule in mixed_traffic (m13/m18) - a bare
+        # cycleway=yes there almost always just means "cyclists are
+        # additionally allowed in this pedestrian/traffic-calmed area," not
+        # "there is a demarcated painted lane with its own width/speed
+        # profile to analyze." Real case: OSM way 84586488, "Via Domenico
+        # Bocca" in Arenzano - highway=pedestrian, cycleway=yes, flat and
+        # calm - "yes" is a valid lane_identifier above (it correctly means
+        # a real lane on an ordinary street), so without this it got
+        # diverted into bike_lane_analysis_without_parking instead of
+        # mixed_traffic, landing on c7 (LTS3, "highway != residential")
+        # instead of the LTS1 a pedestrian zone should always get.
+        exempt_highway = gdf_edges["highway"].isin(["pedestrian", "living_street"])
+        lane_check = lane_check & ~exempt_highway
+
         to_analyze = gdf_edges[lane_check]
         no_lane = gdf_edges[~lane_check]
 

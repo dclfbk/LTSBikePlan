@@ -810,6 +810,25 @@ class TestGetMaxSpeed(unittest.TestCase):
         updated = BikePathAnalysis.get_max_speed(edges)
         self.assertEqual(updated.iloc[0]["maxspeed_assumed"], 90)
 
+    def test_is_bike_lane_exempts_pedestrian_and_living_street(self):
+        # Real case: OSM way 84586488, "Via Domenico Bocca" in Arenzano -
+        # highway=pedestrian, cycleway=yes ("yes" is a valid lane
+        # identifier - correct on an ordinary street, but here it just
+        # means cyclists are additionally allowed in the pedestrian zone,
+        # not that there's a demarcated lane). Without the exemption this
+        # got diverted into bike_lane_analysis instead of mixed_traffic's
+        # unconditional m13/m18 LTS1.
+        edges = pd.DataFrame(
+            {
+                "highway": ["pedestrian", "living_street", "residential"],
+                "cycleway": ["yes", "lane", "lane"],
+            }
+        )
+        to_analyze, no_lane = BikePathAnalysis.is_bike_lane(edges)
+        self.assertEqual(len(to_analyze), 1)
+        self.assertEqual(to_analyze.iloc[0]["highway"], "residential")
+        self.assertListEqual(list(no_lane["highway"]), ["pedestrian", "living_street"])
+
     def test_bike_lane_without_parking_baseline_is_lts_1(self):
         edges = pd.DataFrame(
             {
