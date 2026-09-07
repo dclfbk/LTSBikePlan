@@ -18,7 +18,7 @@ from ltsbikeplan.domain.crs import WORKING_CRS, chunked_to_crs
 from ltsbikeplan.domain.gap_analysis import annotate_gap_components
 from ltsbikeplan.domain.lts_rules import BikePathAnalysis
 from ltsbikeplan.domain.network_centrality import annotate_dead_end_branches, annotate_edge_centrality
-from ltsbikeplan.domain.network_pruning import drop_isolated_interior_components
+from ltsbikeplan.domain.network_pruning import drop_isolated_bikeable_components
 from ltsbikeplan.domain.parallel_cycleway import annotate_parallel_cycleway
 from ltsbikeplan.services.export_service import ExportService
 
@@ -105,26 +105,6 @@ def run_compute_lts(data_dir: str, area: AreaSpec, include_report_exports: bool 
     # just row order) covers all of them instead of chasing each call site.
     gdf_edges = gdf_edges.sort_index()
 
-    # Drops short connected components of the network that don't touch the
-    # comune's own boundary - real disconnected fragments (an unconnected
-    # network of paths inside a park, a mapping artifact) rather than a
-    # road cut short by the comune extract's own edge, which keeps flowing
-    # into the neighbouring comune's extract in reality (see ROUTING.md's
-    # note on shared, un-renumbered OSM node ids across adjacent comuni
-    # extracts) and must not be dropped just because it looks isolated from
-    # inside this one extract alone. Only attempted for a real comune-level
-    # area with an istat code - a no-op (returns gdf_edges unchanged, see
-    # that function's own docstring) for anything else, including the 18
-    # comuni whose osmit-estratti boundary geometry doesn't decode, so this
-    # never risks the Lampedusa e Linosa-style mistake (osm_pbf_service.py's
-    # retain_all=True comment) of silently deleting a real, separate part
-    # of the network.
-    if area.level == "comune" and area.istat_code:
-        from ltsbikeplan.services.area_index_service import AreaResolver
-
-        boundary_polygon = AreaResolver(cache_dir=data_dir).get_comune_boundary_polygon(area.istat_code)
-        gdf_edges = drop_isolated_interior_components(gdf_nodes, gdf_edges, boundary_polygon)
-
     # Captured before any pd.concat below, which drops GeoDataFrame/crs
     # metadata - this is the only reliable source of the edges' *actual*
     # CRS (whatever the DEM raster used by SlopeService was in), since the
@@ -169,6 +149,30 @@ def run_compute_lts(data_dir: str, area: AreaSpec, include_report_exports: bool 
     all_lts = pd.concat(lts_frames) if lts_frames else pd.DataFrame()
     all_lts = BikePathAnalysis.slope_penalty(all_lts)
     all_lts = BikePathAnalysis.surface_penalty(all_lts)
+
+    # Drops short connected components of the BIKEABLE network (lts > 0)
+    # that don't touch the comune's own boundary - real disconnected
+    # fragments (an unconnected network of paths inside a park, a knot of
+    # Venice sottoporteghi reachable from the rest of the city only via
+    # unramped bridge steps) rather than a road cut short by the comune
+    # extract's own edge, which keeps flowing into the neighbouring
+    # comune's extract in reality (see ROUTING.md's note on shared,
+    # un-renumbered OSM node ids across adjacent comuni extracts) and must
+    # not be dropped just because it looks isolated from inside this one
+    # extract alone. Run here, after LTS classification, not on the raw
+    # graph - see domain/network_pruning.py's own docstring for why an
+    # earlier full-graph version wrongly kept exactly these two real
+    # cases. Only attempted for a real comune-level area with an istat
+    # code - a no-op for anything else, including the 18 comuni whose
+    # osmit-estratti boundary geometry doesn't decode, so this never risks
+    # the Lampedusa e Linosa-style mistake (osm_pbf_service.py's
+    # retain_all=True comment) of silently deleting a real, separate part
+    # of the network.
+    if area.level == "comune" and area.istat_code:
+        from ltsbikeplan.services.area_index_service import AreaResolver
+
+        boundary_polygon = AreaResolver(cache_dir=data_dir).get_comune_boundary_polygon(area.istat_code)
+        all_lts = drop_isolated_bikeable_components(gdf_nodes, all_lts, boundary_polygon)
 
     with open(asset_path("LTS_decisionrule_dict.json"), "r") as file_handle:
         data = json.load(file_handle)
