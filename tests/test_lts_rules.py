@@ -649,6 +649,147 @@ class TestLtsRules(unittest.TestCase):
         updated = BikePathAnalysis.slope_penalty(edges)
         self.assertTrue((updated["lts"] == 2).all())
 
+    def test_slope_penalty_uses_net_endpoint_rise_over_noisy_fragment_average(self):
+        # A simple path (one real OSM way's own fragments, the normal
+        # shape) with 3 noisy per-fragment readings (15%, 0%, 20%) that
+        # length-weight to "10-20: extreme" (+2 LTS) - but the real
+        # elevation change between the way's two actual ENDPOINTS is only
+        # 3m over 300m (1%, flat), the physically correct answer. Real
+        # cases this generalizes (OSM ways 92293835/258610048 in Arenzano)
+        # are in the two regression tests around this one.
+        index = pd.MultiIndex.from_tuples(
+            [(1, 2, 0), (2, 1, 0), (2, 3, 0), (3, 2, 0), (3, 4, 0), (4, 3, 0)], names=["u", "v", "key"]
+        )
+        edges = pd.DataFrame(
+            {
+                "osmid": [1] * 6,
+                "context": ["urban"] * 6,
+                "slope_class": ["x"] * 6,
+                "slope": [15.0, 15.0, 0.0, 0.0, 20.0, 20.0],
+                "length": [100.0, 100.0, 100.0, 100.0, 100.0, 100.0],
+                "lts": [2] * 6,
+            },
+            index=index,
+        )
+        gdf_nodes = pd.DataFrame({"elevation": [100.0, 150.0, 80.0, 103.0]}, index=[1, 2, 3, 4])
+        updated = BikePathAnalysis.slope_penalty(edges, gdf_nodes)
+        self.assertTrue((updated["lts"] == 2).all())
+
+    def test_slope_penalty_net_endpoint_rise_is_zero_for_a_loop(self):
+        # A loop (same start/end - e.g. OSM way 258610048's parking-lot
+        # access loop) has no degree-1 node in its own subgraph, so its net
+        # rise is genuinely ~0 rather than "unknown" - correctly overriding
+        # noisy per-fragment readings that would otherwise bump it, with no
+        # need for the separate >20%-exclusion rule this case used before.
+        index = pd.MultiIndex.from_tuples(
+            [(1, 2, 0), (2, 1, 0), (2, 3, 0), (3, 2, 0), (3, 4, 0), (4, 3, 0), (4, 1, 0), (1, 4, 0)],
+            names=["u", "v", "key"],
+        )
+        edges = pd.DataFrame(
+            {
+                "osmid": [2] * 8,
+                "context": ["urban"] * 8,
+                "slope_class": ["x"] * 8,
+                "slope": [10.0, 10.0, 12.0, 12.0, 15.0, 15.0, 9.0, 9.0],
+                "length": [60.0] * 8,
+                "lts": [2] * 8,
+            },
+            index=index,
+        )
+        gdf_nodes = pd.DataFrame({"elevation": [100.0, 105.0, 98.0, 102.0]}, index=[1, 2, 3, 4])
+        updated = BikePathAnalysis.slope_penalty(edges, gdf_nodes)
+        self.assertTrue((updated["lts"] == 2).all())
+
+    def test_slope_penalty_without_gdf_nodes_falls_back_to_weighted_mean(self):
+        # No gdf_nodes passed (the default) - must behave exactly as
+        # before this feature existed, not raise.
+        index = pd.MultiIndex.from_tuples(
+            [(1, 2, 0), (2, 1, 0), (2, 3, 0), (3, 2, 0)], names=["u", "v", "key"]
+        )
+        edges = pd.DataFrame(
+            {
+                "osmid": [3] * 4,
+                "context": ["urban"] * 4,
+                "slope_class": ["8-10: hard"] * 4,
+                "slope": [9.0, 9.0, 9.0, 9.0],
+                "length": [300.0, 300.0, 300.0, 300.0],
+                "lts": [2] * 4,
+            },
+            index=index,
+        )
+        updated = BikePathAnalysis.slope_penalty(edges)
+        self.assertTrue((updated["lts"] == 4).all())
+
+    def test_slope_penalty_does_not_double_count_two_way_fragment_length(self):
+        # Regression for the real bug reported on OSM way 92293835
+        # (Arenzano, "Via Giulio Zunino"): a two-way street's graph
+        # representation carries both directed rows ((u, v) and (v, u))
+        # per real physical fragment - summing raw length per osmid without
+        # collapsing these first double-counts every fragment, so this
+        # street's real 250m (30 fragments, none over ~24m) summed to
+        # ~500m and crossed MIN_RELIABLE_SLOPE_LENGTH_M only because of the
+        # double-count, letting DEM noise on those short fragments bump a
+        # street the DEM itself mostly reads as flat/mild from LTS2 to
+        # LTS3. Using the real (deduplicated) 250m, this must stay
+        # unreliable and get NO slope penalty.
+        index = pd.MultiIndex.from_tuples(
+            [(1, 2, 0), (2, 1, 0), (2, 3, 0), (3, 2, 0)], names=["u", "v", "key"]
+        )
+        edges = pd.DataFrame(
+            {
+                "osmid": [92293835] * 4,
+                "context": ["urban"] * 4,
+                "slope_class": ["8-10: hard"] * 4,
+                "slope": [9.0, 9.0, 9.0, 9.0],
+                "length": [125.0, 125.0, 125.0, 125.0],
+                "lts": [2] * 4,
+            },
+            index=index,
+        )
+        updated = BikePathAnalysis.slope_penalty(edges)
+        self.assertTrue((updated["lts"] == 2).all())
+
+    def test_slope_penalty_uses_explicit_incline_tag_regardless_of_length(self):
+        # Regression for the real bug reported on OSM ways 43085064/
+        # 367406947/43085065 (Arenzano) - each tagged incline=30-35% (a
+        # mapper-verified, genuinely near-unrideable grade) but so short in
+        # total that they never cleared MIN_RELIABLE_SLOPE_LENGTH_M even
+        # combined, so the DEM-based path silently ignored the tagged
+        # incline and left them at their unpenalized base LTS. An explicit
+        # incline tag doesn't need the length-based reliability gate - it's
+        # mapper-verified, not DEM noise.
+        index = pd.MultiIndex.from_tuples([(1, 2, 0), (2, 1, 0)], names=["u", "v", "key"])
+        edges = pd.DataFrame(
+            {
+                "osmid": [43085064] * 2,
+                "context": ["urban"] * 2,
+                "slope_class": ["0-3: flat"] * 2,
+                "slope": [0.0, 0.0],
+                "incline": ["35", "35"],
+                "length": [10.0, 10.0],
+                "lts": [2] * 2,
+            },
+            index=index,
+        )
+        updated = BikePathAnalysis.slope_penalty(edges)
+        self.assertTrue((updated["lts"] == 4).all())
+
+    def test_slope_penalty_without_incline_column(self):
+        # Plenty of extracts never carry the tag - shouldn't KeyError, and
+        # falls back to the DEM-based path unchanged.
+        edges = pd.DataFrame(
+            {
+                "osmid": [999],
+                "context": ["urban"],
+                "slope_class": ["0-3: flat"],
+                "slope": [1.0],
+                "length": [10.0],
+                "lts": [2],
+            }
+        )
+        updated = BikePathAnalysis.slope_penalty(edges)
+        self.assertEqual(int(updated.iloc[0]["lts"]), 2)
+
     def test_slope_penalty_excludes_implausible_fragment_from_group_average(self):
         # Regression for the real bug reported on OSM way 258610048
         # (Arenzano): a parking-lot access LOOP (not a straight

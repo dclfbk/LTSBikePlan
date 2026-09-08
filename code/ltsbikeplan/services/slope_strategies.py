@@ -81,6 +81,48 @@ def slope_from_dem(edges, dem_path: str):
     return edges_with_slope
 
 
+def sample_node_elevations(nodes, dem_path: str):
+    """Point-samples each node's own elevation directly from the DEM, in
+    its own `elevation` column (metres; NaN where the DEM has nodata at
+    that exact point) - independent of edges/`slope` entirely, and run
+    regardless of which edge-slope strategy is selected (SlopeService's
+    "v1"/rpy2 fork only affects the per-edge grade below, not this).
+
+    Used by domain/lts_rules.py::slope_penalty to compute a group's NET
+    endpoint-to-endpoint rise (elevation change between the two ends of an
+    osmid group, divided by the group's own length) instead of
+    length-weighting many short fragments' own `_grade_percent_along_line`
+    readings. That per-fragment reading is itself a sum of |elevation
+    difference| between every consecutive VERTEX along just that one
+    fragment - fine for a fragment with enough vertices/length to average
+    its own DEM noise out, but for a short fragment (few vertices, close
+    together) that noise doesn't cancel, it accumulates, and averaging
+    several such fragments together (weighted by length) just averages
+    already-biased numbers - confirmed on two real, opposite-looking
+    Arenzano cases: way 92293835 ("Via Giulio Zunino", DEM itself reads
+    flat-to-mild on most fragments) got bumped a full LTS class from
+    length-weighting a few short noisy fragments in with the rest; way
+    258610048 (a parking-lot access loop) got bumped two classes from a
+    handful of ~5-10m fragments reading 22-27% purely from noise. A single
+    net rise measured directly between the two real ENDPOINTS of the whole
+    way only carries the sampling error of those 2 points, not one
+    accumulated per fragment - errors from intermediate noise (real
+    micro-undulation or DEM artifacts) cancel instead of stacking, and a
+    genuine loop (same start/end node) correctly nets to ~0 rather than
+    needing a separate exclusion rule.
+    """
+    with rasterio.open(dem_path) as dem:
+        nodes_proj = chunked_to_crs(nodes, dem.crs)
+        dem_nodata = dem.nodatavals[0] if dem.nodatavals else None
+        coords = [(geometry.x, geometry.y) for geometry in nodes_proj.geometry]
+        elevations = np.array([value[0] for value in dem.sample(coords)], dtype=float)
+        if dem_nodata is not None:
+            elevations[elevations == dem_nodata] = np.nan
+    result = nodes.copy()
+    result["elevation"] = elevations
+    return result
+
+
 class SlopeCalculatorR:
     @staticmethod
     def calc_slope(edges, dem_path: str):

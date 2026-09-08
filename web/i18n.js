@@ -148,6 +148,8 @@ const I18N = {
 <li><a href="https://orcid.org/0000-0002-6469-1619" target="_blank" rel="noopener"><strong>Munazza Usmani</strong></a> e <a href="https://orcid.org/0000-0002-2773-4093" target="_blank" rel="noopener"><strong>Riccardo Nanni</strong></a>, insieme a Leonardo Venturoso e Maurizio Napolitano, hanno trasformato quel lavoro nell'articolo scientifico <a href="https://doi.org/10.1080/10630732.2026.2639290" target="_blank" rel="noopener"><em>LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety</em></a>.</li>
 <li><a href="https://github.com/mfortini" target="_blank" rel="noopener"><strong>Matteo Fortini</strong></a> ha realizzato una prima implementazione per il contesto italiano e contribuito con suggerimenti e confronti.</li>
 <li><a href="https://github.com/aborruso" target="_blank" rel="noopener"><strong>Andrea Borruso</strong></a> ha contribuito con preziosi consigli.</li>
+<li><a href="https://matteomoretti.com/" target="_blank" rel="noopener"><strong>Matteo Moretti</strong></a>, per il suggerimento sul routing.</li>
+<li><strong>Marco Bra</strong>, per il testing approfondito su Arenzano, che aiuta a migliorare l'algoritmo.</li>
 <li><a href="https://www.top-ix.org/" target="_blank" rel="noopener"><strong>TOP-IX</strong></a> mette a disposizione l'infrastruttura che ospita il sito.</li>
 <li><a href="https://supporting.openstreetmap.org/donate/" target="_blank" rel="noopener"><strong>OpenStreetMap</strong></a> e la sua comunità rendono disponibili i dati su cui si basa la mappa.</li>
 <li><a href="https://mapterhorn.com/" target="_blank" rel="noopener"><strong>Mapterhorn</strong></a>, per i dati altimetrici e le terrain tiles utilizzate nel calcolo delle pendenze e nella visualizzazione 3D.</li>
@@ -587,6 +589,8 @@ const I18N = {
 <li><a href="https://orcid.org/0000-0002-6469-1619" target="_blank" rel="noopener"><strong>Munazza Usmani</strong></a> and <a href="https://orcid.org/0000-0002-2773-4093" target="_blank" rel="noopener"><strong>Riccardo Nanni</strong></a>, together with Leonardo Venturoso and Maurizio Napolitano, turned that work into the scientific paper <a href="https://doi.org/10.1080/10630732.2026.2639290" target="_blank" rel="noopener"><em>LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety</em></a>.</li>
 <li><a href="https://github.com/mfortini" target="_blank" rel="noopener"><strong>Matteo Fortini</strong></a> built a first implementation for the Italian context and contributed suggestions and comparisons.</li>
 <li><a href="https://github.com/aborruso" target="_blank" rel="noopener"><strong>Andrea Borruso</strong></a> contributed valuable advice.</li>
+<li><a href="https://matteomoretti.com/" target="_blank" rel="noopener"><strong>Matteo Moretti</strong></a>, for the routing suggestion.</li>
+<li><strong>Marco Bra</strong>, for the extensive testing on Arenzano that helps improve the algorithm.</li>
 <li><a href="https://www.top-ix.org/" target="_blank" rel="noopener"><strong>TOP-IX</strong></a> provides the infrastructure that hosts the site.</li>
 <li><a href="https://supporting.openstreetmap.org/donate/" target="_blank" rel="noopener"><strong>OpenStreetMap</strong></a> and its community make available the data the map is built on.</li>
 <li><a href="https://mapterhorn.com/" target="_blank" rel="noopener"><strong>Mapterhorn</strong></a>, for the elevation data and terrain tiles used to compute slopes and for the 3D view.</li>
@@ -1025,6 +1029,8 @@ const I18N = {
 <li><a href="https://orcid.org/0000-0002-6469-1619" target="_blank" rel="noopener"><strong>Munazza Usmani</strong></a> und <a href="https://orcid.org/0000-0002-2773-4093" target="_blank" rel="noopener"><strong>Riccardo Nanni</strong></a> haben diese Arbeit gemeinsam mit Leonardo Venturoso und Maurizio Napolitano in den wissenschaftlichen Artikel <a href="https://doi.org/10.1080/10630732.2026.2639290" target="_blank" rel="noopener"><em>LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety</em></a> verwandelt.</li>
 <li><a href="https://github.com/mfortini" target="_blank" rel="noopener"><strong>Matteo Fortini</strong></a> hat eine erste Umsetzung für den italienischen Kontext realisiert und mit Vorschlägen und Vergleichen beigetragen.</li>
 <li><a href="https://github.com/aborruso" target="_blank" rel="noopener"><strong>Andrea Borruso</strong></a> hat mit wertvollen Ratschlägen beigetragen.</li>
+<li><a href="https://matteomoretti.com/" target="_blank" rel="noopener"><strong>Matteo Moretti</strong></a>, für den Vorschlag zum Routing.</li>
+<li><strong>Marco Bra</strong>, für die umfangreichen Tests in Arenzano, die zur Verbesserung des Algorithmus beitragen.</li>
 <li><a href="https://www.top-ix.org/" target="_blank" rel="noopener"><strong>TOP-IX</strong></a> stellt die Infrastruktur bereit, auf der die Website gehostet wird.</li>
 <li><a href="https://supporting.openstreetmap.org/donate/" target="_blank" rel="noopener"><strong>OpenStreetMap</strong></a> und seine Community stellen die Daten bereit, auf denen die Karte basiert.</li>
 <li><a href="https://mapterhorn.com/" target="_blank" rel="noopener"><strong>Mapterhorn</strong></a>, für die Höhendaten und Terrain-Tiles, die zur Berechnung der Steigungen und für die 3D-Ansicht verwendet werden.</li>
@@ -1463,6 +1469,8 @@ const I18N = {
 <li><a href="https://orcid.org/0000-0002-6469-1619" target="_blank" rel="noopener"><strong>Munazza Usmani</strong></a> et <a href="https://orcid.org/0000-0002-2773-4093" target="_blank" rel="noopener"><strong>Riccardo Nanni</strong></a>, avec Leonardo Venturoso et Maurizio Napolitano, ont transformé ce travail en article scientifique <a href="https://doi.org/10.1080/10630732.2026.2639290" target="_blank" rel="noopener"><em>LTS-BikePlan: A Data-Driven Tool for Enhancing Cycling Infrastructure and Safety</em></a>.</li>
 <li><a href="https://github.com/mfortini" target="_blank" rel="noopener"><strong>Matteo Fortini</strong></a> a réalisé une première mise en œuvre pour le contexte italien et contribué avec des suggestions et des comparaisons.</li>
 <li><a href="https://github.com/aborruso" target="_blank" rel="noopener"><strong>Andrea Borruso</strong></a> a apporté de précieux conseils.</li>
+<li><a href="https://matteomoretti.com/" target="_blank" rel="noopener"><strong>Matteo Moretti</strong></a>, pour la suggestion sur le routage.</li>
+<li><strong>Marco Bra</strong>, pour les tests approfondis sur Arenzano, qui aident à améliorer l'algorithme.</li>
 <li><a href="https://www.top-ix.org/" target="_blank" rel="noopener"><strong>TOP-IX</strong></a> met à disposition l'infrastructure qui héberge le site.</li>
 <li><a href="https://supporting.openstreetmap.org/donate/" target="_blank" rel="noopener"><strong>OpenStreetMap</strong></a> et sa communauté mettent à disposition les données sur lesquelles s'appuie la carte.</li>
 <li><a href="https://mapterhorn.com/" target="_blank" rel="noopener"><strong>Mapterhorn</strong></a>, pour les données altimétriques et les terrain tiles utilisées dans le calcul des pentes et dans la visualisation 3D.</li>

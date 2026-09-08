@@ -16,6 +16,7 @@ from ltsbikeplan.services.osm_pbf_service import (
 )
 from ltsbikeplan.services.persistence_service import PersistenceService
 from ltsbikeplan.services.slope_service import SlopeService
+from ltsbikeplan.services.slope_strategies import sample_node_elevations
 
 
 def _load_network(area: AreaSpec, cache_dir: str):
@@ -140,6 +141,11 @@ def run_fetch(
     resolved_dem_path = _resolve_dem_path(area, dem_path, data_dir)
     gdf_edges = slope_service.apply(gdf_edges, resolved_dem_path)
     gdf_edges.index = original_index
+    # See sample_node_elevations' own docstring - domain/lts_rules.py::
+    # slope_penalty uses these for a group's net endpoint-to-endpoint rise,
+    # a more DEM-noise-robust alternative to length-weighting many short
+    # fragments' own per-edge grade for a short/heavily-split way.
+    gdf_nodes = sample_node_elevations(gdf_nodes, resolved_dem_path)
 
     area_dir = os.path.join(data_dir, area.slug)
     os.makedirs(area_dir, exist_ok=True)

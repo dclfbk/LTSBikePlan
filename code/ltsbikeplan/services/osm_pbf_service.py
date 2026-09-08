@@ -52,6 +52,14 @@ EXTRA_NETWORK_ATTRIBUTES = [
     # case: Bolzano's Via Sarentino, old_ref=SS508 on segments with no live
     # `ref` at all today).
     "old_ref",
+    # A mapper-verified grade (e.g. incline=35, meaning 35%) - lts_rules.py's
+    # slope_penalty prefers this over the DEM-derived slope where present,
+    # since it doesn't need the length-based reliability gate that exists
+    # specifically to filter DEM sampling noise on short fragments (real
+    # case: OSM ways 43085064/367406947/43085065 in Arenzano, incline=30-35%
+    # streets so short in total the DEM path never judged them reliable
+    # enough to penalize at all).
+    "incline",
 ]
 
 # Columns BikePathAnalysis reads unconditionally (would KeyError, not just

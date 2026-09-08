@@ -147,7 +147,7 @@ def run_compute_lts(data_dir: str, area: AreaSpec, include_report_exports: bool 
         if not frame.empty and frame.notna().any().any()
     ]
     all_lts = pd.concat(lts_frames) if lts_frames else pd.DataFrame()
-    all_lts = BikePathAnalysis.slope_penalty(all_lts)
+    all_lts = BikePathAnalysis.slope_penalty(all_lts, gdf_nodes)
     all_lts = BikePathAnalysis.surface_penalty(all_lts)
 
     # Drops short connected components of the BIKEABLE network (lts > 0)

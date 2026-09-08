@@ -1,3 +1,4 @@
+import networkx as nx
 import numpy as np
 import pandas as pd
 
@@ -715,7 +716,7 @@ class BikePathAnalysis:
         return int(max_lts), "Node LTS is max intersecting LTS"
 
     @staticmethod
-    def slope_penalty(edges):
+    def slope_penalty(edges, gdf_nodes=None):
         # MIN_RELIABLE_SLOPE_LENGTH_M: below this, the DEM-derived `slope`
         # value isn't trustworthy enough to penalize on, regardless of how
         # steep it claims to be. The Mapterhorn DEM is ~10m/cell, and an
@@ -765,7 +766,43 @@ class BikePathAnalysis:
             return value[0] if isinstance(value, list) and value else value
 
         osmid_key = edges["osmid"].map(_osmid_key)
-        group_length = edges["length"].groupby(osmid_key).transform("sum")
+
+        # A two-way street's graph representation carries TWO directed rows
+        # per real physical fragment ((u, v) and (v, u), same osmid/length/
+        # slope - it's the same segment, just the reverse direction) -
+        # summing raw `length` per osmid group without collapsing these
+        # first double-counts every two-way fragment, silently making
+        # MIN_RELIABLE_SLOPE_LENGTH_M effectively ~250m for a two-way
+        # street while a one-way street of the same real length still
+        # needs the full 500m. Real case: OSM way 92293835 in Arenzano
+        # ("Via Giulio Zunino"), whose 30 real fragments (250m total, none
+        # over ~24m) cleared the threshold only because being two-way
+        # doubled the summed length to ~500m, letting DEM noise on those
+        # short fragments inflate the weighted-mean slope enough to bump
+        # LTS2 to LTS3 for a street the DEM itself reads as flat-to-mild on
+        # most individual fragments. `key` is included in the identity (not
+        # just the sorted node pair) since a real multigraph parallel edge
+        # between the same two nodes is a second real fragment, not a
+        # reverse duplicate of the first.
+        # Needs the real (u, v[, key]) MultiIndex every ingestion path in
+        # this project produces (osmnx.graph_to_gdfs) - falls back to no
+        # deduplication (matches this function's pre-fix behaviour) when
+        # the index doesn't have node identity to compare, e.g. this
+        # module's own unit tests, which build plain-indexed frames to
+        # test the aggregation logic in isolation from real graph shape.
+        if edges.index.nlevels >= 2:
+            us = edges.index.get_level_values(0)
+            vs = edges.index.get_level_values(1)
+            keys = edges.index.get_level_values(2) if edges.index.nlevels >= 3 else np.zeros(len(edges), dtype=int)
+            undirected_id = pd.Series(
+                list(zip(osmid_key, (tuple(sorted((u, v))) for u, v in zip(us, vs)), keys)), index=edges.index
+            )
+            is_reverse_duplicate = undirected_id.duplicated()
+        else:
+            is_reverse_duplicate = pd.Series(False, index=edges.index)
+
+        physical_length = edges["length"].where(~is_reverse_duplicate, 0.0)
+        group_length = physical_length.groupby(osmid_key).transform("sum")
 
         # The weighted mean is taken only over fragments with a known,
         # trustworthy slope. "Known" excludes a fragment where DEM sampling
@@ -793,12 +830,122 @@ class BikePathAnalysis:
         # if extreme - a genuinely long, sustained impossible-grade reading
         # isn't the short-fragment noise this exclusion targets.
         slope_known = edges["slope"].notna() & ((edges["slope"] <= 20) | (edges["length"] >= MIN_RELIABLE_SLOPE_LENGTH_M))
-        known_length = edges["length"].where(slope_known, 0)
+        # `& ~is_reverse_duplicate` for the same reason as physical_length
+        # above - a two-way fragment's reverse-direction row would
+        # otherwise count its own (identical) slope reading twice in the
+        # weighted sum too, not just its length.
+        known_length = edges["length"].where(slope_known & ~is_reverse_duplicate, 0)
         known_length_sum = known_length.groupby(osmid_key).transform("sum")
         weighted_rise_sum = (edges["slope"] * known_length).groupby(osmid_key).transform("sum")
         with np.errstate(invalid="ignore"):
             group_slope = weighted_rise_sum / known_length_sum
         group_slope = group_slope.where(known_length_sum > 0)
+
+        # Net endpoint-to-endpoint rise: a more DEM-noise-robust estimate
+        # than the length-weighted mean above for a way with real, closely-
+        # spaced fragments. That mean sums each fragment's OWN
+        # |elevation-change| reading (see slope_strategies.py's
+        # _grade_percent_along_line) - noise between a fragment's own
+        # close-together vertices doesn't cancel there, it accumulates,
+        # and averaging several such fragments just averages already-
+        # biased numbers. Measuring the rise between only the group's two
+        # real ENDPOINTS carries just those 2 points' own sampling error,
+        # not one accumulated per fragment. NET_SLOPE_MIN_RELIABLE_LENGTH_M
+        # is lower than MIN_RELIABLE_SLOPE_LENGTH_M above precisely because
+        # this error doesn't grow with fragment count/density the way the
+        # per-fragment method's does - only with how short the group is
+        # relative to typical DEM vertical noise (~1-2m): a 2m uncertainty
+        # over 150m is a ~1-2% grade error (tolerable), the same 2m over a
+        # 500m+ way this project's older per-fragment method needed is
+        # already negligible. Needs `gdf_nodes["elevation"]` (see
+        # services/slope_strategies.py::sample_node_elevations) - silently
+        # unavailable (net_slope stays all-NaN, falling through to the
+        # weighted-mean value above) for a cached pickle from before that
+        # was added, so this is backward-compatible, not a hard dependency.
+        NET_SLOPE_MIN_RELIABLE_LENGTH_M = 150
+
+        def _group_net_slope(edges, osmid_key, is_reverse_duplicate, physical_length, gdf_nodes):
+            no_result = pd.Series(np.nan, index=edges.index)
+            if gdf_nodes is None or "elevation" not in gdf_nodes.columns or edges.index.nlevels < 2:
+                return no_result
+
+            physical = ~is_reverse_duplicate
+            physical_frame = pd.DataFrame(
+                {
+                    "osmid": osmid_key[physical],
+                    "u": edges.index.get_level_values(0)[physical],
+                    "v": edges.index.get_level_values(1)[physical],
+                    "length": physical_length[physical],
+                }
+            )
+
+            net_slope_by_group = {}
+            for oid, group_df in physical_frame.groupby("osmid"):
+                total_length = group_df["length"].sum()
+                if total_length <= 0:
+                    continue
+                graph = nx.Graph()
+                graph.add_edges_from(zip(group_df["u"], group_df["v"]))
+                # A simple path (the normal shape for one OSM way's own
+                # fragments) has exactly 2 degree-1 nodes - its real
+                # endpoints. A loop (start == end, e.g. the parking-lot
+                # case in the docstring above) has none - its net rise is
+                # genuinely ~0, not "unknown." Anything else (branching, or
+                # several disconnected pieces sharing one osmid) is
+                # topology this method isn't built for - leave it unset,
+                # falling back to the weighted-mean value computed above.
+                degree_one = [node for node, degree in graph.degree() if degree == 1]
+                if len(degree_one) == 2:
+                    start, end = degree_one
+                    if start in gdf_nodes.index and end in gdf_nodes.index:
+                        elev_start = gdf_nodes.at[start, "elevation"]
+                        elev_end = gdf_nodes.at[end, "elevation"]
+                        if pd.notna(elev_start) and pd.notna(elev_end):
+                            net_slope_by_group[oid] = 100.0 * abs(elev_end - elev_start) / total_length
+                elif len(degree_one) == 0:
+                    net_slope_by_group[oid] = 0.0
+
+            if not net_slope_by_group:
+                return no_result
+            return osmid_key.map(net_slope_by_group)
+
+        net_slope = _group_net_slope(edges, osmid_key, is_reverse_duplicate, physical_length, gdf_nodes)
+        has_net_slope = net_slope.notna() & (group_length >= NET_SLOPE_MIN_RELIABLE_LENGTH_M)
+        group_slope = group_slope.where(~has_net_slope, net_slope)
+
+        # An explicit `incline` tag is mapper-verified (measured/observed on
+        # the ground), not DEM-sampled - it doesn't need the length-based
+        # reliability gate that exists specifically to filter out
+        # short-fragment DEM noise. Real case: OSM ways 43085064/367406947/
+        # 43085065 in Arenzano - incline=30%/30%/35% streets (genuinely
+        # near-unrideable) so short in total that they never cleared
+        # MIN_RELIABLE_SLOPE_LENGTH_M even combined, so the tagged incline
+        # was silently ignored and each stayed at its unpenalized base LTS.
+        # `incline` is a way-level tag osmnx copies onto every fragment a
+        # way gets split into, so it's uniform across an osmid group in
+        # practice - averaging it (rather than assuming uniformity) is just
+        # cheap insurance against a rare edited-mid-way case. Overrides the
+        # DEM-derived group_slope/group_reliable wherever present, but only
+        # for groups that actually carry it - a way with no `incline` tag
+        # at all keeps relying on the DEM+length-reliability path above.
+        if "incline" in edges.columns:
+
+            def _parse_incline_percent(value):
+                item = value[0] if isinstance(value, list) and value else value
+                if not isinstance(item, str):
+                    return np.nan
+                try:
+                    return abs(float(item.strip().rstrip("%").strip()))
+                except ValueError:
+                    return np.nan  # qualitative values ("up"/"down"/"steep") aren't usable as a number
+
+            incline_value = edges["incline"].apply(_parse_incline_percent)
+            group_incline = incline_value.groupby(osmid_key).transform("mean")
+            group_has_incline = incline_value.notna().groupby(osmid_key).transform("any")
+            group_slope = group_slope.where(~group_has_incline, group_incline)
+        else:
+            group_has_incline = pd.Series(False, index=edges.index)
+
         group_slope_class = pd.cut(
             group_slope,
             bins=[0, 3, 5, 8, 10, 20, np.inf],
@@ -810,7 +957,7 @@ class BikePathAnalysis:
             labels=["0-3: flat", "3-5: mild", "5-8: medium", "8-10: hard", "10-20: extreme", ">20: impossible"],
             right=False,
         )
-        group_reliable = group_length >= MIN_RELIABLE_SLOPE_LENGTH_M
+        group_reliable = group_has_incline | has_net_slope | (group_length >= MIN_RELIABLE_SLOPE_LENGTH_M)
 
         def adjust_lts(lts, context, slope_class, reliable):
             # Same "don't touch an excluded edge" guard as surface_penalty's

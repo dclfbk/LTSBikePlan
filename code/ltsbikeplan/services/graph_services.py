@@ -72,6 +72,7 @@ _EXTRA_USEFUL_TAGS_WAY = [
     "sac_scale",
     "zone:maxspeed",
     "old_ref",
+    "incline",
     "bicycle",
     "surface",
     "footway",
