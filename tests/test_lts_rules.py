@@ -649,6 +649,33 @@ class TestLtsRules(unittest.TestCase):
         updated = BikePathAnalysis.slope_penalty(edges)
         self.assertTrue((updated["lts"] == 2).all())
 
+    def test_slope_penalty_excludes_implausible_fragment_from_group_average(self):
+        # Regression for the real bug reported on OSM way 258610048
+        # (Arenzano): a parking-lot access LOOP (not a straight
+        # through-road, the shape the osmid-grouping fix above was built
+        # for) where one short fragment reads 25% purely from DEM noise -
+        # physically "impossible" for a rideable road (see the >20% bin).
+        # Averaging it in with the plausible ~6% fragments dragged the
+        # whole group from "5-8: medium" (+1) up to "8-10: hard" (+2). The
+        # implausible fragment's own length must still count toward the
+        # group's total length/reliability (the way really is that long)
+        # - only its slope READING gets excluded, same as a true NaN one.
+        edges = pd.DataFrame(
+            {
+                "osmid": [258610048] * 3,
+                "context": ["urban"] * 3,
+                "slope_class": ["5-8: medium", "5-8: medium", ">20: impossible"],
+                "slope": [6.0, 6.0, 25.0],
+                "length": [250.0, 200.0, 100.0],
+                "lts": [2, 2, 2],
+            }
+        )
+        updated = BikePathAnalysis.slope_penalty(edges)
+        # Group length 550m clears the reliability threshold; weighted mean
+        # excluding the implausible fragment is 6.0% ("5-8: medium", +1),
+        # not the ~9.45% ("8-10: hard", +2) a naive average would give.
+        self.assertTrue((updated["lts"] == 3).all())
+
     def test_surface_penalty_severe_adds_one_regardless_of_length(self):
         # Flat +1 for severe surfaces, any length - losing traction on
         # sand/mud/ground is immediate, but capped at the same +1 a short

@@ -767,13 +767,32 @@ class BikePathAnalysis:
         osmid_key = edges["osmid"].map(_osmid_key)
         group_length = edges["length"].groupby(osmid_key).transform("sum")
 
-        # The weighted mean is taken only over fragments with a known
-        # slope (DEM sampling can fail per-fragment, e.g. a nodata pixel),
-        # so one NaN fragment doesn't silently drag down the group average
-        # - if every fragment in a group lacks slope data, group_slope
-        # comes out NaN and the group gets no penalty, same "don't
-        # penalize missing data" convention as elsewhere in this file.
-        slope_known = edges["slope"].notna()
+        # The weighted mean is taken only over fragments with a known,
+        # trustworthy slope. "Known" excludes a fragment where DEM sampling
+        # failed outright (a nodata pixel) - one NaN fragment shouldn't
+        # silently drag down the group average, same "don't penalize
+        # missing data" convention as elsewhere in this file.
+        #
+        # A fragment reading >20% ("impossible" for a rideable road) is
+        # ALSO excluded, but only when it's individually short (below
+        # MIN_RELIABLE_SLOPE_LENGTH_M) - the same DEM-noise argument this
+        # whole function's docstring makes for why a short fragment's own
+        # reading isn't trustworthy in isolation. Real case: OSM way
+        # 258610048 in Arenzano, a parking-lot access LOOP (not a straight
+        # through-road, the shape this grouping fix was built for) where
+        # several ~5-10m fragments read 22-27% purely from DEM noise,
+        # dragging the group's length-weighted mean up to "8-10: hard" (+2
+        # LTS) even though the plausible fragments alone average "5-8:
+        # medium." A short implausible fragment is exactly as untrustworthy
+        # as a missing one - both get excluded from the WEIGHTED MEAN the
+        # same way - though unlike a true NaN fragment, its own length
+        # still counts toward group_length/group_reliable above (the way
+        # itself really is that long; only this fragment's reading is
+        # discarded). A fragment that's ALREADY long enough to be reliable
+        # on its own (>=MIN_RELIABLE_SLOPE_LENGTH_M) keeps its reading even
+        # if extreme - a genuinely long, sustained impossible-grade reading
+        # isn't the short-fragment noise this exclusion targets.
+        slope_known = edges["slope"].notna() & ((edges["slope"] <= 20) | (edges["length"] >= MIN_RELIABLE_SLOPE_LENGTH_M))
         known_length = edges["length"].where(slope_known, 0)
         known_length_sum = known_length.groupby(osmid_key).transform("sum")
         weighted_rise_sum = (edges["slope"] * known_length).groupby(osmid_key).transform("sum")
