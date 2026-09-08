@@ -53,7 +53,40 @@ if _OVERPASS_URL:
 # former SS number here). mtb:scale was here too at one point - dropped
 # along with the domain rule that read it, see lts_rules.py's
 # _HARD_SAC_SCALE_VALUES comment for why.
-_EXTRA_USEFUL_TAGS_WAY = ["motorroad", "sac_scale", "zone:maxspeed", "old_ref"]
+#
+# `bicycle`/`surface`/`cycleway*`/`footway`/`shoulder:access:bicycle`/
+# `parking:*` were missing here entirely until a real case exposed it
+# (2026-09-08: a user's own `bicycle=no` edit on OSM - Venice centro
+# storico's citywide cycling ban, way 232363460/1541338547 - had no effect
+# at all on a LTSBP_NO_OSMIT_ESTRATTI=1 re-fetch, because `bicycle` was
+# never even requested from Overpass on this path, so biking_permitted's
+# entire bicycle=yes/no/dismount/designated logic silently saw no such
+# column and did nothing). The pyrosm/osmit-estratti ingestion path
+# (services/osm_pbf_service.py's EXTRA_NETWORK_ATTRIBUTES/
+# REQUIRED_EDGE_COLUMNS) already requests every one of these - this list
+# is that same set, minus the handful (`access`, `highway`, `oneway`,
+# `lanes`, `maxspeed`, `service`, `name`, `ref`, `width`, `est_width`)
+# osmnx's own default `useful_tags_way` already covers.
+_EXTRA_USEFUL_TAGS_WAY = [
+    "motorroad",
+    "sac_scale",
+    "zone:maxspeed",
+    "old_ref",
+    "bicycle",
+    "surface",
+    "footway",
+    "cycleway",
+    "cycleway:left",
+    "cycleway:right",
+    "cycleway:both",
+    "cycleway:lane",
+    "shoulder:access:bicycle",
+    "parking:lane",
+    "parking:lane:left",
+    "parking:lane:right",
+    "parking:lane:both",
+    "parking:condition",
+]
 
 
 class GraphLoaderService:
