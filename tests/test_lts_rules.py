@@ -1042,6 +1042,80 @@ class TestGetMaxSpeed(unittest.TestCase):
         self.assertEqual(result.iloc[0]["rule"], "c7")
         self.assertEqual(int(result.iloc[0]["lts"]), 3)
 
+    def test_bike_lane_without_parking_historic_paving_urban_bypasses_non_residential(self):
+        # Real case: OSM way 31101786, "Piazza Vittorio Veneto" in Santhià
+        # (VC) - highway=secondary, cycleway:right=lane, surface=sett, in
+        # the town's historic centre. A secondary/primary through a real
+        # urban historic centre is locally no more stressful than a
+        # residential street despite the functional classification - c7
+        # ("not residential") shouldn't apply just because of the
+        # highway=secondary tag.
+        edges = pd.DataFrame(
+            {
+                "highway": ["secondary"],
+                "oneway": [False],
+                "maxspeed": ["30"],
+                "lanes": [2],
+                "zone:maxspeed": [None],
+                "surface": ["sett"],
+                "context": ["urban"],
+            }
+        )
+        result = BikePathAnalysis.bike_lane_analysis_without_parking(edges)
+        self.assertEqual(result.iloc[0]["rule"], "c1")
+        self.assertEqual(int(result.iloc[0]["lts"]), 1)
+
+    def test_bike_lane_without_parking_historic_paving_countryside_stays_non_residential(self):
+        # Same surface, but NOT in a built-up area - the paving alone says
+        # nothing about traffic calm out there, so c7 still applies.
+        edges = pd.DataFrame(
+            {
+                "highway": ["secondary"],
+                "oneway": [False],
+                "maxspeed": ["30"],
+                "lanes": [2],
+                "zone:maxspeed": [None],
+                "surface": ["sett"],
+                "context": ["countryside"],
+            }
+        )
+        result = BikePathAnalysis.bike_lane_analysis_without_parking(edges)
+        self.assertEqual(result.iloc[0]["rule"], "c7")
+        self.assertEqual(int(result.iloc[0]["lts"]), 3)
+
+    def test_bike_lane_without_parking_missing_context_column_keeps_non_residential(self):
+        # Defensive: no KeyError, and the bypass simply never applies
+        # without a `context` column to check.
+        edges = pd.DataFrame(
+            {
+                "highway": ["secondary"],
+                "oneway": [False],
+                "maxspeed": ["30"],
+                "lanes": [2],
+                "zone:maxspeed": [None],
+                "surface": ["sett"],
+            }
+        )
+        result = BikePathAnalysis.bike_lane_analysis_without_parking(edges)
+        self.assertEqual(result.iloc[0]["rule"], "c7")
+
+    def test_bike_lane_with_parking_historic_paving_urban_bypasses_non_residential(self):
+        edges = pd.DataFrame(
+            {
+                "highway": ["secondary"],
+                "oneway": [False],
+                "maxspeed": ["30"],
+                "lanes": [2],
+                "zone:maxspeed": [None],
+                "surface": ["sett"],
+                "context": ["urban"],
+                "width": [None],
+            }
+        )
+        result = BikePathAnalysis.bike_lane_analysis_with_parking(edges)
+        self.assertEqual(result.iloc[0]["rule"], "b1")
+        self.assertEqual(int(result.iloc[0]["lts"]), 1)
+
     def test_bike_lane_without_parking_moderate_speed_is_lts_3(self):
         edges = pd.DataFrame(
             {

@@ -499,6 +499,26 @@ class BikePathAnalysis:
             lambda row: BikePathAnalysis.get_average_width_based_on_highway(row["highway"], row["oneway"]), axis=1
         )
 
+        # A `secondary`/`primary` way isn't automatically "not residential"
+        # (b9) when it's paved in historic-centre stone AND actually
+        # sits in a built-up area (`context == "urban"`, the same
+        # building-density classifier slope_penalty's urban/countryside
+        # split already uses) - plenty of small Italian towns route a real
+        # secondary/primary road straight through the historic piazza,
+        # where it's locally no more stressful than a residential street
+        # despite the functional classification. Real case: OSM way
+        # 31101786, "Piazza Vittorio Veneto" in Santhià (VC) -
+        # highway=secondary, surface=sett, in the town centre. Restricted
+        # to `context == "urban"` deliberately - the same paving on a rural
+        # secondary road (unusual, but real) says nothing about traffic
+        # calm the way it does inside a town.
+        historic_paving_urban = (
+            gdf_edges["surface"].isin(_HISTORIC_PAVING_SURFACES) & (gdf_edges["context"] == "urban")
+            if "surface" in gdf_edges.columns and "context" in gdf_edges.columns
+            else pd.Series(False, index=gdf_edges.index)
+        )
+        not_residential = (gdf_edges["highway"] != "residential") & ~historic_paving_urban
+
         conditions = [
             (gdf_edges["lanes_assumed"] >= 3) & (gdf_edges["maxspeed_assumed"] <= 55),
             (gdf_edges[width_column] <= 4.1),
@@ -507,7 +527,7 @@ class BikePathAnalysis:
             (gdf_edges["maxspeed_assumed"] > 40) & (gdf_edges["maxspeed_assumed"] <= 50),
             (gdf_edges["maxspeed_assumed"] > 50) & (gdf_edges["maxspeed_assumed"] <= 55),
             (gdf_edges["maxspeed_assumed"] > 55),
-            (gdf_edges["highway"] != "residential"),
+            not_residential,
         ]
         values = ["b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9"]
         gdf_edges["rule"] = np.select(conditions, values, default="b1")
@@ -557,12 +577,21 @@ class BikePathAnalysis:
         # 65 vs b2/b7's 55) - reflecting that a bike lane free of parked
         # cars is inherently less stressful at a given speed than the same
         # lane squeezed against a parking row.
+        # See bike_lane_analysis_with_parking's identical historic_paving_urban
+        # comment above (b9) - same reasoning applies here for c7.
+        historic_paving_urban = (
+            gdf_edges["surface"].isin(_HISTORIC_PAVING_SURFACES) & (gdf_edges["context"] == "urban")
+            if "surface" in gdf_edges.columns and "context" in gdf_edges.columns
+            else pd.Series(False, index=gdf_edges.index)
+        )
+        not_residential = (gdf_edges["highway"] != "residential") & ~historic_paving_urban
+
         conditions = [
             (gdf_edges["lanes_assumed"] >= 3) & (gdf_edges["maxspeed_assumed"] <= 65),
             (gdf_edges[width_column] <= 1.7),
             (gdf_edges["maxspeed_assumed"] > 50) & (gdf_edges["maxspeed_assumed"] <= 65),
             (gdf_edges["maxspeed_assumed"] > 65),
-            (gdf_edges["highway"] != "residential"),
+            not_residential,
         ]
 
         values = ["c3", "c4", "c5", "c6", "c7"]
