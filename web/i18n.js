@@ -149,7 +149,7 @@ const I18N = {
 <li><a href="https://github.com/mfortini" target="_blank" rel="noopener"><strong>Matteo Fortini</strong></a> ha realizzato una prima implementazione per il contesto italiano e contribuito con suggerimenti e confronti.</li>
 <li><a href="https://github.com/aborruso" target="_blank" rel="noopener"><strong>Andrea Borruso</strong></a> ha contribuito con preziosi consigli.</li>
 <li><a href="https://matteomoretti.com/" target="_blank" rel="noopener"><strong>Matteo Moretti</strong></a>, per il suggerimento sul routing.</li>
-<li><strong>Marco Bra</strong>, per il testing approfondito su Arenzano, che aiuta a migliorare l'algoritmo.</li>
+<li><a href="https://github.com/marcobra" target="_blank" rel="noopener"><strong>Marco Braida</strong></a>, per il testing approfondito su Arenzano, che aiuta a migliorare l'algoritmo.</li>
 <li><a href="https://www.top-ix.org/" target="_blank" rel="noopener"><strong>TOP-IX</strong></a> mette a disposizione l'infrastruttura che ospita il sito.</li>
 <li><a href="https://supporting.openstreetmap.org/donate/" target="_blank" rel="noopener"><strong>OpenStreetMap</strong></a> e la sua comunità rendono disponibili i dati su cui si basa la mappa.</li>
 <li><a href="https://mapterhorn.com/" target="_blank" rel="noopener"><strong>Mapterhorn</strong></a>, per i dati altimetrici e le terrain tiles utilizzate nel calcolo delle pendenze e nella visualizzazione 3D.</li>
