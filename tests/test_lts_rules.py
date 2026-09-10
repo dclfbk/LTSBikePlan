@@ -868,6 +868,110 @@ class TestLtsRules(unittest.TestCase):
         updated = BikePathAnalysis.surface_penalty(edges)
         self.assertEqual(int(updated.iloc[0]["lts"]), 1)
 
+    def test_segregated_hub_penalty_flags_only_top_quartile(self):
+        # Regression for the real case reported on Bologna's "Tangenziale
+        # delle Biciclette" hub (Via Giacomo Matteotti/Irnerio, way
+        # 976135744 and others, reported 2026-09-10): segregated=no alone
+        # isn't stressful, only combined with high betweenness centrality
+        # relative to OTHER segregated=no separated paths in the same area.
+        # 20 candidates with centrality 1.0..20.0 - pandas' default linear
+        # quantile(0.75) is 15.25, so only the top 5 (16-20) should flip.
+        n = 20
+        edges = pd.DataFrame(
+            {
+                "rule": ["s3"] * n,
+                "segregated": ["no"] * n,
+                "lts": [1] * n,
+                "centrality": [float(v) for v in range(1, n + 1)],
+            }
+        )
+        updated = BikePathAnalysis.segregated_hub_penalty(edges)
+        flagged = updated["centrality"] >= 16.0
+        self.assertTrue((updated.loc[flagged, "rule"] == "s11").all())
+        self.assertTrue((updated.loc[flagged, "lts"] == 2).all())
+        self.assertTrue((updated.loc[~flagged, "rule"] == "s3").all())
+        self.assertTrue((updated.loc[~flagged, "lts"] == 1).all())
+
+    def test_segregated_hub_penalty_skipped_below_minimum_candidates(self):
+        # Too few segregated=no separated paths in the area to compute a
+        # meaningful quartile - must not flag any of them off a tiny
+        # sample, even if their centrality looks extreme in isolation.
+        edges = pd.DataFrame(
+            {
+                "rule": ["s3"] * 5,
+                "segregated": ["no"] * 5,
+                "lts": [1] * 5,
+                "centrality": [1.0, 2.0, 3.0, 4.0, 100.0],
+            }
+        )
+        updated = BikePathAnalysis.segregated_hub_penalty(edges)
+        self.assertTrue((updated["rule"] == "s3").all())
+        self.assertTrue((updated["lts"] == 1).all())
+
+    def test_segregated_hub_penalty_ignores_segregated_yes(self):
+        # A physically separated (segregated=yes) shared path never enters
+        # the candidate pool, regardless of how central it is - and its
+        # presence must not skew the "no" pool's own quartile threshold.
+        n = 20
+        no_rows = pd.DataFrame(
+            {
+                "rule": ["s3"] * n,
+                "segregated": ["no"] * n,
+                "lts": [1] * n,
+                "centrality": [float(v) for v in range(1, n + 1)],
+            }
+        )
+        yes_rows = pd.DataFrame(
+            {"rule": ["s3"], "segregated": ["yes"], "lts": [1], "centrality": [1000.0]}
+        )
+        edges = pd.concat([no_rows, yes_rows], ignore_index=True)
+        updated = BikePathAnalysis.segregated_hub_penalty(edges)
+        yes_row = updated[updated["segregated"] == "yes"].iloc[0]
+        self.assertEqual(yes_row["rule"], "s3")
+        self.assertEqual(int(yes_row["lts"]), 1)
+        # Same top-5-of-20 threshold as the plain quartile test above -
+        # the extra segregated=yes row must not have entered the pool.
+        no_flagged = updated[(updated["segregated"] == "no") & (updated["centrality"] >= 16.0)]
+        self.assertTrue((no_flagged["rule"] == "s11").all())
+
+    def test_segregated_hub_penalty_ignores_non_separated_rule(self):
+        # rule="c1" (a bike lane, not a separated path) never qualifies,
+        # even with segregated=no and extreme centrality - the tag is only
+        # meaningful on the s1/s2/s3/s7/s8 shared-path family.
+        n = 20
+        edges = pd.DataFrame(
+            {
+                "rule": ["c1"] * n,
+                "segregated": ["no"] * n,
+                "lts": [1] * n,
+                "centrality": [float(v) for v in range(1, n + 1)],
+            }
+        )
+        updated = BikePathAnalysis.segregated_hub_penalty(edges)
+        self.assertTrue((updated["rule"] == "c1").all())
+        self.assertTrue((updated["lts"] == 1).all())
+
+    def test_segregated_hub_penalty_missing_columns_is_noop(self):
+        edges = pd.DataFrame({"rule": ["s3"], "lts": [1]})
+        updated = BikePathAnalysis.segregated_hub_penalty(edges)
+        self.assertEqual(updated.iloc[0]["rule"], "s3")
+
+    def test_segregated_hub_penalty_all_zero_centrality_is_noop(self):
+        # quantile(0.75) of an all-zero population is 0 - must not treat
+        # that degenerate threshold as ">= 0" and flag the whole group.
+        n = 20
+        edges = pd.DataFrame(
+            {
+                "rule": ["s3"] * n,
+                "segregated": ["no"] * n,
+                "lts": [1] * n,
+                "centrality": [0.0] * n,
+            }
+        )
+        updated = BikePathAnalysis.segregated_hub_penalty(edges)
+        self.assertTrue((updated["rule"] == "s3").all())
+        self.assertTrue((updated["lts"] == 1).all())
+
 
 class TestGetLanes(unittest.TestCase):
     def test_numeric_and_oneway_values(self):

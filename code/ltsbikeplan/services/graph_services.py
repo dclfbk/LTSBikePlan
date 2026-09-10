@@ -87,6 +87,7 @@ _EXTRA_USEFUL_TAGS_WAY = [
     "parking:lane:right",
     "parking:lane:both",
     "parking:condition",
+    "segregated",
 ]
 
 

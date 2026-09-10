@@ -60,6 +60,15 @@ EXTRA_NETWORK_ATTRIBUTES = [
     # streets so short in total the DEM path never judged them reliable
     # enough to penalize at all).
     "incline",
+    # Whether a nominally shared cycleway/footway physically separates bikes
+    # from pedestrians. On its own this doesn't add real-world stress (a
+    # quiet segregated=no path away from any real convergence point is
+    # still low-stress) - lts_rules.py only downgrades it in combination
+    # with high betweenness centrality, i.e. genuine multi-street hubs
+    # where mixed foot/bike traffic actually causes peak-hour conflict
+    # (real case: Bologna's Tangenziale delle Biciclette hub at Via
+    # Giacomo Matteotti/Irnerio, reported 2026-09-10).
+    "segregated",
 ]
 
 # Columns BikePathAnalysis reads unconditionally (would KeyError, not just

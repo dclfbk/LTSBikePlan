@@ -72,6 +72,12 @@ _MODERATE_SURFACE_LONG_THRESHOLD_M = 500.0
 # values that are a physical speed cap regardless of the posted limit.
 _HISTORIC_PAVING_SURFACES = {"sett", "cobblestone", "unhewn_cobblestone", "paving_stones"}
 
+# BikePathAnalysis.segregated_hub_penalty needs enough segregated=no
+# separated-path edges in an area to compute a meaningful top-quartile
+# centrality cutoff - below this, skip the penalty entirely rather than
+# risk a 2-3 row "quartile" flagging all (or none) of them arbitrarily.
+_MIN_HUB_CANDIDATES = 20
+
 
 class BikePathAnalysis:
     @staticmethod
@@ -1059,4 +1065,56 @@ class BikePathAnalysis:
         new_lts = np.minimum(original_lts + penalty, 4)
         edges["surface_penalty_delta"] = new_lts - original_lts
         edges["lts"] = new_lts
+        return edges
+
+    @staticmethod
+    def segregated_hub_penalty(edges):
+        """A shared (non-segregated) path is not inherently stressful on its
+        own - most `segregated=no` cycleways/paths in Italy are quiet
+        stretches where meeting a pedestrian is a rare, low-stakes event.
+        It only becomes a real peak-hour stress source at a genuine
+        multi-street convergence point, where several routes funnel both
+        foot and bike traffic onto the same shared surface at once (real
+        case: Bologna's Via Giacomo Matteotti/Irnerio hub on the
+        "Tangenziale delle Biciclette," reported 2026-09-10 - way
+        976135744 there is quantitatively the single highest-betweenness
+        `segregated=no` cycleway in the whole city, while other reported
+        ways on the same hub range down to just moderately above the
+        median). User's own diagnosis: "non penso basti segregated ...
+        è quando ci sono molte strade che arrivano lì quindi un
+        betweenness alto."
+
+        "High connectivity" is judged relative to OTHER already-separated
+        paths (`rule` in the s1/s2/s3/s7/s8 family, i.e. currently lts=1)
+        tagged `segregated=no` in the SAME area - top quartile of THAT
+        population, not `centrality_class` (network_centrality.py), which
+        quantiles against the area's ENTIRE street network including every
+        ordinary through-road. Measured on Bologna: ~30% of ALL cycleway
+        edges already land in centrality_class "very_high" against that
+        wider population - way too broad to tell a real hub apart from an
+        ordinarily-well-used bike path, since cycleways are disproportion-
+        ately built along already-busy corridors to begin with.
+
+        Requires at least _MIN_HUB_CANDIDATES rows to compute a meaningful
+        quartile - skips (no penalty at all) on an area with too few
+        segregated=no separated paths to meaningfully compare against each
+        other, rather than risk flagging all of them off a tiny sample.
+        """
+        edges = edges.copy()
+        if "segregated" not in edges.columns or "centrality" not in edges.columns:
+            return edges
+
+        is_separated_path_rule = edges["rule"].isin(["s1", "s2", "s3", "s7", "s8"])
+        candidates = is_separated_path_rule & (edges["segregated"] == "no") & (edges["lts"] == 1)
+
+        if candidates.sum() < _MIN_HUB_CANDIDATES:
+            return edges
+
+        threshold = edges.loc[candidates, "centrality"].quantile(0.75)
+        if not threshold > 0:
+            return edges
+
+        is_hub = candidates & (edges["centrality"] >= threshold)
+        edges.loc[is_hub, "rule"] = "s11"
+        edges.loc[is_hub, "lts"] = 2
         return edges

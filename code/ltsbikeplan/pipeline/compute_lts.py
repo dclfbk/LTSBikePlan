@@ -174,11 +174,6 @@ def run_compute_lts(data_dir: str, area: AreaSpec, include_report_exports: bool 
         boundary_polygon = AreaResolver(cache_dir=data_dir).get_comune_boundary_polygon(area.istat_code)
         all_lts = drop_isolated_bikeable_components(gdf_nodes, all_lts, boundary_polygon)
 
-    with open(asset_path("LTS_decisionrule_dict.json"), "r") as file_handle:
-        data = json.load(file_handle)
-    all_lts["message"] = all_lts["rule"].map(data["rule_message_dict"])
-    all_lts["short_message"] = all_lts["rule"].map(data["simplified_message_dict"])
-
     # Fields for the web viewer's click popup - "" not None for istat_code
     # so it doesn't hit _save_and_correct_graphml's NaN/None-replacement
     # below for areas resolved via --city (no ISTAT code available).
@@ -196,6 +191,18 @@ def run_compute_lts(data_dir: str, area: AreaSpec, include_report_exports: bool 
         min_branch_length_km=MIN_GAP_BRANCH_LENGTH_KM,
     )
     all_lts = annotate_edge_centrality(all_lts)
+    # Needs `centrality` (just computed above) to tell a genuine
+    # multi-street hub apart from an ordinarily-quiet segregated=no path -
+    # see BikePathAnalysis.segregated_hub_penalty's own docstring for why
+    # this can't run earlier alongside the rest of the s-series rules in
+    # is_separated_path. Must run before the message/short_message mapping
+    # below so a "s11" reclassification gets its own popup text too.
+    all_lts = BikePathAnalysis.segregated_hub_penalty(all_lts)
+
+    with open(asset_path("LTS_decisionrule_dict.json"), "r") as file_handle:
+        data = json.load(file_handle)
+    all_lts["message"] = all_lts["rule"].map(data["rule_message_dict"])
+    all_lts["short_message"] = all_lts["rule"].map(data["simplified_message_dict"])
 
     # Reproject to the single internal working CRS instead of relabeling the
     # concatenated frame as EPSG:4326 without transforming coordinates - the
