@@ -458,6 +458,76 @@ const MAX_BOUNDS = new maplibregl.LngLatBounds(
   [44.423552, 53.544187], // northeast
 );
 
+// Maptoolkit's tile source (tiles.maptoolkit.org/mtk.json) already carries
+// the required "© Maptoolkit © Openstreetmap" copyright line, correctly
+// linked, as its own TileJSON `attribution` - MapLibre folds that into the
+// default AttributionControl automatically. What that source can't provide
+// is the separate ≥24px logo Maptoolkit's own terms require somewhere on
+// the map (see https://docs.maptoolkit.org/attribution/, reported by their
+// Laurin on 2026-09-10: our attribution was both missing that logo AND
+// collapsing into the "i" toggle button, which their terms explicitly
+// forbid - "may not be hidden, obscured, collapsed away ... at any screen
+// size"). Logo rendered as its own floating MaptoolkitLogoControl (below),
+// NOT embedded inside this text bar - the asset (copied from their own
+// @maptoolkit/maplibre-gl-logo npm package, not the flat PNG linked from
+// their docs page, which is byte-different but visually identical) is a
+// white wordmark with a drop shadow, designed to float directly over map
+// tiles the way their own control places it by default (bottom-left) -
+// dropped inside the attribution bar's flat light background instead, on
+// the first attempt, it was essentially invisible (reported by Maurizio:
+// "non vedo il logo").
+// Mapterhorn (DEM/terrain source, see the 3D-terrain toggle and slope
+// calculations) has no comparable logo/size requirement on record - this
+// is just a plain credit link alongside the other two, not a compliance
+// requirement the way the Maptoolkit logo is.
+const MAPTERHORN_ATTRIBUTION =
+  '<a href="https://mapterhorn.com/" target="_blank" rel="noopener noreferrer">Mapterhorn</a>';
+
+// Self-hosted (assets/img/maptoolkit-logo.png, at Maurizio's request rather
+// than hotlinking maptoolkit.org - matches this project's existing
+// top-ix-logo.png convention for the page footer) re-implementation of
+// @maptoolkit/maplibre-gl-logo's own MaptoolkitLogoControl, added via
+// map.addControl(..., "bottom-left") instead of that package's manual
+// absolute-position div, so MapLibre's own control-stacking keeps it from
+// overlapping ScaleControl in the same corner without extra positioning
+// math here.
+class MaptoolkitLogoControl {
+  onAdd() {
+    this._container = document.createElement("div");
+    this._container.className = "maplibregl-ctrl";
+    // The logo itself is a pale wordmark with a dark drop-shadow - a
+    // deliberate two-tone design so it reads against most map colours (the
+    // shadow shows up on light ground, the pale fill on dark ground), which
+    // is exactly why Maptoolkit's own reference examples place it bare with
+    // no backdrop. It still washed out on this project's own "light" basemap
+    // (reported by Maurizio: "il logo è sempre difficile da vedere causa
+    // colori") - that style's built-up areas render close to white, lighter
+    // than what the logo's shadow alone was designed to sit on. A backdrop
+    // isn't disallowed (their docs only fix the logo's height/link/position,
+    // "place it wherever suits your layout") - a dark translucent pill gives
+    // the pale fill reliable contrast on every basemap this project ships,
+    // including the darkest one, without recolouring the asset itself.
+    this._container.style.background = "rgba(0, 0, 0, 0.55)";
+    this._container.style.borderRadius = "4px";
+    this._container.style.padding = "3px 6px";
+    const link = document.createElement("a");
+    link.href = "https://www.maptoolkit.org/";
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    const img = document.createElement("img");
+    img.src = "assets/img/maptoolkit-logo.png";
+    img.alt = "Maptoolkit";
+    img.height = 24;
+    img.style.display = "block";
+    link.appendChild(img);
+    this._container.appendChild(link);
+    return this._container;
+  }
+  onRemove() {
+    this._container.remove();
+  }
+}
+
 const map = window.map = new maplibregl.Map({
   container: "map",
   style: BASE_STYLES[currentBasemap],
@@ -466,6 +536,14 @@ const map = window.map = new maplibregl.Map({
   pitch: initialPitch,
   bearing: initialBearing,
   maxZoom: MAX_MAP_ZOOM,
+  // compact:false is the actual fix for the "collapses into a button"
+  // complaint - MapLibre's default AttributionControl auto-collapses
+  // based on its own internal width heuristic, which Maptoolkit's terms
+  // explicitly disallow regardless of viewport size.
+  attributionControl: {
+    compact: false,
+    customAttribution: MAPTERHORN_ATTRIBUTION,
+  },
   // Required for PrintControl (below) to actually work: WebGL clears its
   // drawing buffer right after the browser compositor reads each frame
   // unless told to keep it, so without this canvas.toDataURL() - and a
@@ -2255,6 +2333,7 @@ map.addControl(new TerrainControl(), "top-right");
 map.addControl(new PrintControl(), "top-right");
 map.addControl(new ShareControl(), "top-right");
 map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
+map.addControl(new MaptoolkitLogoControl(), "bottom-left");
 
 // The print stylesheet (see @media print above) resizes #map/#map-container
 // to fill the printed page, but that's a CSS-only change - MapLibre keeps
