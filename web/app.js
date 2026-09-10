@@ -495,21 +495,9 @@ class MaptoolkitLogoControl {
   onAdd() {
     this._container = document.createElement("div");
     this._container.className = "maplibregl-ctrl";
-    // The logo itself is a pale wordmark with a dark drop-shadow - a
-    // deliberate two-tone design so it reads against most map colours (the
-    // shadow shows up on light ground, the pale fill on dark ground), which
-    // is exactly why Maptoolkit's own reference examples place it bare with
-    // no backdrop. It still washed out on this project's own "light" basemap
-    // (reported by Maurizio: "il logo è sempre difficile da vedere causa
-    // colori") - that style's built-up areas render close to white, lighter
-    // than what the logo's shadow alone was designed to sit on. A backdrop
-    // isn't disallowed (their docs only fix the logo's height/link/position,
-    // "place it wherever suits your layout") - a dark translucent pill gives
-    // the pale fill reliable contrast on every basemap this project ships,
-    // including the darkest one, without recolouring the asset itself.
-    this._container.style.background = "rgba(0, 0, 0, 0.55)";
-    this._container.style.borderRadius = "4px";
-    this._container.style.padding = "3px 6px";
+    // Rendered bare, no backdrop - matches Maptoolkit's own reference
+    // implementation/examples (docs.maptoolkit.org/attribution) exactly,
+    // at Maurizio's request, rather than a custom treatment on our side.
     const link = document.createElement("a");
     link.href = "https://www.maptoolkit.org/";
     link.target = "_blank";
