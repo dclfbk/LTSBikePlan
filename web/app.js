@@ -266,11 +266,43 @@ function gapEdgeLayerIds() {
 // prefetchComuniIndexForRouting further down (needs `map`, defined
 // below), which fetches it once zoom reaches MIN_ROUTING_ZOOM instead.
 
+// "osm" is a plain style OBJECT, not a URL like the Maptoolkit ones above -
+// MapLibre's `style`/`setStyle()` accept either, and there's no ready-made
+// style.json for classic OSM raster tiles to point at. Requested by name
+// ("il layer di tile classico di OpenStreetMap") for the familiar Mapnik
+// look those other four styles don't reproduce.
+//
+// Hits tile.openstreetmap.org directly, unlike the other four basemaps
+// (all served from Maptoolkit's commercial tile service specifically to
+// avoid depending on OSM's own free, volunteer-run tile server for
+// production traffic). That server's usage policy
+// (operations.osmfoundation.org/policies/tiles/) exists precisely to
+// protect it from heavy automated/bulk use - fine for a basemap OPTION
+// users pick occasionally, but if this became the default or saw heavy
+// sustained traffic, OSM could rate-limit or block requests from this
+// site's IP/user-agent with no warning. Worth keeping an eye on if it
+// turns out to be a popular choice.
+const OSM_RASTER_STYLE = {
+  version: 8,
+  sources: {
+    osm: {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution:
+        '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap contributors</a>',
+    },
+  },
+  layers: [{ id: "osm", type: "raster", source: "osm" }],
+};
+
 const BASE_STYLES = {
   light: "https://styles.maptoolkit.org/light.json",
   summer: "https://styles.maptoolkit.org/summer.json",
   cycling: "https://styles.maptoolkit.org/cycling.json",
   dark: "https://styles.maptoolkit.org/dark.json",
+  osm: OSM_RASTER_STYLE,
 };
 
 // I18N comes from i18n.js. All UI text - legend labels, popup wording,
@@ -296,6 +328,7 @@ function applyUiTranslations() {
   document.getElementById("bg-urban-label").textContent = t("bgUrban");
   document.getElementById("bg-cycling-label").textContent = t("bgCycling");
   document.getElementById("bg-dark-label").textContent = t("bgDark");
+  document.getElementById("bg-osm-label").textContent = t("bgOsm");
   document.getElementById("loading-title").textContent = t("loadingTitle");
   document.getElementById("zoom-hint").textContent = t("zoomHint");
   document.getElementById("terrain-toggle").title = t("terrainToggle");
@@ -482,6 +515,19 @@ const MAX_BOUNDS = new maplibregl.LngLatBounds(
 // requirement the way the Maptoolkit logo is.
 const MAPTERHORN_ATTRIBUTION =
   '<a href="https://mapterhorn.com/" target="_blank" rel="noopener noreferrer">Mapterhorn</a>';
+// Duplicates the mtk source's own TileJSON attribution (see the comment
+// above) as an explicit customAttribution instead of relying solely on
+// that source being active - the "osm" raster basemap below has its own
+// separate source and replaces the whole style on selection (setStyle()),
+// which would otherwise make this text disappear exactly while a
+// non-Maptoolkit basemap is showing - the one scenario their terms most
+// care about ("may not be hidden ... at any screen size" - basemap choice
+// included). Harmless if MapLibre also picks up the source's identical
+// copy while a Maptoolkit style IS active - it dedupes matching
+// attribution strings rather than showing it twice.
+const MAPTOOLKIT_COPYRIGHT_ATTRIBUTION =
+  '<a href="https://www.maptoolkit.com/copyright/" target="_blank" rel="noopener noreferrer">&copy; Maptoolkit</a> ' +
+  '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; Openstreetmap</a>';
 
 // Self-hosted (assets/img/maptoolkit-logo.png, at Maurizio's request rather
 // than hotlinking maptoolkit.org - matches this project's existing
@@ -495,9 +541,21 @@ class MaptoolkitLogoControl {
   onAdd() {
     this._container = document.createElement("div");
     this._container.className = "maplibregl-ctrl";
-    // Rendered bare, no backdrop - matches Maptoolkit's own reference
-    // implementation/examples (docs.maptoolkit.org/attribution) exactly,
-    // at Maurizio's request, rather than a custom treatment on our side.
+    // The logo itself is a pale wordmark with a dark drop-shadow - a
+    // deliberate two-tone design so it reads against most map colours (the
+    // shadow shows up on light ground, the pale fill on dark ground), which
+    // is exactly why Maptoolkit's own reference examples place it bare with
+    // no backdrop. It still washed out on this project's own "light" basemap
+    // (reported by Maurizio: "il logo è sempre difficile da vedere causa
+    // colori") - that style's built-up areas render close to white, lighter
+    // than what the logo's shadow alone was designed to sit on. A backdrop
+    // isn't disallowed (their docs only fix the logo's height/link/position,
+    // "place it wherever suits your layout") - a dark translucent pill gives
+    // the pale fill reliable contrast on every basemap this project ships,
+    // including the darkest one, without recolouring the asset itself.
+    this._container.style.background = "rgba(0, 0, 0, 0.55)";
+    this._container.style.borderRadius = "4px";
+    this._container.style.padding = "3px 6px";
     const link = document.createElement("a");
     link.href = "https://www.maptoolkit.org/";
     link.target = "_blank";
@@ -530,7 +588,7 @@ const map = window.map = new maplibregl.Map({
   // explicitly disallow regardless of viewport size.
   attributionControl: {
     compact: false,
-    customAttribution: MAPTERHORN_ATTRIBUTION,
+    customAttribution: [MAPTOOLKIT_COPYRIGHT_ATTRIBUTION, MAPTERHORN_ATTRIBUTION],
   },
   // Required for PrintControl (below) to actually work: WebGL clears its
   // drawing buffer right after the browser compositor reads each frame
