@@ -127,6 +127,19 @@
 #     loop is now that many workers independently polling/waiting at once,
 #     which is a cruder signal than the sequential case - don't set this
 #     so high that LTSBP_MIN_FREE_MEM_MB stops meaning anything.
+#   LTSBP_SKIP_NATIONAL_REBUILD (default 0) - skip the merged national
+#     tileset (web/data/italia_lts.pmtiles) + comuni_index.json rebuild
+#     that otherwise runs after every provincia. Same flag name/meaning as
+#     reprocess_comune.sh's own - set it while doing a big multi-machine
+#     pass (e.g. computing on a laptop, syncing to a server separately, see
+#     scripts/sync_web_data_to_server.sh) where an intermediate rebuild
+#     here would be wrong anyway: build_comuni_index.py only lists what's
+#     ON THIS MACHINE'S data dir right now, so running it mid-pass would
+#     overwrite the server's own comuni_index.json (once synced) with one
+#     that's missing every comune not yet redone locally - the live map
+#     would stop showing them until the full pass finishes and a proper
+#     final rebuild runs. Remember to run both by hand once the whole pass
+#     is done: scripts/build_national_tiles.sh && python3 scripts/build_comuni_index.py
 set -uo pipefail  # NOT -e: one comune (or one provincia) failing must not kill the whole run
 
 RESUME=0
@@ -160,6 +173,7 @@ MEM_WAIT_RETRY_S="${LTSBP_MEM_WAIT_RETRY_S:-10}"
 MEM_WAIT_MAX_RETRIES="${LTSBP_MEM_WAIT_MAX_RETRIES:-12}"  # 12*10s = 2min max wait
 CLEAN_MAPTERHORN_TILES="${LTSBP_CLEAN_MAPTERHORN_TILES:-1}"
 JOBS="${LTSBP_JOBS:-1}"
+SKIP_NATIONAL_REBUILD="${LTSBP_SKIP_NATIONAL_REBUILD:-0}"
 PROGRESS_FILE="$DATA_DIR/_cache/comuni_progress.tsv"
 ABORT_SENTINEL="$DATA_DIR/_cache/.reprocess_italia_abort"
 
@@ -389,9 +403,13 @@ for prov_istat in "${PROVINCE_CODES[@]}"; do
   rm -f "$FAILED_FILE"
 
   clean_mapterhorn_tiles
-  log "Provincia $prov_istat done. Rebuilding merged national tileset + comuni index..."
-  scripts/build_national_tiles.sh || log "WARNING: national tileset rebuild failed after provincia $prov_istat"
-  python3 scripts/build_comuni_index.py "$DATA_DIR" || log "WARNING: comuni_index.json rebuild failed after provincia $prov_istat"
+  if [ "$SKIP_NATIONAL_REBUILD" = "1" ]; then
+    log "Provincia $prov_istat done. LTSBP_SKIP_NATIONAL_REBUILD=1 - skipping national tileset/comuni_index.json rebuild (remember to run both by hand once the whole pass is done: scripts/build_national_tiles.sh && python3 scripts/build_comuni_index.py)"
+  else
+    log "Provincia $prov_istat done. Rebuilding merged national tileset + comuni index..."
+    scripts/build_national_tiles.sh || log "WARNING: national tileset rebuild failed after provincia $prov_istat"
+    python3 scripts/build_comuni_index.py "$DATA_DIR" || log "WARNING: comuni_index.json rebuild failed after provincia $prov_istat"
+  fi
 done
 
 if [ -f "$ABORT_SENTINEL" ]; then
